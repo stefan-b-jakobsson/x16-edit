@@ -225,7 +225,7 @@ rts
     ;Assert 1 more call => bank 0, page 0, i.e. mem full
     jsr mem_alloc
     sty $5014
-    stx $5013
+    stx $5015
 
     rts
 

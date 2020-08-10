@@ -1,3 +1,10 @@
+;**********************************************************
+;Procedure name......: mem_init
+;Description.........: Initializes banked RAM
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
 .proc mem_init
     ;Clear memory memory map
     ldy #0
@@ -10,36 +17,36 @@
     iny
     bne :-
 
-    ;Pages in bank 0 used by Kernal, mark as allocated
+    ;All pages in bank 0 used by Kernal, mark as allocated
     lda #255
     sta mem_map
     sta mem_map+1
     sta mem_map+2
     sta mem_map+3
 
-    ;Allocate inital memory page
+    ;Allocate the app's initial memory page (bank 1, page $a0)
     lda #1
     sta mem_map+4
 
     ;Set zero page vectors
     lda #1
-    sta CRS_BNK
+    sta CRS_BNK     ;Memory pointer corresponding to the cursor
     sta DSP_BNK
 
     lda #$a0
-    sta CRS_ADR+1
+    sta CRS_ADR+1   ;Memory pointer to first visible characted in currently edited line
     sta DSP_ADR+1
 
-    stz CRS_ADR
+    stz CRS_ADR     ;LSB = 0
     stz DSP_ADR
 
-    stz CRS_IDX
+    stz CRS_IDX     ;Memory offset values, initially 0
     stz DSP_IDX
 
-    ;Setup bank 1, page $a0
-    ldy #0
+    ;Setup initial memory page (bank 1, page $a0)
     lda #0
     
+    ldy #0
     sta (CRS_ADR),y     ;Previous bank = 0
     
     ldy #1
@@ -57,21 +64,26 @@
     rts
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_alloc
+;Description.........: Allocates one page in banked RAM
+;Preparatory routines: mem_init (once)
+;Input...............: Nothing
+;Returns.............: .Y = allocated bank
+;                      .X allocated 
+;Error returns.......: .Y = 0 and .X = 0 if memory full
 .proc mem_alloc
-    lda #0
-    sta bank
-    sta page
-
+    ;Get vector to memory map
     lda #<mem_map
     sta TMP1_ADR
     lda #>mem_map
     sta TMP1_ADR+1
 
     ldy #0
-
 loop:
+    ;Loop through memory map searching for free memory
     lda (TMP1_ADR),y
-    cmp #$ff
+    cmp #$ff                    ;If not $ff there is at least one page of free mem
     bne free_mem_found
     
     iny
@@ -85,19 +97,22 @@ loop:
     bne loop
 
 mem_full:
-    stz $5010
-    stz $5011
+    ;If we reach this point there is no free memory, return bank = 0 and page = 0
+    ldy #0
+    ldx #0
     rts
 
 free_mem_found:
-    sta value
+    ;OK, we found free memory, but the result needs to be calculated
 
-    tya
+    sta value           ;Store the value of the byte in mem_map where we found free memory
+
+    tya                 ;Step 1. Divide the LSB of the number of search loops (= value of .Y) by 4 and we have the first part of the bank
     lsr
     lsr
     sta bank
 
-    lda TMP1_ADR+1
+    lda TMP1_ADR+1      ;Step 2. Multiply the MSB of the number of search loops (>TMP1_ADR minus >mem_map) by 64, and add that to the bank
     sec
     sbc #>mem_map
     asl
@@ -110,16 +125,16 @@ free_mem_found:
     adc bank
     sta bank
 
-    tya
+    tya                 ;Step 3. Multiply the LSB of the number of search loops (= value of .Y) by 8 and we have the first part of the page
     asl
     asl
     asl
-    and #$1f
+    and #$1f            ;Step 4. And that value by $1f to keep within page boundary (00-1f)
     sta page
 
     ldx #0
 
-:   lda value
+:   lda value           ;Step 5. The second part of the page is found in the mem_map value stored earlier. Add the positional value of the first bit not set to the page
     and bitmask,x
     beq finalize_bank_n_page
     inx
@@ -133,10 +148,10 @@ finalize_bank_n_page:
     txa
     clc
     adc page
-    adc #$a0
+    adc #$a0            ;Step 6. Finally add start of banked ram ($a0) to the page. And we're done.
     sta page
 
-    ldy bank
+    ldy bank            ;Return .Y=bank and .X=page
     ldx page
 
     rts
