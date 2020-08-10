@@ -1,5 +1,12 @@
 .include "common.inc"
 
+;SELECT TEST
+;jsr test_mem_init
+jsr test_mem_alloc
+
+rts
+
+
 .proc test_mem_init
     ;Scramble first mem page content
     lda #1
@@ -163,7 +170,68 @@
 .endproc
 
 .proc test_mem_alloc
+    jsr mem_init
 
+    lda #0
+    sta counter
+
+    ;Assert 1 call => bank 01, page $a1
+    jsr mem_alloc
+    cpy #1
+    beq :+
+    stz $5010
+:   cpx #$a1
+    beq :+
+    stz $5010
+
+    ;Assert 31 more calls => bank 02, page $a0
+:   lda #31
+    sta counter
+    
+:   jsr mem_alloc
+    dec counter
+    bne :-
+
+    cpy #2
+    beq :+
+    stz $5011
+    cpx #$a0
+    beq :+
+    stz $5011
+
+    ;Assert 8127 more calls => bank $ff, page $bf
+:   lda #0
+    sta counter
+    lda #31
+    sta counter+1
+
+:   jsr mem_alloc
+    dec counter
+    bne :-
+
+    dec counter+1
+    bne :-
+
+    lda #191
+    sta counter
+
+:   jsr mem_alloc
+    dec counter
+    bne :-
+
+    sty $5012
+    stx $5013
+
+    ;Assert 1 more call => bank 0, page 0, i.e. mem full
+    jsr mem_alloc
+    sty $5014
+    stx $5013
+
+    rts
+
+counter:
+    .byt 0, 0
 .endproc
+
 
 .include "mem.inc"
