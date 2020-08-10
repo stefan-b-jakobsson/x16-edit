@@ -169,5 +169,17 @@ bitmask:
 
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_push
+;Description.........: Pushes content of current mem page
+;                      one step forward
+;Preparatory routines: mem_init (once)
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc
+    
+.endproc
+
 mem_map:
     .res 1024, 0
