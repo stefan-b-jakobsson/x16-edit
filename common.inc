@@ -42,3 +42,7 @@
 .define TMP2_BNK $2e ;Memory bank
 .define TMP2_ADR $2f ;Memory page
 .define TMP2_IDX $31 ;Byte index
+
+;Cursor location
+.define CRS_X $32
+.define CRS_Y $33

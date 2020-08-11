@@ -1,9 +1,11 @@
 .include "common.inc"
 
+cld
+
 ;SELECT TEST
 ;jsr test_mem_init
-jsr test_mem_alloc
-
+;jsr test_mem_alloc
+jsr test_mem_push
 rts
 
 
@@ -231,6 +233,66 @@ rts
 
 counter:
     .byt 0, 0
+.endproc
+
+.proc test_mem_push
+    lda #1
+    sta $5020
+    sta $5021
+    sta $5022
+
+    jsr mem_init
+
+    lda #1
+    sta BNK_SEL
+    lda #$a0
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+    ldy #5
+    lda #49
+    sta (TMP1_ADR),y
+    iny
+    lda #50
+    sta (TMP1_ADR),y
+
+    ldy #1
+    ldx #$a0
+    lda #0
+
+    ;Assert push at index 0, len 0
+    jsr mem_push
+    ldy #6
+    lda (TMP1_ADR),y
+    cmp #49
+    beq :+
+    stz $5020
+
+    ;Assert 250 more pushes
+:   ldx #250
+    stx counter
+
+:   ldy #1
+    ldx #$a0
+    lda #0
+    jsr mem_push
+    dec counter
+    bne :-
+
+    ;Assert one more push, going over the page boundary
+    ldy #1
+    ldx #$a0
+    lda #0
+
+    jsr mem_push
+    bcs :+
+    stz $5021
+
+:   sta $5022
+
+:   rts
+
+counter: .byt 0
+
 .endproc
 
 

@@ -171,14 +171,91 @@ bitmask:
 
 ;**********************************************************
 ;Procedure name......: mem_push
-;Description.........: Pushes content of current mem page
+;Description.........: Pushes content of a mem page
 ;                      one step forward
 ;Preparatory routines: mem_init (once)
-;Input...............: Nothing
-;Returns.............: Nothing
+;Input...............: .Y = mem bank, .X = mem page, .A = index to start pushing from
+;Returns.............: .C = 1 if overflow, otherwise .C = 0. Overflow character returned in .A
 ;Error returns.......: Nothing
-.proc
+.proc mem_push
+    sta start_push
+
+    ;Get page len
+    sty BNK_SEL
+    sty TMP1_BNK
+
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+
+    ldy #4
+    lda (TMP1_ADR),y
+    sta page_len
+
+    ;Save last char, should we need to return an overflow
+    ldy #255
+    lda (TMP1_ADR),y
+    sta last_char
+
+    ;If start push index >=250 (i.e. last index in mem page), we just return the last char as overflow
+    lda start_push
+    cmp #250
+    bcc push
+
+    lda last_char
+    sec
+
+    rts
+
+    ;Start push index < 250, let's push it
+push:
+    lda #5
+    sta TMP1_ADR
+
+    ldy #249
+
+loop:
+    lda (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    dey
+    cpy start_push
+    beq inc_len
+    dey
+    jmp loop
+
+inc_len:
+    stz TMP1_ADR
+
+    lda page_len
+    cmp #251
+    bcc no_overflow
+
+    ;Page len is max, return overflow
+    lda last_char
+    sec
     
+    rts
+
+no_overflow:
+    inc page_len
+
+    lda page_len
+    ldy #4
+    sta (TMP1_ADR),y
+
+    clc
+
+    rts
+
+start_push:
+    .byt 0
+
+page_len:
+    .byt 0
+
+last_char:
+    .byt 0
+
 .endproc
 
 mem_map:
