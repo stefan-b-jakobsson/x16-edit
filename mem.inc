@@ -326,5 +326,103 @@ last_char:
 
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_crs_step_right
+;Description.........: Moves the pointer to memory location
+;                      of the cursor one step right
+;Preparatory routines: mem_init (once)
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc mem_crs_step_right
+    lda CRS_BNK
+    sta BNK_SEL
+
+    ldy #4
+    lda CRS_IDX
+    cmp (CRS_ADR),y     ;Page len
+    bcs goto_next_page
+
+    cmp #250
+    bcs goto_next_page
+
+    inc CRS_IDX
+
+    rts
+
+goto_next_page:
+    ldy #2
+    lda (CRS_ADR),y
+    pha
+    ldy #3
+    lda (CRS_ADR),y
+    beq eof
+
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
+    sta BNK_SEL
+    
+    stz CRS_IDX
+
+    rts
+
+eof:
+    ;We're at end of file, just return
+    pla     ;Clean stack
+
+    rts
+
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_dsp_step_right
+;Description.........: Moves the pointer to memory location
+;                      wherefrom currently edited line is
+;                      visible
+;Preparatory routines: mem_init (once)
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc mem_dsp_step_right
+    lda DSP_BNK
+    sta BNK_SEL
+
+    ldy #4
+    lda DSP_IDX
+    cmp (DSP_ADR),y     ;Page len
+    bcs goto_next_page
+
+    cmp #250
+    bcs goto_next_page
+
+    inc DSP_IDX
+
+    rts
+
+goto_next_page:
+    ldy #2
+    lda (DSP_ADR),y
+    pha
+    ldy #3
+    lda (DSP_ADR),y
+    beq eof
+
+    sta DSP_ADR+1
+    pla
+    sta DSP_BNK
+    sta BNK_SEL
+    
+    stz DSP_IDX
+
+    rts
+
+eof:
+    ;We're at end of file, just return
+    pla     ;Clean stack
+
+    rts
+.endproc
+
 mem_map:
     .res 1024, 0
