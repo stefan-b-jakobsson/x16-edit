@@ -264,15 +264,12 @@ bitmask:
     lda (TMP1_ADR),y
     sta last_char
 
-    ;If start push index >=250 (i.e. last index in mem page), we just return the last char as overflow
+    ;If start push index >=250 (i.e. last index in mem page)
     lda start_push
     cmp #250
     bcc push
 
-    lda last_char
-    sec
-
-    rts
+    jmp inc_len
 
     ;Start push index < 250, let's push it
 push:
@@ -422,6 +419,91 @@ eof:
     pla     ;Clean stack
 
     rts
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_insert
+;Description.........: Inserts a char at cursor location
+;Preparatory routines: mem_init (once)
+;Input...............: .A = char to insert
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc mem_insert
+    pha
+
+    ldy CRS_BNK
+    ldx CRS_ADR+1
+    lda CRS_IDX
+    
+    jsr mem_push
+    bcc store_char
+
+    ;Handle overflow
+    pha
+
+    lda CRS_BNK
+    sta BNK_SEL
+
+    ldy #2
+    lda (CRS_ADR),y     ;Next bnk
+    pha
+    ldy #3
+    lda (CRS_ADR),y     ;Next page
+    beq alloc_next      ;Next page not allocated, allocate it now
+    
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+    
+    pla
+    sta TMP1_BNK
+    sta BNK_SEL
+
+    ldy #4
+    lda (TMP1_ADR),y    ;Get next page len
+    cmp #251
+    bcs alloc_next      ;It's full, allocate a new page
+
+    ldy TMP1_BNK        ;It's not full, push it
+    ldx TMP1_ADR+1
+    lda #0
+    jsr mem_push 
+
+    ldy #5              ;Store overflow char at beginning of next page
+    pla
+    sta (TMP1_ADR),y
+
+    jmp store_char
+
+alloc_next:
+    jsr mem_alloc       ;Next page was not allocated or was full, we're allocating a new page
+
+    sty BNK_SEL
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+
+    pla
+    ldy #5
+    sta (TMP1_ADR),y    ;Store overflow char at beginning of the new page
+
+    ldy #4
+    lda #1
+    sta (TMP1_ADR),y    ;Set new page len = 1
+
+store_char:    
+    lda CRS_BNK         ;And now, store new char
+    sta BNK_SEL
+
+    lda #5
+    sta CRS_ADR
+    pla
+    ldy CRS_IDX
+    sta (CRS_ADR),y
+    stz CRS_ADR
+
+    jsr mem_crs_step_right
+
+    rts
+
 .endproc
 
 mem_map:

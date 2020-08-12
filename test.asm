@@ -7,7 +7,8 @@ cld
 ;jsr test_mem_alloc
 ;jsr test_mem_alloc2
 ;jsr test_mem_push
-jsr test_mem_step_right
+;jsr test_mem_step_right
+jsr test_mem_insert
 rts
 
 
@@ -354,6 +355,24 @@ counter: .byt 0
     sta $5035
 
     rts
+.endproc
+
+.proc test_mem_insert
+    jsr mem_init
+    jsr mem_alloc
+
+    lda #0
+    sta counter
+
+    :lda counter
+    jsr mem_insert
+    dec counter
+    bne :-
+    
+    rts
+
+counter:
+    .byt 0
 .endproc
 
 .include "mem.inc"
