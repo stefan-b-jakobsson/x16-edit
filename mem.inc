@@ -151,6 +151,74 @@ finalize_bank_n_page:
     adc #$a0            ;Step 6. Finally add start of banked ram ($a0) to the page. And we're done.
     sta page
 
+    ;Now we need to initialize the mem page
+    ;The new mem page will be inserted after the page pointed to by CRS_ADR+1
+    lda bank
+    sta TMP1_BNK
+    sta BNK_SEL
+    lda page
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+
+    ldy #0              ;new.prv_bnk = crs.bnk
+    lda CRS_BNK
+    sta (TMP1_ADR),y
+
+    ldy #1
+    lda CRS_ADR+1
+    sta (TMP1_ADR),y    ;new.prv_pag = crs.pag
+
+    ldy #2
+    lda CRS_BNK
+    sta BNK_SEL
+    lda (CRS_ADR),y
+    pha
+    ldy #3
+    lda (CRS_ADR),y
+
+    ldx TMP1_BNK
+    stx BNK_SEL
+    sta (TMP1_ADR),y    ;new.nxt_pag = crs.nxt_pag
+    pla
+    ldy #2
+    sta (TMP1_ADR),y    ;new.nxt_bnk = crs.nxt_bnk
+
+    ldy #4
+    lda #0
+    sta (TMP1_ADR),y    ;new.len = 0
+
+    lda CRS_BNK
+    sta BNK_SEL
+    ldy #2
+    lda TMP1_BNK
+    sta (CRS_ADR),y     ;crs.next_bnk = new.bnk
+
+    ldy #3
+    lda TMP1_ADR+1
+    ldy #3
+    sta (CRS_ADR),y     ;crs.nxt_pag = new.pag
+
+    lda TMP1_BNK
+    sta BNK_SEL
+    
+    ldy #3
+    lda (TMP1_ADR),y
+    sta TMP2_ADR+1
+    stz TMP2_ADR
+    
+    ldy #2
+    lda (TMP1_ADR),y
+    sta TMP2_BNK
+    sta BNK_SEL
+
+    ldy #0
+    lda TMP1_BNK
+    sta (TMP2_ADR),y
+    ldy #1
+    lda TMP1_ADR+1
+    sta (TMP2_ADR),y
+
+    ;Return bank and page allocated
     ldy bank            ;Return .Y=bank and .X=page
     ldx page
 

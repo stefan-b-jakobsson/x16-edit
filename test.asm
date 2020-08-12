@@ -5,7 +5,8 @@ cld
 ;SELECT TEST
 ;jsr test_mem_init
 ;jsr test_mem_alloc
-jsr test_mem_push
+jsr test_mem_alloc2
+;jsr test_mem_push
 rts
 
 
@@ -234,6 +235,26 @@ rts
 counter:
     .byt 0, 0
 .endproc
+
+.proc test_mem_alloc2
+    jsr mem_init
+    
+    ;Call 33 times to go over bank boundary
+    lda #32
+    sta counter
+
+    :jsr mem_alloc
+    inc CRS_ADR+1
+
+    dec counter
+    bne :-
+
+    rts
+
+counter:
+    .byt 0
+.endproc
+
 
 .proc test_mem_push
     lda #1
