@@ -376,3 +376,4 @@ counter:
 .endproc
 
 .include "mem.inc"
+.include "keyboard.inc"
