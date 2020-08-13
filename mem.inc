@@ -338,16 +338,41 @@ last_char:
     lda CRS_BNK
     sta BNK_SEL
 
+    ldy #3
+    lda (CRS_ADR),y
+    sta next_page       ;Get next page and store for further processing
+    
+    lda CRS_IDX
+    cmp #250
+    bcs goto_next_page  ;Goto next page if crs_idx >= 250 (i.e. last valid position)
+
+    lda next_page
+    beq at_last_page
+
+    ;We're not at last mem page, goto next page if crs_idx >= page len, otherwise increase crs_idx
     ldy #4
     lda CRS_IDX
-    cmp (CRS_ADR),y     ;Page len
-    bcs goto_next_page
-
-    cmp #250
+    cmp (CRS_ADR),y
     bcs goto_next_page
 
     inc CRS_IDX
 
+    rts
+
+at_last_page:
+    ;We're at last mem page, increase crs_idx, go one beyond last char position if we are at end of file
+    ldy #4
+    lda CRS_IDX
+    cmp (CRS_ADR),y
+    bcs :+
+
+    inc CRS_IDX
+
+    rts
+
+:   lda (CRS_ADR),y
+    sta CRS_IDX
+    
     rts
 
 goto_next_page:
@@ -368,10 +393,15 @@ goto_next_page:
     rts
 
 eof:
-    ;We're at end of file, just return
     pla     ;Clean stack
 
+    jsr mem_alloc
+    jmp goto_next_page
+
     rts
+
+next_page:
+    .byt 0
 
 .endproc
 
