@@ -8,7 +8,8 @@ cld
 ;jsr test_mem_alloc2
 ;jsr test_mem_push
 ;jsr test_mem_step_right
-jsr test_mem_insert
+;jsr test_mem_insert
+jsr test_screen_println
 rts
 
 
@@ -356,4 +357,27 @@ counter:
     .byt 0
 .endproc
 
+.proc test_screen_println
+    jsr mem_init
+    
+    lda #255
+    sta counter
+
+    lda #240
+    sta DSP_IDX
+
+:   lda counter
+    jsr mem_insert
+    dec counter
+    bne :-
+
+    jsr screen_println
+
+    rts
+
+counter: .byt 0
+.endproc
+
+
 .include "mem.inc"
+.include "screen.inc"
