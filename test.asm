@@ -320,16 +320,9 @@ counter: .byt 0
 
 .proc test_mem_step_right
     jsr mem_init
-    jsr mem_alloc
     
-    lda CRS_BNK
-    sta BNK_SEL
-    ldy #5
-    lda #39
-    sta (CRS_ADR),y
-    
-    lda #251
     ldy #4
+    lda #250
     sta (CRS_ADR),y
 
     lda #250
@@ -337,22 +330,10 @@ counter: .byt 0
 
     jsr mem_crs_step_right
 
-    lda CRS_BNK
+    lda CRS_IDX
     sta $5030
     lda CRS_ADR+1
     sta $5031
-    lda CRS_IDX
-    sta $5032
-
-    lda #250
-    sta DSP_IDX
-    jsr mem_dsp_step_right
-    lda DSP_BNK
-    sta $5033
-    lda DSP_ADR+1
-    sta $5034
-    lda DSP_IDX
-    sta $5035
 
     rts
 .endproc
