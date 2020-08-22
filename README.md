@@ -16,7 +16,6 @@ not decided beforehand, and it may be changed during the operation of the progra
 Memory page layout in banked RAM:
 
 Offset Content
----------------------------------------------------------------------------------------------------------
 00     Previous memory page/bank number
 01     Previous memory page/address most significant byte; 0 indicates start of file
 02     Next memory page/bank number
