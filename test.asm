@@ -1,17 +1,48 @@
+;******************************************************************************
+;Copyright 2020, Stefan Jakobsson.
+;
+;This file is part of X16 Edit.
+;
+;X16 Edit is free software: you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;X16 Edit is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
+;******************************************************************************
+
+
 .include "common.inc"
 
 cld
 
 ;SELECT TEST
+;jsr test_ram
 ;jsr test_mem_init
 ;jsr test_mem_alloc
 ;jsr test_mem_alloc2
+;jsr test_mem_alloc3
 ;jsr test_mem_push
 ;jsr test_mem_step_right
 ;jsr test_mem_insert
-jsr test_screen_println
+;jsr test_screen_println
+jsr test_initial
+;jsr test_keyboard
 rts
 
+.proc test_ram
+    lda #3
+    sta BNK_SEL
+    lda #$ff
+    sta $a000
+    rts
+.endproc
 
 .proc test_mem_init
     ;Scramble first mem page content
@@ -37,10 +68,10 @@ rts
     sta CRS_ADR+1
     sta CRS_IDX
     
-    sta DSP_BNK
-    sta DSP_ADR
-    sta DSP_ADR+1
-    sta DSP_IDX
+    sta LNV_BNK
+    sta LNV_ADR
+    sta LNV_ADR+1
+    sta LNV_IDX
 
     ;Init test output   
     ldy #0
@@ -75,25 +106,25 @@ rts
     beq :+
     stz $5003
 
-    ;Assert DSP_BNK = 1
-:   lda DSP_BNK
+    ;Assert LNV_BNK = 1
+:   lda LNV_BNK
     cmp #1
     beq :+
     stz $5004
 
-    ;Assert DSP_ADR = 0
-:   lda DSP_ADR
+    ;Assert LNV_ADR = 0
+:   lda LNV_ADR
     beq :+
     stz $5005
 
-    ;Assert DSP_ADR+1 = $a0
-:   lda DSP_ADR+1
+    ;Assert LNV_ADR+1 = $a0
+:   lda LNV_ADR+1
     cmp #$a0
     beq :+
     stz $5006
 
-    ;Asser DSP_IDX = 0
-:   lda DSP_IDX
+    ;Asser LNV_IDX = 0
+:   lda LNV_IDX
     beq :+
     stz $5007
 
@@ -183,12 +214,16 @@ rts
 
     ;Assert 1 call => bank 01, page $a1
     jsr mem_alloc
+    sty $5010
+    stx $5011
+    rts
     cpy #1
     beq :+
     stz $5010
-:   cpx #$a1
+:   stx $5010
+    cpx #$a1
     beq :+
-    stz $5010
+    stx $5010
 
     ;Assert 31 more calls => bank 02, page $a0
 :   lda #31
@@ -319,6 +354,37 @@ counter: .byt 0
 
 .endproc
 
+.proc test_mem_alloc3
+    jsr mem_init
+    jsr mem_alloc
+    jsr mem_alloc
+    rts
+
+    ldx #251
+    stx counter
+
+:   lda #48
+    jsr mem_insert
+    dec counter
+    bne:-
+
+    ldx #100
+    stx counter
+
+:   lda #49
+    jsr mem_insert
+    dec counter
+    bne:-
+
+    jsr mem_alloc
+
+    rts
+
+
+counter:
+    .byt 0
+.endproc
+
 .proc test_mem_step_right
     jsr mem_init
     
@@ -357,7 +423,6 @@ counter:
     .byt 0
 .endproc
 
-<<<<<<< HEAD
 .proc test_screen_println
     jsr mem_init
     
@@ -365,7 +430,7 @@ counter:
     sta counter
 
     lda #240
-    sta DSP_IDX
+    sta LNV_IDX
 
 :   lda counter
     jsr mem_insert
@@ -379,8 +444,30 @@ counter:
 counter: .byt 0
 .endproc
 
+.proc test_initial
+    lda #0
+    sta CRS_X
+    sta CRS_Y
+    sta APP_MOD
+
+    jsr mem_init
+    jsr screen_init
+    jsr cursor_init
+    jsr irq_init
+
+    stz APP_QUIT
+:   lda APP_QUIT
+    cmp #2
+    bne :-
+.endproc
+
+.proc test_keyboard
+    :jsr KERNAL_GETIN
+    beq :-
+.endproc
 
 .include "mem.inc"
 .include "screen.inc"
 .include "keyboard.inc"
->>>>>>> feature-add-keyboard
+.include "irq.inc"
+.include "cursor.inc"

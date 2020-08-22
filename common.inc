@@ -1,14 +1,45 @@
-;KERNAL JUMP TABLE
+;******************************************************************************
+;Copyright 2020, Stefan Jakobsson.
+;
+;This file is part of X16 Edit.
+;
+;X16 Edit is free software: you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;X16 Edit is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
+;******************************************************************************
+
+;*****************************************************************************
+;KERNAL PROCEDURES
+;*****************************************************************************
+
+;File management
 .define KERNAL_SETLFS $ffba
 .define KERNAL_SETNAM $ffbd
 .define KERNAL_OPEN $ffc0
 .define KERNAL_CHKIN $ffc6
 .define KERNAL_CHRIN $ffcf
 
+;Keyboard
+.define KERNAL_SCREEN_SET_CHARSET $ff62
 .define KERNAL_SCNKEY $ff9f
 .define KERNAL_GETIN $ffe4
 
-;VERA
+;Other
+.define KERNAL_PRINT $ffd2
+
+
+;*****************************************************************************
+;VERA VECTORS
+;*****************************************************************************
 .define VERA_L $9f20
 .define VERA_M $9f21
 .define VERA_H $9f22
@@ -19,30 +50,50 @@
 .define VERA_CTRL $9f25
 .define VERA_VIDEO $9f29
 
+
+;*****************************************************************************
 ;ZERO PAGE VECTORS
+;*****************************************************************************
 
-;Select RAM bank ($01-$FF, $00 reserved by Kernal)
-.define BNK_SEL $00
+;Select RAM bank
+.define BNK_SEL $9f61
 
-;Pointer to memory location corresponding to the cursor
-.define CRS_BNK $22  ;Memory bank ($01-$FF, $00 reserved by Kernal)
-.define CRS_ADR $23  ;Memory page ($A0-$BF)
-.define CRS_IDX $25  ;Byte index ($00-$FB)
+;Pointer to memory location: Cursor position
+.define CRS_BNK $22  ;Bank
+.define CRS_ADR $23  ;Address, most significant byte (MSB)
+.define CRS_IDX $25  ;Index
 
-;Pointer to first visible memory location of the currently edited line
-.define DSP_BNK $26  ;Memory bank
-.define DSP_ADR $27  ;Memory page
-.define DSP_IDX $29  ;Byte index
+;Pointer to memory location: First visible character of the currently edited line
+.define LNV_BNK $26  ;Bank
+.define LNV_ADR $27  ;Address MSB
+.define LNV_IDX $29  ;Byte index
 
-;Temporary pointers to memory locations, used for miscellaneous purposes
-.define TMP1_BNK $2a  ;Memory bank
-.define TMP1_ADR $2b  ;Memory page
-.define TMP1_IDX $2d  ;Byte index
+;Pointer to memory location: First visible character of the screen (top left)
+.define SCR_BNK $2a  ;Bank
+.define SCR_ADR $2b  ;Address MSB
+.define SCR_IDX $2d  ;Index
 
-.define TMP2_BNK $2e ;Memory bank
-.define TMP2_ADR $2f ;Memory page
-.define TMP2_IDX $31 ;Byte index
+;Temporary pointers to memory locations, used for miscellaneous (short-term) purposes
+;Warning: Any routine may use these temp pointers at any time and for whatever reason
+.define TMP1_BNK $2e  ;Bank
+.define TMP1_ADR $2f  ;Address MSB
+.define TMP1_IDX $31  ;Index
 
-;Cursor location
-.define CRS_X $32
-.define CRS_Y $33
+.define TMP2_BNK $32 ;Bank
+.define TMP2_ADR $33 ;Address MSB
+.define TMP2_IDX $35 ;Index
+
+;Cursor screen position
+.define CRS_X $36
+.define CRS_Y $37
+
+;App screen mode
+.define APP_MOD $38
+
+;App quit
+.define APP_QUIT $39
+
+;*****************************************************************************
+;OTHER STUFF
+;*****************************************************************************
+.define LF 10       ;Line Feed, new line marker
