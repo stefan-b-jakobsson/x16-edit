@@ -157,7 +157,7 @@ exit:
     rts
 
 row1:
-    .byt "^g get help ^s save file ^y prev page ^k cut   ^c cur pos", 0 
+    .byt "^g get help ^w write out ^y prev page ^k cut   ^c cur pos", 0 
 row2:
     .byt "^x exit     ^o open file ^v next page ^u uncut ^w where is", 0
 color:
