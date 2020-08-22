@@ -14,7 +14,7 @@ To avoid that, each memory page contains a separate string. The memory pages/str
 not decided beforehand, and it may be changed during the operation of the program.
 
 
-#Memory page layout in banked RAM
+# Memory page layout in banked RAM
 
 ```
 Offset Content
