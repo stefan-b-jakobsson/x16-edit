@@ -352,6 +352,19 @@ exit:
     dec columns
     bne :-
 
+    ;Clear any remaining lines
+    ldy rows
+    beq exit_2
+
+clearbottom:
+    ldx #79
+:   sta VERA_D0
+    dex
+    bne :-
+    dey
+    bne clearbottom
+
+exit_2:
     rts
 
 len:

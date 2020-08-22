@@ -245,11 +245,39 @@ at_linebreak:
 :   ;Move to line start, and set first visible char to start of line. Then move to line end.
     ;This is needed to properly show a line that is longer than the screen
     jsr mem_crs_move_to_line_start
+    stx counter
+    sty counter+1
     jsr mem_set_lnv_to_crs
+
     jsr screen_refresh
-    jsr keyboard_end_key
+
+loop:
+    lda counter
+    bne :+
+    lda counter+1
+    beq exit
+
+:   jsr mem_crs_step_right
+    jsr cursor_move_right
+    bcc noscroll
+    jsr mem_lnv_step_right
+
+noscroll:
+    dec counter
+    lda counter
+    cmp #$ff
+    bne loop
+    lda counter+1
+    beq at_linebreak_exit
+    dec counter+1
+    jmp loop
     
+at_linebreak_exit:
+    jsr screen_println
     rts
+
+counter:
+    .byt 0,0
 .endproc
 
 ;******************************************************************************
