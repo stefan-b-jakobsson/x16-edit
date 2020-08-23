@@ -18,7 +18,7 @@
 ;******************************************************************************
 
 ;*****************************************************************************
-;KERNAL PROCEDURES
+;KERNAL VECTORS
 ;*****************************************************************************
 
 ;File management
@@ -84,16 +84,16 @@
 .define TMP2_IDX $35 ;Index
 
 ;Cursor screen position
-.define CRS_X $36
-.define CRS_Y $37
+.define CRS_X $36   ;Cursor screen column position
+.define CRS_Y $37   ;Cursor screen row position
 
 ;App screen mode
-.define APP_MOD $38
+.define APP_MOD $38 ;Application mode
 
 ;App quit
-.define APP_QUIT $39
+.define APP_QUIT $39 ;Used to signal program exit
 
 ;*****************************************************************************
 ;OTHER STUFF
 ;*****************************************************************************
-.define LF 10       ;Line Feed, new line marker
+.define LF 10       ;New line separator
