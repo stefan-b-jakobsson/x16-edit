@@ -20,8 +20,7 @@
 
 ;******************************************************************************
 ;Function name.......: irq_init
-;Purpose.............: Initializes the interrupt handler
-;Preparatory routines: None
+;Purpose.............: Initializes the custom interrupt handler
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -47,22 +46,26 @@
 
 ;******************************************************************************
 ;Function name.......: irq_handler
-;Purpose.............: Custom interrupt handler
-;Preparatory routines: irq_init
+;Purpose.............: Custom interrupt handler, effectively the main loop of
+;                      the program
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc irq_handler
+    ;Check if the program is closing down, i.e. if APP_QUIT!=0
     lda APP_QUIT
     bne shutdown
 
+    ;Main loop
     jsr keyboard_read
     jsr cursor_toggle
-exit:
+
     ;Return control to default handler
     jmp (irq_default_handler)
 
 shutdown:
+    ;The program is closing, restore irq handler to default
+    
     sei
 
     ;Restore irq handler
@@ -71,13 +74,14 @@ shutdown:
     lda irq_default_handler+1
     sta $0315
 
+    ;Hide cursor sprite
     jsr cursor_hide
 
     ;Clear screen
     lda #147
     jsr KERNAL_PRINT
 
-    ;Set app quit = 2 => signal to exit main loop
+    ;Signal to program main process that it's safe to quit
     lda #2
     sta APP_QUIT
     
