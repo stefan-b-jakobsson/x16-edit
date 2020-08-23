@@ -21,12 +21,11 @@
 ;******************************************************************************
 ;Function name.......: cursor_init
 ;Purpose.............: Initializes the cursor
-;Preparatory routines: None
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_init
-    ;Prepare saving sprite data at VERA address $4000
+    ;Prepare writing sprite graphics data at VERA address $4000
     lda #$00
     sta VERA_L
     lda #$40
@@ -34,21 +33,21 @@
     lda #(1<<4)
     sta VERA_H
 
-    ;Save 6 blank lines, color=0 (6x8=48 bytes)
+    ;First write 6 blank lines (48 bytes) with color 0
     lda #$00
     ldx #48
     :   sta VERA_D0
         dex
         bne :-
     
-    ;Save 2 white lines, color=1 (2x8=16 bytes)
+    ;Then write 2 lines (16 bytes) with color 1 (=white)
     lda #$01
     ldx #16
     :   sta VERA_D0
         dex
         bne :-
     
-    ;Prepare sprite attributes setup (sprite #0)
+    ;Prepare writing attributes for sprite #0 (VERA address 01fc00) + autoincrement +1
     lda #$00
     sta VERA_L
     lda #$fc
@@ -102,11 +101,11 @@
 ;******************************************************************************
 ;Function name.......: cursor_show
 ;Purpose.............: Shows the cursor sprite
-;Preparatory routines: cursor_init (only once)
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_show
+    ;Prepare writing sprite attributes at VERA address 01fc06
     lda #$06
     sta VERA_L
     lda #$fc
@@ -114,21 +113,21 @@
     lda #$01 
     sta VERA_H
 
+    ;Set sprite #0 visible
     lda #(3 << 2)
     sta VERA_D0
 
     rts
-
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cursor_hide
 ;Purpose.............: Hides the cursor sprite
-;Preparatory routines: cursor_init (only once)
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_hide
+    ;Prepare writing sprite attributes at VERA address 01fc06
     lda #$06
     sta VERA_L
     lda #$fc
@@ -136,21 +135,21 @@
     lda #$01 
     sta VERA_H
 
+    ;Set sprite #0 not visible
     lda #0
     sta VERA_D0
 
     rts
-
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cursor_move
 ;Purpose.............: Moves the cursor
-;Preparatory routines: cursor_init (only once)
-;Input...............: .X = new cursor column, .Y = new cursor row
+;Input...............: X=cursor column, Y=cursor row
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_move
+    ;Prepare writing sprite attributes at VERA address 01fc02
     lda #$02
     sta VERA_L
     lda #$fc
@@ -158,14 +157,14 @@
     lda #($01 | (1 << 4))
     sta VERA_H
 
-    ;Set X position, bits 0:7
+    ;Set X position, bits 0:7 (X register multiplied by 8)
     txa
     asl
     asl
     asl
     sta VERA_D0
 
-    ;Set X position, bits 8:9
+    ;Set X position, bits 8:9 (X register divided by 32)
     txa
     lsr
     lsr
@@ -174,14 +173,14 @@
     lsr
     sta VERA_D0
 
-    ;Set Y position, bits 0:7
+    ;Set Y position, bits 0:7 (Y register multiplied by 8)
     tya
     asl
     asl
     asl
     sta VERA_D0
 
-    ;Set Y position, bits 8:9
+    ;Set Y position, bits 8:9 (Y register divided by 32)
     tya
     lsr
     lsr
@@ -195,15 +194,14 @@
     sty CRS_Y
 
     rts
-
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cursor_move_right
-;Purpose.............: Moves the cursor one step right
-;Preparatory routines: cursor_init (only once)
+;Purpose.............: Moves the cursor one column right; the cursor will not
+;                      ne moved beyond the rightmost position of the screen
 ;Input...............: Nothing
-;Returns.............: .C = 1 if at rightmost position, otherwise .C = 0
+;Returns.............: C=1 if at rightmost position of screen, else C=0
 ;Error returns.......: None
 .proc cursor_move_right
     lda CRS_X
@@ -216,22 +214,21 @@
     ldy CRS_Y
     jsr cursor_move
 
-    clc
-
+    clc             ;We're not at rightmost position, return C=0
     rts
 
 rightmost:
-    sec
+    sec             ;We're at rightmost position, return C=1
     rts
 
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cursor_move_left
-;Purpose.............: Moves the cursor one step left
-;Preparatory routines: cursor_init (only once)
+;Purpose.............: Moves the cursor one column left; the cursor will not
+;                      be moved beyond the leftmost position of the screen
 ;Input...............: Nothing
-;Returns.............: .C = 1 if at leftmost position, otherwise .C = 0
+;Returns.............: C=1 if at leftmost position of screen, else C=0
 ;Error returns.......: None
 .proc cursor_move_left
     lda CRS_X
@@ -244,88 +241,95 @@ rightmost:
     ldy CRS_Y
     jsr cursor_move
 
-    clc
+    clc             ;We're not at leftmost position, return C=0
     rts
 
 leftmost:
-    sec
+    sec             ;We're at leftmost position, return C=1
     rts
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cursor_move_up
-;Purpose.............: Moves the cursor one step up
-;Preparatory routines: cursor_init (only once)
+;Purpose.............: Moves the cursor one row up; the cursor will not be
+;                      moved above the first editable row
 ;Input...............: Nothing
-;Returns.............: .C = 1 if at top of screen, otherwise .C = 0
+;Returns.............: C=1 if at top of screen, else C=0
 ;Error returns.......: None
 .proc cursor_move_up
     ldy CRS_Y
-    cpy #2
+    cpy #2      ;Row 2 is the first editable screen row, program header above
     beq top
+
     dey
     ldx CRS_X
     jsr cursor_move
-    clc
+
+    clc         ;We're not at top of screen, return C=0
     rts
 
 top:
-    sec
+    sec         ;We're at top of screen, return C=1
     rts
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cursor_move_down
-;Purpose.............: Moves the cursor one step down
-;Preparatory routines: cursor_init (only once)
+;Purpose.............: Moves the cursor one row down; the cursor will not
+;                      be moved below the last editable row
 ;Input...............: Nothing
-;Returns.............: .C = 1 if at bottom of screen position, otherwise .C = 0
+;Returns.............: C=1 if at bottom of screen, else C=0
 ;Error returns.......: None
 .proc cursor_move_down
     ldy CRS_Y
-    cpy #55
+    cpy #55         ;The last editable row
     beq bottom
 
     iny
     ldx CRS_X
     jsr cursor_move
-    clc
+    
+    clc             ;We're not at bottom of screen, return C=0
     rts
 
 bottom:
-    sec
+    sec             ;We're at bottom of screen, return C=1
     rts
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cursor_move_crlf
-;Purpose.............: Moves the cursor to the first column of next row
-;Preparatory routines: cursor_init (only once)
+;Purpose.............: Moves the cursor to the first column of next row; the
+;                      cursor will not be moved below the last editable row
 ;Input...............: Nothing
-;Returns.............: .C = 1 if at bottom of screen, otherwise .C = 0
+;Returns.............: C=1 if at bottom of screen, else C=0
 ;Error returns.......: None
 .proc cursor_move_crlf
     ldy CRS_Y
-    cpy #55
+    cpy #55         ;The last editable row
     beq bottom
     iny
     ldx #0
     jsr cursor_move
-    clc
+    
+    clc             ;We're not at bottom of screen, return C=0
     rts
 
 bottom:
-    ldy CRS_Y
+    ;Move cursor to start of row
+    ldy CRS_Y       
     ldx #0
     jsr cursor_move
-    sec
+
+    sec             ;We're at bottom of screen, return C=1
     rts
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cursor_toggle
-;Purpose.............: Toggles the cursor on and off
-;Preparatory routines: cursor_init (only once)
+;Purpose.............: Controls cursor toggle. The cursor will change state
+;                      (hidden or visible) for every 30 invocations of this
+;                      function.
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -334,24 +338,23 @@ bottom:
     lda cursor_toggle_counter
     bne active
     
-    ;Cursor is disabled, ensure hidden
-    jsr cursor_hide
+    ;Cursor is disabled
     rts
 
 active:
+    ;Cursor is active, decrease counter
     dec cursor_toggle_counter
     
     lda cursor_toggle_counter
     cmp #30                 ;After 30 invocations we have 1/2 a second, show cursor
     beq show
     cmp #0                  ;After another 30 invocations we have 1/2 a second again, hide cursor
-    bne exit
+    bne exit                ;If counter value is not 30 or 0, do nothing
 
 hide:
     jsr cursor_hide
     lda #60                 ;Restore counter to start value
     sta cursor_toggle_counter
-
     rts
     
 show:
@@ -361,6 +364,13 @@ exit:
     rts
 .endproc
 
+;******************************************************************************
+;Function name.......: cursor_activate
+;Purpose.............: Acivates the cursor, making it visible and enabling
+;                      cursor toggle
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
 .proc cursor_activate
     jsr cursor_show
     lda #29
@@ -368,6 +378,12 @@ exit:
     rts
 .endproc
 
+;******************************************************************************
+;Function name.......: cursor_disable
+;Purpose.............: Disables and hides the cursor
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
 .proc cursor_disable
     jsr cursor_hide
     stz cursor_toggle_counter
