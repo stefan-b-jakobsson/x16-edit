@@ -21,12 +21,11 @@
 ;******************************************************************************
 ;Function name.......: keyboard_read
 ;Purpose.............: Reads one character from the keyboard buffer
-;Preparatory routines: mem_init, screen_init, cursor_init
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_read
-    ;Kernal call to check keyboard queue. If A=0 then queue is empty.
+    ;Get char from keyboard queue. If A=0, the queue is empty.
     jsr KERNAL_GETIN
     bne gotachar
     rts
@@ -34,36 +33,30 @@
 gotachar:
     ;Select key handler according to program mode
     ldx APP_MOD
-    beq mode0
+    beq mode_default
     cpx #1
-    beq mode1
+    beq mode_helpscreen
     cpx #2
-    beq mode2
+    beq mode_statusmessage
 
-mode0:
-    jmp keyboard_mode0
+mode_default:
+    jmp keyboard_mode_default
 
-mode1:
-    jmp keyboard_mode1
+mode_helpscreen:
+    jmp keyboard_mode_helpscreen
 
-mode2:
-    pha
-    lda #0
-    stx APP_MOD
-    jsr screen_clear_status
-    pla
-    jmp keyboard_mode0
+mode_statusmessage:
+    jmp keyboard_mode_statusmessage
 
 .endproc
 
 ;******************************************************************************
-;Function name.......: keyboard_mode0
-;Purpose.............: Select key press actions for mode 0 (default mode)
-;Preparatory routines: mem_init, screen_init, cursor_init
+;Function name.......: keyboard_mode_default
+;Purpose.............: Select key press actions for default mode
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc keyboard_mode0
+.proc keyboard_mode_default
     ;Enter key
     cmp #13
     beq enter
@@ -168,15 +161,14 @@ ctrl_o:
 .endproc
 
 ;******************************************************************************
-;Function name.......: keyboard_mode1
-;Purpose.............: Select key press actions for mode 1 (help screen)
-;Preparatory routines: mem_init, screen_init, cursor_init
+;Function name.......: keyboard_mode_helpscreen
+;Purpose.............: Select key press actions for help screen
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc keyboard_mode1
+.proc keyboard_mode_helpscreen
     ;Exit help screen if q was pressed, ignore all other input
-    cmp #'q'
+    cmp #03         ;ESC key
     beq exit_help
     rts
 
@@ -184,6 +176,7 @@ exit_help:
     stz APP_MOD
     jsr screen_clear
     jsr screen_refresh
+    jsr screen_clear_status
 
     jsr cursor_activate
 
@@ -191,21 +184,42 @@ exit_help:
 .endproc
 
 ;******************************************************************************
+;Function name.......: keyboard_mode_statusmessage
+;Purpose.............: Select key press actions for when a status message has
+;                      been displayed
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_statusmessage
+    ;Save char on stack
+    pha
+
+    ;Set program to default mode (0) and clear status message
+    lda #0
+    stx APP_MOD
+    jsr screen_clear_status
+    
+    ;Send char to handler for default mode (.i.e. to print it)
+    pla
+    jmp keyboard_mode_default
+.endproc
+
+;******************************************************************************
 ;Function name.......: keyboard_enter_key
 ;Purpose.............: Handles keypress
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_enter_key
-    ;Insert linefeed
+    ;Insert linefeed char
     lda #LF
     jsr mem_insert
 
     ;Move cursor to first column of next row
     jsr cursor_move_crlf
-    bcc :+          ;Carry set = at bottom of screen, need to scroll
+    bcc :+          
     
+    ;C=1: We're at bottom of screen, need to scroll
     jsr mem_scr_move_down
 
 :   jsr mem_set_lnv_to_crs        ;Set first visible char of line to cursor position, i.e. start of line
@@ -217,40 +231,45 @@ exit_help:
 ;******************************************************************************
 ;Function name.......: keyboard_delete_key
 ;Purpose.............: Handles keypress
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_delete_key
     ;Delete one char from memory
     jsr mem_delete
-    bcs exit
+    bcs exit                ;C=1: We're at start of file, nothing was deleted
 
+    ;Check if we deleted a line break (indicated by X=1), a special case to handle
     cpx #1
-    beq at_linebreak
+    beq linebreak_deleted
 
+    ;We did not delete a line break, move cursor one column left and print line
     jsr cursor_move_left
     jsr screen_println
     
 exit:
     rts
 
-at_linebreak:
-    ;Move cursor the beginning of line above
+linebreak_deleted:
+    ;Move cursor the beginning of line above the current line
     stz CRS_X
     jsr cursor_move_up
     bcc :+
-    jsr mem_scr_move_up     ;Carry set, we're at top of screen and need to scroll
+    
+    ;Carry set, we're at top of screen and need to scroll
+    jsr mem_scr_move_up
 
-:   ;Move to line start, and set first visible char to start of line. Then move to line end.
-    ;This is needed to properly show a line that is longer than the screen
+:   ;Move to line start, and save the number of chars moved over
     jsr mem_crs_move_to_line_start
     stx counter
     sty counter+1
+
+    ;Set first visible char of that line to start of line (cursor position)
     jsr mem_set_lnv_to_crs
 
     jsr screen_refresh
 
+;Loop to move the cursor back to the column we came from
 loop:
     lda counter
     bne :+
@@ -259,20 +278,23 @@ loop:
 
 :   jsr mem_crs_step_right
     jsr cursor_move_right
-    bcc noscroll
+    bcc continue
+
+    ;C=1: We need to scroll
     jsr mem_lnv_step_right
 
-noscroll:
+continue:
+    ;Decrease column counter and exist loop if it's 0
     dec counter
     lda counter
     cmp #$ff
     bne loop
     lda counter+1
-    beq at_linebreak_exit
+    beq linebreak_deleted_exit
     dec counter+1
     jmp loop
     
-at_linebreak_exit:
+linebreak_deleted_exit:
     jsr screen_println
     rts
 
@@ -283,7 +305,6 @@ counter:
 ;******************************************************************************
 ;Function name.......: keyboard_rightarrow_key
 ;Purpose.............: Handles keypress
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -332,7 +353,6 @@ at_bottom:
 ;******************************************************************************
 ;Function name.......: keyboard_leftarrow_key
 ;Purpose.............: Handles keypress
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -388,7 +408,7 @@ at_linebreak:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_uparrow_key
-    ;Backup mem pointers
+    ;Backup pointers so we can restore them if necessary
     lda CRS_BNK
     sta backup
     lda CRS_ADR+1
@@ -415,10 +435,10 @@ at_linebreak:
     ;Move to start of that line
     jsr mem_crs_move_to_line_start
 
-    ;Set pointer to first visible char on line to cursor
+    ;Set pointer to first visible char on line to cursor position
     jsr mem_set_lnv_to_crs
 
-    ;Move screen cursor to beginning of previous line
+    ;Move screen cursor to beginning of the line above
     stz CRS_X
     ldy CRS_Y
     jsr cursor_move_up
@@ -427,7 +447,7 @@ at_linebreak:
 :   jmp stepto_column
 
 at_first_line:
-    ;Restore crs mem pointer and exit
+    ;Restore pointers and exit
     lda backup
     sta CRS_BNK
     lda backup+1
@@ -441,12 +461,13 @@ at_first_line:
     sta LNV_ADR+1
     lda backup+5
     sta LNV_IDX
+
     rts
 
 stepto_column:
-    ;Move back to the column we came from, but stopping if we encounter LF before that
+    ;Move back to the column we came from, but stop if we encounter a line separator before that
     
-    ;Check column counter
+    ;Check column counter, exit if 0
     lda count
     bne :+
     lda count+1
@@ -461,7 +482,7 @@ stepto_column:
     beq exit
     stz CRS_ADR
 
-    ;Move mem pointer, exit C=1 (end of file)
+    ;Move mem pointer one step right, exit C=1 (end of file)
     jsr mem_crs_step_right
     bcs exit
 
@@ -473,7 +494,7 @@ stepto_column:
     jsr mem_lnv_step_right
 
 dec_count:
-    ;Decrease 16 bit counter, exit if 0
+    ;Decrease counter
     dec count
     lda count
     cmp #$ff
@@ -504,12 +525,11 @@ backup:
 ;******************************************************************************
 ;Function name.......: keyboard_downarrow_key
 ;Purpose.............: Handles keypress
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_downarrow_key
-    ;Backup cursor mem pointer
+    ;Backup pointers so we can restore them later if necessary
     lda CRS_BNK
     sta backup
     lda CRS_ADR+1
@@ -524,12 +544,12 @@ backup:
     lda LNV_IDX
     sta backup+5
 
-    ;Move mem pointer to start of line, and save number of chars moved (our column)
+    ;Move cursor mem pointer to start of line, and save number of chars stepped over
     jsr mem_crs_move_to_line_start
     stx count
     sty count+1
 
-    ;Move mem pointer to end of line, and move one more step to get to next line (carry set = end of file)
+    ;Move cursor mem pointer to end of line, and move one more step to get to next line (carry set = end of file)
     jsr mem_crs_move_to_line_end
     jsr mem_crs_step_right
     bcs at_last_line
@@ -547,9 +567,9 @@ backup:
     jsr mem_scr_move_down
 
 loop:
-    ;Loop to move back to column we came from, however stopping if we encounter LF
+    ;Loop to move back to column we came from, however stop if we encounter a line separator
 
-    ;Check column counter
+    ;Check column counter, exit if 0
     lda count
     bne loop_2
     lda count+1
@@ -561,17 +581,19 @@ loop_2:
     ldy CRS_IDX
     lda (CRS_ADR),y
     cmp #LF
-    beq exit
+    beq exit            ;Line separator found
 
     stz CRS_ADR
     jsr mem_crs_step_right
-    bcs exit
+    bcs exit            ;At end of file, exit
 
     jsr cursor_move_right
     bcc loop_3
+    ;At rightmost position of screen, need to scroll
     jsr mem_lnv_step_right
 
 loop_3:
+    ;Decrease counter
     dec count
     lda count
     cmp #$ff
@@ -580,7 +602,7 @@ loop_3:
     jmp loop
 
 at_last_line:
-    ;Restore cursor mem pointer, and exit
+    ;Restore pointers, and exit
     lda backup
     sta CRS_BNK
     lda backup+1
@@ -613,15 +635,16 @@ backup:
 ;******************************************************************************
 ;Function name.......: keyboard_home_key
 ;Purpose.............: Handles keypress
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_home_key
+    ;Move cursor to leftmost position
     ldx #0
     ldy CRS_Y
     jsr cursor_move
     
+    ;Move cursor mem pointer to start of line, and set first visible char to same
     jsr mem_crs_move_to_line_start
     jsr mem_set_lnv_to_crs
     jsr screen_println
@@ -631,34 +654,33 @@ backup:
 ;******************************************************************************
 ;Function name.......: keyboard_end_key
 ;Purpose.............: Handles keypress
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_end_key
-    ;Move cursor mem pointer to end of line, returns number of chars stepped over
+    ;Move cursor mem pointer to end of line, save number of chars stepped over
     jsr mem_crs_move_to_line_end
     sty counter+1
     stx counter
 
-    ;Check column counter, exit if 0 (i.e. we were already at end of line)
-    cpy #0
-    bne loop
-    cpx #0
-    bne loop
-
-    rts
-
+;Loop to move to end of line
 loop:
-    jsr cursor_move_right
-    bcc :+                      
-    ;Carry set = cursor at end of line, need to scroll
-    jsr mem_lnv_step_right
-
-:   dec counter
-    bne loop
+    ;Check column counter, exit if 0
+    lda counter
+    bne :+
     lda counter+1
     beq exit
+
+:   jsr cursor_move_right
+    bcc :+                      
+    ;Carry set = cursor at rightmost position of screen, need to scroll
+    jsr mem_lnv_step_right
+
+    ;Decrease counter
+:   dec counter
+    lda counter
+    cmp #$ff
+    bne loop
     dec counter+1
     jmp loop
 
@@ -673,13 +695,12 @@ counter:
 
 ;******************************************************************************
 ;Function name.......: keyboard_ctrl_x
-;Purpose.............: Command: Exit program
-;Preparatory routines: None
+;Purpose.............: Command: Initiate program exit
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_ctrl_x
-    lda #1
+    lda #1          ;APP_QUIT=1 signals to irq_handler to close down
     sta APP_QUIT
     rts
 .endproc
@@ -687,22 +708,28 @@ counter:
 ;******************************************************************************
 ;Function name.......: keyboard_ctrl_g
 ;Purpose.............: Command: Show help
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_ctrl_g
     jsr cursor_disable
 
-    lda #1
+    lda #1              ;mode_helpscreen
     sta APP_MOD
+
+    ldx #<msg
+    ldy #>msg
+    jsr screen_print_status
+    
     jmp screen_show_help
+
+msg:
+    .byt "press esc to exit help screen",0
 .endproc
 
 ;******************************************************************************
 ;Function name.......: keyboard_ctrl_y
 ;Purpose.............: Command: PageUp
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -719,8 +746,6 @@ counter:
 linecount:
     .byt 0
 
-msg:
-    .byt "not yet implemented",0
 .endproc
 
 ;******************************************************************************
@@ -747,13 +772,12 @@ linecount:
 ;******************************************************************************
 ;Function name.......: keyboard_ctrl_w
 ;Purpose.............: Command: Write file
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_ctrl_w
     lda #2
-    sta APP_MOD
+    sta APP_MOD     ;mode_statusmessage
 
     ldx #<msg
     ldy #>msg
@@ -773,7 +797,7 @@ msg:
 ;Error returns.......: None
 .proc keyboard_ctrl_o
     lda #2
-    sta APP_MOD
+    sta APP_MOD     ;mode_statusmessage
 
     ldx #<msg
     ldy #>msg
@@ -786,13 +810,15 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: keyboard_default_keyhandler
-;Purpose.............: Default keyhandler for app mode 0 (default mode)
-;Preparatory routines: None
+;Purpose.............: Default keyhandler for user input
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_default_keyhandler
+    ;Insert char into memory
     jsr mem_insert
+
+    ;Move cursor
     jsr cursor_move_right
     bcc :+
     ;Carry set, cursor at rightmost position, need to scroll
