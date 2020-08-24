@@ -19,16 +19,70 @@
 
 
 ;**********************************************************
+;General description of the memory model
+;---------------------------------------
+;Text entered by the user is stored in banked RAM.
+;All available banks are used, and the text may be almost
+;2 MB of size.
+;
+;The memory isn't organized as one continuous string since
+;this would make the operation of the program too slow.
+;This is the especially true for large text if you like
+;to insert new text at the top. The program would then
+;need to copy all of the text one step forward to make
+;room for the text to be inserted.
+;
+;To avoid that, the memory is divided into memory
+;pages of 256 bytes each. For example, bank 1, address
+;range $a000 to $a0ff is a memory page.
+;
+;Each memory page contains a separate string.
+;
+;The memory pages are doubly-linked to each other,
+;holding a reference both to the previous and to the next
+;memory page. Each memory page also holds the length
+;of the text stored within it.
+;
+;The memory pages are dynamically linked throughout the
+;operation of the program, which makes it possible to
+;avoid copying large amounts of data when new text is
+;inserted. The program just links in a new memory page
+;if needed.
+;
+;Each memory page contains the following fields:
+;
+;Offset Content
+;00     Previous page / Bank number
+;01     Previous page / AddressH
+;02     Next page / Bank number
+;03     Next page / AddressH
+;04     Length of text stored in the memory page
+;05-ff  Text (max 251 bytes)
+;
+;The memory model is somewhat inspired by the
+;1541 disk format.
+;
+;The program uses the following three zero page pointers
+;to the memory in order to display the text:
+;
+;1. CRS_BNK + CRS_ADR + CRS_IDX (Cursor location in memory)
+;2. LNV_BNK + LNV_ADR + LNV_IDX (First visible char of the currently edited line)
+;3. SCR_BNK + SCR_ADR + SCR_IDX (First visible char of the screen)
+;
+;LNV_ is used to scroll the current line horizontally
+;SCR_ us used to scroll the text vertically
+
+
+;**********************************************************
 ;Function name.......: mem_init
 ;Description.........: Initializes program's memory
 ;                      usage, and allocates the first
 ;                      page of banked RAM.
-;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_init
-    ;Clear memory memory map, set all mem pages as free
+    ;Clear memory memory map, mark all mem pages as free
     ldy #0
     lda #0
 
@@ -39,22 +93,15 @@
     iny
     bne :-
 
-    ;Set all mem pages in bank 0 as used, these are used by the Kernal
+    ;Mark all mem pages in bank 0 as used, these may be used by the Kernal
     lda #255
     sta mem_map
     sta mem_map+1
     sta mem_map+2
     sta mem_map+3
 
-    sta mem_map+4
-    sta mem_map+5
-    sta mem_map+6
-    lda #%01111111
-    sta mem_map+7
-
-    ;Allocate the app's initial memory page (bank 1, page $a0)
-    ;lda #1
-    lda #255
+    ;Mark the initial memory page (bank 1, page $a0) as used
+    lda #1
     sta mem_map+4
 
     ;Setup zero page vectors
@@ -75,7 +122,7 @@
     ;Address, least significant byte
     stz CRS_ADR     ;Cursor
     stz LNV_ADR     ;Line first visible char
-    stz SCR_ADR
+    stz SCR_ADR     ;Screen first visible char
 
     ;Memory offset values
     stz CRS_IDX     ;Cursor
@@ -86,13 +133,13 @@
     lda #0
     
     ldy #0
-    sta (CRS_ADR),y     ;Previous bank = 0
+    sta (CRS_ADR),y     ;Previous bank = 0, doesn't really matter
     
     ldy #1
     sta (CRS_ADR),y     ;Previous page = 0, i.e. null
 
     ldy #2
-    sta (CRS_ADR),y     ;Next bank = 0
+    sta (CRS_ADR),y     ;Next bank = 0, doesn't really matter
 
     ldy #3
     sta (CRS_ADR),y     ;Next page = 0, i.e. null
@@ -109,11 +156,10 @@
 ;                      newly allocated page will be linked
 ;                      in after the page pointed to by the
 ;                      cursor.
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
-;Returns.............: .Y = allocated bank, and 
-;                      .X allocated page
-;Error returns.......: .Y = 0 and .X = 0 if memory full
+;Returns.............: Allocated memory page, Y= bank, and 
+;                      X=page (address MSB)
+;Error returns.......: X=0 if memory full
 .proc mem_alloc
     ;Get vector to memory map
     lda #<mem_map
@@ -139,8 +185,7 @@ loop:
     bne loop
 
 mem_full:
-    ;If we reach this point there was no free memory, return bank = 0 and page = 0
-    ldy #0
+    ;If we reach this point there was no free memory, return X=0
     ldx #0
     rts
 
@@ -282,9 +327,8 @@ nextpage:
 ;Function name.......: mem_push
 ;Description.........: Pushes content of a mem page
 ;                      one step forward
-;Preparatory routines: mem_init (once)
-;Input...............: .Y = mem bank, .X = mem page, .A = index to start pushing from
-;Returns.............: .C = 1 if overflow, otherwise .C = 0. Overflow character returned in .A
+;Input...............: Y=mem bank, X=mem page, A=index to start pushing from
+;Returns.............: C=1 if overflow; overflow char returned in .A
 ;Error returns.......: Nothing
 .proc mem_push
     sta start_push
@@ -365,8 +409,7 @@ last_char:
 ;**********************************************************
 ;Procedure name......: mem_insert
 ;Description.........: Inserts a char at cursor location
-;Preparatory routines: mem_init (once)
-;Input...............: .A = char to insert
+;Input...............: A=char to insert
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_insert
@@ -380,7 +423,7 @@ last_char:
     jsr mem_push
     bcc store_char
 
-    ;Handle overflow
+    ;Handle overflow from mem page push
     pha
 
     lda CRS_BNK
@@ -392,7 +435,7 @@ last_char:
     tax
     ldy #3
     lda (CRS_ADR),y     ;page
-    beq alloc_next
+    beq alloc_new
     
     sta TMP1_ADR+1
     stz TMP1_ADR
@@ -404,7 +447,7 @@ last_char:
     ldy #4
     lda (TMP1_ADR),y
     cmp #251
-    bcs alloc_next
+    bcs alloc_new
 
     ;Push next page content
     ldy TMP1_BNK
@@ -418,7 +461,7 @@ last_char:
 
     jmp store_char
 
-alloc_next:
+alloc_new:
     jsr mem_alloc       ;Next page was not allocated or was full, we're allocating a new page
 
     sty BNK_SEL
@@ -434,7 +477,7 @@ alloc_next:
     sta (TMP1_ADR),y    ;Set new page len = 1
 
 store_char:    
-    lda CRS_BNK         ;And now, store new char
+    lda CRS_BNK         ;And now, finally, store that char we liked to insert
     sta BNK_SEL
 
     lda #5              ;Set offset=5 to skip mem page metadata
@@ -443,8 +486,9 @@ store_char:
     ldy CRS_IDX
     sta (CRS_ADR),y
 
-    stz CRS_ADR         ;Restore index
+    stz CRS_ADR         ;Restore offset
 
+    ;Move cursor memory pointer
     jsr mem_crs_step_right
 
     rts
@@ -454,7 +498,6 @@ store_char:
 ;**********************************************************
 ;Procedure name......: mem_delete
 ;Description.........: Deletes the char left of cursor
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: C=1 if at file start, else C=0
@@ -462,15 +505,16 @@ store_char:
 .proc mem_delete
     ;First take one step left
     jsr mem_crs_step_left
-    bcc continue
-
+    bcc continue              
+    
+    ;C=1; we're at start of file
     ldx #0
     sec
 
     rts
 
-    ;Get page len
 continue:
+    ;Get page len
     lda CRS_BNK
     sta BNK_SEL
     
@@ -483,7 +527,7 @@ continue:
     cpy page_len
     bcs at_end_of_mempage
 
-    ;Not at end of mem page
+    ;Not at end of mem page, prepare copying text one step to left in mem page
     lda CRS_ADR+1
     sta TMP1_ADR+1
 
@@ -494,6 +538,7 @@ continue:
     sta TMP1_ADR
 
 loop:
+    ;Loop to move text from the cursor to the end of the mem page one step left
     lda (TMP1_ADR),y
     sta (CRS_ADR),y
 
@@ -504,6 +549,7 @@ loop:
     jmp loop
 
 at_end_of_mempage:
+    ;If we're at end of the text stored in this mem page we don't need to move any text, just decrease page len by 1
     stz CRS_ADR
 
     ldy #4
@@ -522,7 +568,6 @@ page_len:
 ;Procedure name......: mem_crs_step_right
 ;Description.........: Moves the pointer to memory location
 ;                      of the cursor one step right
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
 ;Returns.............: .C=1 if eof else .C=0
 ;                      .X=1 if LF else .X=0
@@ -645,7 +690,6 @@ next_page:
 ;Procedure name......: mem_crs_step_left
 ;Description.........: Moves the pointer to memory location
 ;                      of the cursor one step left
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
 ;Returns.............: .C=1 if at beginning of file,
 ;                      otherwise .C=0
@@ -732,7 +776,6 @@ bof:
 ;Procedure name......: mem_crs_move_to_line_start
 ;Description.........: Moves the pointer to memory location
 ;                      at start of line
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
 ;Returns.............: Numbers of steps the cursor was
 ;                      moved, LSB in X and MSB in Y
@@ -784,7 +827,6 @@ count:
 ;Procedure name......: mem_crs_move_to_line_end
 ;Description.........: Moves the pointer to memory location
 ;                      at end of line
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
 ;Returns.............: Number of steps the cursor was moved,
 ;                      LSB in X and MSB in Y
@@ -835,7 +877,6 @@ count:
 ;Procedure name......: mem_lnv_step_left
 ;Description.........: Moves the pointer to first visible
 ;                      char of current line
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
 ;Returns.............: .C=1 if at beginning of file,
 ;                      otherwise .C=0
@@ -930,7 +971,6 @@ count:
 ;Procedure name......: mem_scr_move_down
 ;Description.........: Moves the pointer to first visible
 ;                      char of the screen one line down
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
 ;Returns.............: .C = 1 if at end of file, 
 ;                      otherwise .C=0
@@ -977,7 +1017,6 @@ crs_backup:
 ;Procedure name......: mem_scr_move_up
 ;Description.........: Moves the pointer to first visible
 ;                      char of the screen one line up
-;Preparatory routines: mem_init (once)
 ;Input...............: Nothing
 ;Returns.............: .C = 1 if at start of file, 
 ;                      otherwise .C=0
@@ -1024,7 +1063,6 @@ crs_backup:
 ;**********************************************************
 ;Procedure name......: mem_set_lnv_to_crs
 ;Description.........: Inserts a char at cursor location
-;Preparatory routines: mem_init (once)
 ;Input...............: .A = char to insert
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
