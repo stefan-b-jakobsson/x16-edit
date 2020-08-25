@@ -245,7 +245,9 @@ exit_help:
 
     ;We did not delete a line break, move cursor one column left and print line
     jsr cursor_move_left
-    jsr screen_println
+    bcc :+
+    jsr mem_lnv_step_left
+:   jsr screen_println
     
 exit:
     rts
