@@ -33,11 +33,17 @@
 gotachar:
     ;Select key handler according to program mode
     ldx APP_MOD
-    beq mode_default
+    stx $4999
     cpx #1
     beq mode_helpscreen
     cpx #2
     beq mode_statusmessage
+    cpx #3
+    beq mode_command
+    cpx #4
+    beq mode_file_save
+    cpx #5
+    beq mode_file_open
 
 mode_default:
     jmp keyboard_mode_default
@@ -48,6 +54,14 @@ mode_helpscreen:
 mode_statusmessage:
     jmp keyboard_mode_statusmessage
 
+mode_command:
+    jmp keyboard_mode_command
+
+mode_file_save:
+    jmp keyboard_mode_file_save
+
+mode_file_open:
+    jmp keyboard_mode_file_open
 .endproc
 
 ;******************************************************************************
@@ -57,6 +71,10 @@ mode_statusmessage:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_default
+    ;ESC key
+    cmp #$03
+    beq esc
+
     ;Enter key
     cmp #13
     beq enter
@@ -64,6 +82,10 @@ mode_statusmessage:
     ;Delete key
     cmp #$14
     beq delete
+
+    ;Tab key
+    cmp #$09
+    beq tab_key
 
     ;Left arrow key
     cmp #$9d
@@ -113,14 +135,36 @@ mode_statusmessage:
     cmp #$0f
     beq ctrl_o
 
+    ;Ctrl+k
+    cmp #$0b
+    beq ctrl_k
+
+    ;Ctrl+u
+    cmp #$15
+    beq ctrl_u
+
+    ;Ctrl+p
+    cmp #$10
+    beq ctrl_p
+
+    ;Ctrl+f
+    cmp #$06
+    beq ctrl_f
+
     ;If no other match, goto default handler
     jmp keyboard_default_keyhandler
+
+esc:
+    jmp keyboard_esc_key
 
 enter:
     jmp keyboard_enter_key
 
 delete:
     jmp keyboard_delete_key
+
+tab_key:
+    jmp keyboard_tab_key
 
 left_arrow:
     jmp keyboard_leftarrow_key
@@ -141,22 +185,34 @@ end:
     jmp keyboard_end_key
 
 ctrl_g:
-    jmp keyboard_ctrl_g
+    jmp cmd_show_help
 
 ctrl_x:
-    jmp keyboard_ctrl_x
-
-ctrl_y:
-    jmp keyboard_ctrl_y
-
-ctrl_v:
-    jmp keyboard_ctrl_v
+    jmp cmd_exit
 
 ctrl_w:
-    jmp keyboard_ctrl_w
+    jmp cmd_file_save
 
 ctrl_o:
-    jmp keyboard_ctrl_o
+    jmp cmd_file_open
+
+ctrl_y:
+    jmp keyboard_cmd_pageup
+
+ctrl_v:
+    jmp keyboard_cmd_pagedown
+
+ctrl_k:
+    jmp cmd_cut
+
+ctrl_u:
+    jmp cmd_paste
+
+ctrl_p:
+    jmp cmd_show_curpos
+
+ctrl_f:
+    jmp cmd_find
 
 .endproc
 
@@ -167,14 +223,13 @@ ctrl_o:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_helpscreen
-    ;Exit help screen if q was pressed, ignore all other input
-    cmp #03         ;ESC key
+    ;Exit help screen if ESC was pressed, ignore all other input
+    cmp #03
     beq exit_help
     rts
 
 exit_help:
     stz APP_MOD
-    jsr screen_clear
     jsr screen_refresh
     jsr screen_clear_status
 
@@ -202,6 +257,222 @@ exit_help:
     ;Send char to handler for default mode (.i.e. to print it)
     pla
     jmp keyboard_mode_default
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_command
+;Purpose.............: Select command after ESC has been pressed
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_command
+    cmp #$03
+    beq abort_command_mode
+    cmp #$67
+    beq show_help
+
+    cmp #$31
+    bcc exit
+    cmp #$3a
+    bcc tab_width
+
+exit:
+    rts
+
+show_help:
+    stz APP_MOD
+    jsr screen_clear_status
+    jmp cmd_show_help
+
+tab_width:
+    pha
+    stz APP_MOD
+    jsr screen_clear_status
+    jsr cursor_activate
+    pla
+    jmp cmd_set_tab_width
+
+abort_command_mode:
+    stz APP_MOD
+    jsr cursor_activate
+    jmp screen_clear_status
+
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_file_save
+;Purpose.............: Handle keypress during file save
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_file_save
+    ;Enter key
+    cmp #13
+    beq write_file
+    
+    ;ESC key
+    cmp #$03
+    beq abort
+    
+    jmp prompt_keypress
+
+abort:
+    jsr screen_clear_status
+    jsr prompt_close
+    lda #0
+    sta APP_MOD
+    rts
+
+write_file:
+    jsr cursor_disable
+
+    stz prompt_curpos
+    lda #64
+    jsr prompt_insert
+    lda #':'
+    jsr prompt_insert
+    lda prompt_len
+    sta prompt_curpos
+    lda #','
+    jsr prompt_insert
+    lda #'s'
+    jsr prompt_insert
+    lda #','
+    jsr prompt_insert
+    lda #'w'
+    jsr prompt_insert
+
+    lda prompt_len
+    ldx #<prompt_input
+    ldy #>prompt_input
+    jsr file_write
+    
+    lda file_io_err
+    bne show_io_err
+    
+    jsr file_read_disk_status
+    jsr prompt_close
+    jsr screen_clear_status
+    ldx #<file_disk_status
+    ldy #>file_disk_status
+
+    jsr screen_print_status
+    jmp exit
+
+show_io_err:
+    jsr prompt_close
+    jsr screen_clear_status
+
+    ldx file_io_err
+    dex
+    lda file_ioerr_H,x
+    tay
+    lda file_ioerr_L,x
+    tax
+    jsr screen_print_status
+
+exit:
+    jsr cursor_activate
+    lda #2
+    sta APP_MOD
+    rts
+
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_file_open
+;Purpose.............: Handle keypress during file open
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_file_open
+    ;Enter key
+    cmp #13
+    beq read_file
+
+    ;ESC key
+    cmp #$03
+    beq abort
+
+    jmp prompt_keypress
+
+abort:
+    jsr screen_clear_status
+    jsr prompt_close
+    lda #0
+    sta APP_MOD
+    rts
+
+read_file:
+    jsr cursor_disable
+
+    lda prompt_len
+    ldx #<prompt_input
+    ldy #>prompt_input
+    jsr file_read
+
+    lda file_io_err
+    bne io_error
+
+    jsr file_read_disk_status
+    jsr screen_clear_status
+    jsr prompt_close
+    jsr cursor_activate
+    ldx #<file_disk_status
+    ldy #>file_disk_status
+    jsr screen_print_status
+
+    lda file_disk_status
+    cmp #48
+    bne exit
+
+    ldx #0
+    ldy #2
+    jsr cursor_move
+
+    jmp exit
+    
+io_error:
+    jsr prompt_close
+    jsr screen_clear_status
+    jsr cursor_activate
+
+    ldx file_io_err
+    dex
+    lda file_ioerr_H,x
+    tay
+    lda file_ioerr_L,x
+    tax
+    jsr screen_print_status
+
+exit:
+    jsr screen_refresh
+
+    lda #2
+    sta APP_MOD
+
+    rts
+
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_esc_key
+;Purpose.............: Handles keypress
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_esc_key
+    lda #3
+    sta APP_MOD
+
+    jsr cursor_disable
+
+    ldx #<msg
+    ldy #>msg
+    jmp screen_print_status
+
+msg:
+    .byt "enter command or press esc to abort",0
 .endproc
 
 ;******************************************************************************
@@ -302,6 +573,27 @@ linebreak_deleted_exit:
 
 counter:
     .byt 0,0
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_tab_key
+;Purpose.............: Handles keypress
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_tab_key
+    lda keyboard_tabwidth
+    sta counter
+
+:   lda #32
+    jsr keyboard_default_keyhandler
+    dec counter
+    bne :-
+
+    rts
+
+counter:
+    .byt 0
 .endproc
 
 ;******************************************************************************
@@ -696,46 +988,12 @@ counter:
 .endproc
 
 ;******************************************************************************
-;Function name.......: keyboard_ctrl_x
-;Purpose.............: Command: Initiate program exit
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_ctrl_x
-    lda #1          ;APP_QUIT=1 signals to irq_handler to close down
-    sta APP_QUIT
-    rts
-.endproc
-
-;******************************************************************************
-;Function name.......: keyboard_ctrl_g
-;Purpose.............: Command: Show help
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_ctrl_g
-    jsr cursor_disable
-
-    lda #1              ;mode_helpscreen
-    sta APP_MOD
-
-    ldx #<msg
-    ldy #>msg
-    jsr screen_print_status
-    
-    jmp screen_show_help
-
-msg:
-    .byt "press esc to exit help screen",0
-.endproc
-
-;******************************************************************************
-;Function name.......: keyboard_ctrl_y
+;Function name.......: keyboard_cmd_pageup
 ;Purpose.............: Command: PageUp
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc keyboard_ctrl_y
+.proc keyboard_cmd_pageup
     lda #27
     sta linecount
 
@@ -751,13 +1009,13 @@ linecount:
 .endproc
 
 ;******************************************************************************
-;Function name.......: keyboard_ctrl_v
+;Function name.......: keyboard_cmd_pagedown
 ;Purpose.............: Command: PageDown
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc keyboard_ctrl_v
+.proc keyboard_cmd_pagedown
     lda #27
     sta linecount
 
@@ -771,44 +1029,6 @@ linecount:
     .byt 0
 .endproc
 
-;******************************************************************************
-;Function name.......: keyboard_ctrl_w
-;Purpose.............: Command: Write file
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_ctrl_w
-    lda #2
-    sta APP_MOD     ;mode_statusmessage
-
-    ldx #<msg
-    ldy #>msg
-    jsr screen_print_status
-    rts
-
-msg:
-    .byt "write text to file not yet implemented",0
-.endproc
-
-;******************************************************************************
-;Function name.......: keyboard_ctrl_o
-;Purpose.............: Command: Open file
-;Preparatory routines: None
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_ctrl_o
-    lda #2
-    sta APP_MOD     ;mode_statusmessage
-
-    ldx #<msg
-    ldy #>msg
-    jsr screen_print_status
-    rts
-
-msg:
-    .byt "open file not yet implemented",0
-.endproc
 
 ;******************************************************************************
 ;Function name.......: keyboard_default_keyhandler

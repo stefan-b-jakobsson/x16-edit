@@ -22,11 +22,17 @@
 ;*****************************************************************************
 
 ;File management
+.define KERNAL_CLALL $ffe7
+.define KERNAL_CLOSE $ffc3
+.define KERNAL_CLRCHN $ffcc 
 .define KERNAL_SETLFS $ffba
 .define KERNAL_SETNAM $ffbd
 .define KERNAL_OPEN $ffc0
 .define KERNAL_CHKIN $ffc6
+.define KERNAL_CHKOUT $ffc9
+.define KERNAL_CHROUT $ffd2
 .define KERNAL_CHRIN $ffcf
+.define KERNAL_READST $ffb7
 
 ;Keyboard
 .define KERNAL_SCREEN_SET_CHARSET $ff62
@@ -97,3 +103,5 @@
 ;OTHER STUFF
 ;*****************************************************************************
 .define LF 10       ;New line separator
+.define SCREEN_WIDTH 80
+.define SCREEN_HEIGHT 54

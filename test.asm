@@ -34,6 +34,7 @@ cld
 ;jsr test_screen_println
 jsr test_initial
 ;jsr test_keyboard
+;jsr test_prompt
 rts
 
 .proc test_ram
@@ -444,6 +445,13 @@ counter:
 counter: .byt 0
 .endproc
 
+.proc test_prompt
+    jsr prompt_init
+    lda #65
+    jsr prompt_keypress
+    rts
+.endproc
+
 .proc test_initial
     lda #0
     sta CRS_X
@@ -459,6 +467,8 @@ counter: .byt 0
 :   lda APP_QUIT
     cmp #2
     bne :-
+    
+    rts
 .endproc
 
 .proc test_keyboard
@@ -469,5 +479,8 @@ counter: .byt 0
 .include "mem.inc"
 .include "screen.inc"
 .include "keyboard.inc"
+.include "cmd.inc"
+.include "prompt.inc"
 .include "irq.inc"
 .include "cursor.inc"
+.include "file.inc"

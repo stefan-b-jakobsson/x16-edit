@@ -205,11 +205,10 @@
 ;Error returns.......: None
 .proc cursor_move_right
     lda CRS_X
-    cmp #79
+    cmp #(SCREEN_WIDTH-1)
     bcs rightmost
 
     inc CRS_X
-
     ldx CRS_X
     ldy CRS_Y
     jsr cursor_move
@@ -282,7 +281,7 @@ top:
 ;Error returns.......: None
 .proc cursor_move_down
     ldy CRS_Y
-    cpy #55         ;The last editable row
+    cpy #(SCREEN_HEIGHT+1)  ;The last editable row
     beq bottom
 
     iny
@@ -306,7 +305,7 @@ bottom:
 ;Error returns.......: None
 .proc cursor_move_crlf
     ldy CRS_Y
-    cpy #55         ;The last editable row
+    cpy #(SCREEN_HEIGHT+1)         ;The last editable row
     beq bottom
     iny
     ldx #0
