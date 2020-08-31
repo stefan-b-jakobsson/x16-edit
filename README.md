@@ -15,11 +15,7 @@ The program is written in 65c02 assembly for the ca65 compiler.
 
 Compile with the following command:
 
-cl65 -v -t cx16 -C cx16-asm.cfg -u __EXEHDR__ -o x16edit.prg main.asm (main.asm not yet implemented)
-
-or
-
-cl65 -v -t cx16 -C cx16-asm.cfg -u __EXEHDR__ -o x16edit.prg test.asm (used uptil now)
+cl65 -v -t cx16 -C cx16-asm.cfg -u __EXEHDR__ -o x16edit.prg main.asm
 
 
 # Running
@@ -29,6 +25,9 @@ The program is tested with X16 emulator version R38.
 The emulator may be downloaded from
 
 https://www.commanderx16.com/
+
+https://www.commanderx16.com
+
 
 Loading and saving files in X16 Edit require that the emulator is started with an attached sdcard. Use the switch -sdcard.
 
