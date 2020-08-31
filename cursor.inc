@@ -198,8 +198,8 @@
 
 ;******************************************************************************
 ;Function name.......: cursor_move_right
-;Purpose.............: Moves the cursor one column right; the cursor will not
-;                      ne moved beyond the rightmost position of the screen
+;Purpose.............: Moves cursor one step right, but not beyond rightmost
+;                      column of the screen
 ;Input...............: Nothing
 ;Returns.............: C=1 if at rightmost position of screen, else C=0
 ;Error returns.......: None
@@ -224,8 +224,8 @@ rightmost:
 
 ;******************************************************************************
 ;Function name.......: cursor_move_left
-;Purpose.............: Moves the cursor one column left; the cursor will not
-;                      be moved beyond the leftmost position of the screen
+;Purpose.............: Moves cursor one step left, but not beyond leftmost
+;                      column of the screen
 ;Input...............: Nothing
 ;Returns.............: C=1 if at leftmost position of screen, else C=0
 ;Error returns.......: None
@@ -250,8 +250,8 @@ leftmost:
 
 ;******************************************************************************
 ;Function name.......: cursor_move_up
-;Purpose.............: Moves the cursor one row up; the cursor will not be
-;                      moved above the first editable row
+;Purpose.............: Moves the cursor one row up, but not beyond the first
+;                      user editable row
 ;Input...............: Nothing
 ;Returns.............: C=1 if at top of screen, else C=0
 ;Error returns.......: None
@@ -274,8 +274,8 @@ top:
 
 ;******************************************************************************
 ;Function name.......: cursor_move_down
-;Purpose.............: Moves the cursor one row down; the cursor will not
-;                      be moved below the last editable row
+;Purpose.............: Moves the cursor one row down, but not beyond the last
+;                      user editable row
 ;Input...............: Nothing
 ;Returns.............: C=1 if at bottom of screen, else C=0
 ;Error returns.......: None
@@ -298,8 +298,9 @@ bottom:
 
 ;******************************************************************************
 ;Function name.......: cursor_move_crlf
-;Purpose.............: Moves the cursor to the first column of next row; the
-;                      cursor will not be moved below the last editable row
+;Purpose.............: Moves the cursor to the first column of next row, but 
+;                      the cursor will not be moved below the last editable
+;                      row
 ;Input...............: Nothing
 ;Returns.............: C=1 if at bottom of screen, else C=0
 ;Error returns.......: None
@@ -328,7 +329,8 @@ bottom:
 ;Function name.......: cursor_toggle
 ;Purpose.............: Controls cursor toggle. The cursor will change state
 ;                      (hidden or visible) for every 30 invocations of this
-;                      function.
+;                      function. When called once every interrupt, the cursor
+;                      toggle period will be 1 second.
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -389,4 +391,5 @@ exit:
     rts
 .endproc
 
+;GLOBAL VARIABLES
 cursor_toggle_counter: .byt 0

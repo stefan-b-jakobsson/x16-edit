@@ -17,5 +17,42 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
+;Include global defines
+.include "common.inc"
 
-rts
+;******************************************************************************
+;Function name.......: main
+;Purpose.............: Program entry function
+;Preparatory routines: None
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc main
+    ;Set program mode to default
+    stz APP_MOD
+
+    ;Set program in running state
+    stz APP_QUIT
+
+    ;Initialize base functions
+    jsr mem_init
+    jsr screen_init
+    jsr cursor_init
+    jsr irq_init
+    
+    ;Wait for the program to terminate    
+:   lda APP_QUIT
+    cmp #2
+    bne :-
+    
+    rts
+.endproc
+
+.include "screen.inc"
+.include "keyboard.inc"
+.include "cmd.inc"
+.include "prompt.inc"
+.include "irq.inc"
+.include "cursor.inc"
+.include "file.inc"
+.include "mem.inc"

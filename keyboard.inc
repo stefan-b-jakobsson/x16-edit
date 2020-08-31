@@ -33,7 +33,6 @@
 gotachar:
     ;Select key handler according to program mode
     ldx APP_MOD
-    stx $4999
     cpx #1
     beq mode_helpscreen
     cpx #2
@@ -67,7 +66,7 @@ mode_file_open:
 ;******************************************************************************
 ;Function name.......: keyboard_mode_default
 ;Purpose.............: Select key press actions for default mode
-;Input...............: Nothing
+;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_default
@@ -219,7 +218,7 @@ ctrl_f:
 ;******************************************************************************
 ;Function name.......: keyboard_mode_helpscreen
 ;Purpose.............: Select key press actions for help screen
-;Input...............: Nothing
+;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_helpscreen
@@ -246,31 +245,30 @@ exit_help:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_statusmessage
-    ;Save char on stack
-    pha
-
+    ;Any key press will close the status message. 
     ;Set program to default mode (0) and clear status message
-    lda #0
-    stx APP_MOD
+    stz APP_MOD
     jsr screen_clear_status
-    
-    ;Send char to handler for default mode (.i.e. to print it)
-    pla
-    jmp keyboard_mode_default
+
+    rts
 .endproc
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_command
 ;Purpose.............: Select command after ESC has been pressed
-;Input...............: Nothing
+;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_command
+    ;ESC key
     cmp #$03
     beq abort_command_mode
+
+    ;g
     cmp #$67
     beq show_help
 
+    ;1..9
     cmp #$31
     bcc exit
     cmp #$3a
@@ -290,6 +288,8 @@ tab_width:
     jsr screen_clear_status
     jsr cursor_activate
     pla
+    sec
+    sbc #48
     jmp cmd_set_tab_width
 
 abort_command_mode:
@@ -301,8 +301,8 @@ abort_command_mode:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_file_save
-;Purpose.............: Handle keypress during file save
-;Input...............: Nothing
+;Purpose.............: Handle keypress when prompting for file name to save to
+;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_save
@@ -317,52 +317,32 @@ abort_command_mode:
     jmp prompt_keypress
 
 abort:
-    jsr screen_clear_status
     jsr prompt_close
     lda #0
-    sta APP_MOD
+    sta APP_MOD         ;mode_default
     rts
 
 write_file:
     jsr cursor_disable
-
-    stz prompt_curpos
-    lda #64
-    jsr prompt_insert
-    lda #':'
-    jsr prompt_insert
-    lda prompt_len
-    sta prompt_curpos
-    lda #','
-    jsr prompt_insert
-    lda #'s'
-    jsr prompt_insert
-    lda #','
-    jsr prompt_insert
-    lda #'w'
-    jsr prompt_insert
+    jsr prompt_close
 
     lda prompt_len
     ldx #<prompt_input
     ldy #>prompt_input
-    jsr file_write
+    jsr file_write          ;Write file
     
-    lda file_io_err
+    lda file_io_err         ;Check for Kernal I/O errors
     bne show_io_err
     
     jsr file_read_disk_status
-    jsr prompt_close
-    jsr screen_clear_status
+
     ldx #<file_disk_status
     ldy #>file_disk_status
+    jsr screen_print_status ;Print disk status message
 
-    jsr screen_print_status
     jmp exit
 
 show_io_err:
-    jsr prompt_close
-    jsr screen_clear_status
-
     ldx file_io_err
     dex
     lda file_ioerr_H,x
@@ -373,7 +353,7 @@ show_io_err:
 
 exit:
     jsr cursor_activate
-    lda #2
+    lda #2                  ;mode_statusmessage
     sta APP_MOD
     rts
 
@@ -381,8 +361,8 @@ exit:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_file_open
-;Purpose.............: Handle keypress during file open
-;Input...............: Nothing
+;Purpose.............: Handle keypress when prompting for file name to rad from
+;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_open
@@ -397,35 +377,36 @@ exit:
     jmp prompt_keypress
 
 abort:
-    jsr screen_clear_status
     jsr prompt_close
-    lda #0
+    lda #0              ;mode_default
     sta APP_MOD
     rts
 
 read_file:
     jsr cursor_disable
+    jsr prompt_close
 
     lda prompt_len
     ldx #<prompt_input
     ldy #>prompt_input
-    jsr file_read
+    jsr file_read               ;Read file from disk
 
     lda file_io_err
     bne io_error
 
     jsr file_read_disk_status
-    jsr screen_clear_status
-    jsr prompt_close
+    pha                         ;Save disk error code on stack
+
     jsr cursor_activate
-    ldx #<file_disk_status
+
+    ldx #<file_disk_status      ;Display disk status message
     ldy #>file_disk_status
     jsr screen_print_status
 
-    lda file_disk_status
-    cmp #48
-    bne exit
+    pla
+    bne exit                    ;Exit if error code != $00
 
+    ;Read successful, move cursor to top left
     ldx #0
     ldy #2
     jsr cursor_move
@@ -433,10 +414,7 @@ read_file:
     jmp exit
     
 io_error:
-    jsr prompt_close
-    jsr screen_clear_status
-    jsr cursor_activate
-
+    ;Display error message
     ldx file_io_err
     dex
     lda file_ioerr_H,x
@@ -446,9 +424,10 @@ io_error:
     jsr screen_print_status
 
 exit:
+    jsr cursor_activate
     jsr screen_refresh
 
-    lda #2
+    lda #2              ;mode_statusmessage
     sta APP_MOD
 
     rts
@@ -463,7 +442,7 @@ exit:
 ;Error returns.......: None
 .proc keyboard_esc_key
     lda #3
-    sta APP_MOD
+    sta APP_MOD         ;mode_command
 
     jsr cursor_disable
 
@@ -1033,7 +1012,7 @@ linecount:
 ;******************************************************************************
 ;Function name.......: keyboard_default_keyhandler
 ;Purpose.............: Default keyhandler for user input
-;Input...............: Nothing
+;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_default_keyhandler
@@ -1050,3 +1029,7 @@ linecount:
 
     rts
 .endproc
+
+;GLOBAL VARIABLES
+keyboard_tabwidth:
+    .byt 4

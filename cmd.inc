@@ -12,7 +12,7 @@
 
 ;******************************************************************************
 ;Function name.......: cmd_show_help
-;Purpose.............: Command: Show help
+;Purpose.............: Command: Show help screen
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -34,7 +34,7 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: cmd_file_save
-;Purpose.............: Command: Write file
+;Purpose.............: Command: Write file to disk
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -44,7 +44,7 @@ msg:
 
     ldx #<msg
     ldy #>msg
-    lda #250
+    lda #250        ;maxlen
     jmp prompt_init
 msg:
     .byt "write to file name:",0
@@ -52,7 +52,7 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: cmd_file_open
-;Purpose.............: Command: Open file
+;Purpose.............: Command: Read file from disk
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
@@ -63,7 +63,7 @@ msg:
 
     ldx #<msg
     ldy #>msg
-    lda #250
+    lda #250        ;maxlen
     jmp prompt_init
 msg:
     .byt "open file name:",0
@@ -71,14 +71,14 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: cmd_cut
-;Purpose.............: Command: Open file
+;Purpose.............: Command: Cut line of text to clipboard
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_cut
     lda #2
-    sta APP_MOD
+    sta APP_MOD         ;mode_statusmessage
 
     ldx #<msg
     ldy #>msg
@@ -91,14 +91,14 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: cmd_paste
-;Purpose.............: Command: Open file
+;Purpose.............: Command: Paste lines from clipboard
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_paste
-    lda #2
-    sta APP_MOD
+    lda #2 
+    sta APP_MOD         ;mode_statusmessage
 
     ldx #<msg
     ldy #>msg
@@ -111,14 +111,14 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: cmd_show_curpos
-;Purpose.............: Command: Open file
+;Purpose.............: Command: Display current cursor position
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_show_curpos
     lda #2
-    sta APP_MOD
+    sta APP_MOD         ;mode_statusmessage
 
     ldx #<msg
     ldy #>msg
@@ -131,14 +131,14 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: cmd_find
-;Purpose.............: Command: Open file
+;Purpose.............: Command: Find text in current document
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_find
     lda #2
-    sta APP_MOD
+    sta APP_MOD         ;mode_statusmessage
 
     ldx #<msg
     ldy #>msg
@@ -151,17 +151,12 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: cmd_set_tab_width
-;Purpose.............: Command: Open file
+;Purpose.............: Command: Set tab width (number of spaces)
 ;Preparatory routines: None
-;Input...............: Nothing
+;Input...............: A = tab width (0..9)
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_set_tab_width
-    sec
-    sbc #$30
     sta keyboard_tabwidth
     rts
 .endproc
-
-keyboard_tabwidth:
-    .byt 4

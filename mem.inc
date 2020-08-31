@@ -1082,5 +1082,7 @@ crs_backup:
     rts
 .endproc
 
+;GLOBAL VARIABLES
+
 mem_map:
-    .res 1024, 0
+    .byt 0

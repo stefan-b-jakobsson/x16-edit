@@ -79,7 +79,7 @@ shutdown:
 
     ;Clear screen
     lda #147
-    jsr KERNAL_PRINT
+    jsr KERNAL_CHROUT
 
     ;Signal to program main process that it's safe to quit
     lda #2
@@ -90,4 +90,5 @@ shutdown:
     jmp (irq_default_handler)
 .endproc
 
+;GLOBAL VARIALBES
 irq_default_handler:    .byt 0,0

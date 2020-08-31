@@ -28,7 +28,7 @@
 .proc screen_init
     ;Set screen mode text 80x60
     lda #$0f
-    jsr KERNAL_PRINT
+    jsr KERNAL_CHROUT
 
     ;Set ISO charset
     lda #1
@@ -81,7 +81,7 @@ bg_color:
     rts
 
 msg:
-  .byt "x16 edit", 0
+  .byt "x16 edit 0.0.2", 0
 .endproc
 
 ;******************************************************************************
@@ -164,10 +164,13 @@ color:
     .byt 64,64,97,97,97,97,97,97,97,97,97,97,64,64,97,97,97,97,97,97,97,97,97,97,97,64,64,97,97,97,97,97,97,97,97,97,97,97,64,64,97,97,97,97,97,97,97,64,64,97,97,97,97,97,97,97,97,97,97,0
 .endproc
 
-.proc screen_print_footer_helpscreen
-    
-.endproc
-
+;******************************************************************************
+;Function name.......: screen_show_help
+;Purpose.............: Displays help screen
+;Preparatory routines: None
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
 .proc screen_show_help
     jsr screen_clear
 
@@ -263,7 +266,7 @@ msg:
 ;Function name.......: screen_refresh
 ;Purpose.............: Refreshes all visible lines of text. Print will start 
 ;                      from memory address pointed to by zero page vectors 
-;                      SCR_BNK, SCR_ADR and SCR_IDX.
+;                      SCR_XXX
 ;Preparatory routines: None
 ;Input...............: None
 ;Returns.............: Nothing
@@ -419,7 +422,7 @@ rows:
 ;Function name.......: screen_println
 ;Purpose.............: Prints the currently edited line. Print will start from
 ;                      memory address pointed to by zero page vectors
-;                      LNV_BNK, LNV_ADR and LNV_IDX.
+;                      LNV_XXX
 ;Preparatory routines: None
 ;Input...............: None
 ;Returns.............: Nothing
@@ -531,7 +534,7 @@ counter:
 
 ;******************************************************************************
 ;Function name.......: screen_clear
-;Purpose.............: Clears the part of screen containing text
+;Purpose.............: Clears the editable part of screen
 ;Preparatory routines: None
 ;Input...............: None
 ;Returns.............: Nothing
@@ -563,7 +566,7 @@ loop:
 
 ;******************************************************************************
 ;Function name.......: screen_print_status
-;Purpose.............: Prints a null terminated status message of max 80 chars
+;Purpose.............: Prints a null terminated status message 
 ;Preparatory routines: None
 ;Input...............: X=pointer to message LSB, Y=pointer to message MSB
 ;Returns.............: Nothing
@@ -624,9 +627,9 @@ start_at:
 
 ;******************************************************************************
 ;Function name.......: screen_clear_status
-;Purpose.............: Prints a null terminated status message of max 80 chars
+;Purpose.............: Clears status message
 ;Preparatory routines: None
-;Input...............: X=pointer to message LSB, Y=pointer to message MSB
+;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_clear_status

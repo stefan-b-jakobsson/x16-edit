@@ -36,11 +36,7 @@
 
 ;Keyboard
 .define KERNAL_SCREEN_SET_CHARSET $ff62
-.define KERNAL_SCNKEY $ff9f
 .define KERNAL_GETIN $ffe4
-
-;Other
-.define KERNAL_PRINT $ffd2
 
 
 ;*****************************************************************************

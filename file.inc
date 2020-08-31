@@ -29,7 +29,7 @@
     ;Set default = no i/o error
     stz file_io_err
     
-    ;Open 1, 8, 1, "@:filename, s, w"
+    ;Close 1 and Open 1, 8, 1, "filename, s, w"
     jsr KERNAL_SETNAM
 
     lda #1
@@ -130,7 +130,7 @@ page_len:
     ;Set default = no I/O error
     stz file_io_err
 
-    ;Open 1,8,2,"filename"
+    ;Close 1 and Open 1,8,2,"filename"
     jsr KERNAL_SETNAM
 
     lda #1
@@ -192,15 +192,15 @@ alloc_new_page:
 
     tya
     ldy #2
-    sta (CRS_ADR),y
+    sta (CRS_ADR),y ;Next bank
     
     txa
     ldy #3
-    sta (CRS_ADR),y
+    sta (CRS_ADR),y ;Next page
     
     ldy #4
     lda curpage_len
-    sta (CRS_ADR),y
+    sta (CRS_ADR),y ;Next len
     
     lda newpage
     sta BNK_SEL
@@ -209,41 +209,41 @@ alloc_new_page:
     lda newpage+1
     sta CRS_ADR+1
     
-    lda #5
+    lda #5          ;Offset to skip mem page metadata
     sta CRS_ADR
     
     ldy #0
-    pla
+    
+    pla             ;Insert the char that was read from memory
     sta (CRS_ADR),y
-    lda #1
+    
+    lda #1          ;Set page len = 1
     sta curpage_len
 
     jmp read_loop
 
 io_err:
+    ;Set kernal error
     sta file_io_err
     jmp close
 
 eof:
     stz CRS_ADR
+    
+    ;Set last page len
     ldy #4
     lda curpage_len
     sta (CRS_ADR),y
 
+    ;Set cursor mem pointer to start of text
     lda #1
     sta CRS_BNK
-    sta LNV_BNK
-    sta SCR_BNK
 
     lda #$a0
     sta CRS_ADR+1
-    sta LNV_ADR+1
-    sta SCR_ADR+1
-
+    
     stz CRS_IDX
-    stz LNV_IDX
-    stz SCR_IDX
-
+    
 close:
     lda #1
     jsr KERNAL_CLOSE
@@ -266,9 +266,14 @@ newpage:
 ;Function name.......: file_read_disk_status
 ;Purpose.............: Reads disk status channel
 ;Input...............: Nothing
-;Returns.............: Message returned in file_disk_status
+;Returns.............: A=error code in decimal mode style
+;                      Status message in file_disk_status
 ;Error returns.......: None
 .proc file_read_disk_status
+    ;Set default = no kernal error
+    stz file_io_err
+
+    ;Open 15,8,15
     lda #0
     ldx #0
     ldy #0
@@ -290,8 +295,8 @@ newpage:
     jsr KERNAL_CHKIN
     bcs io_error
 
-    lda #13
-    sta index
+    ;Read status
+    stz index
 read_loop:
     jsr KERNAL_READST
     bne eof
@@ -299,29 +304,45 @@ read_loop:
     cmp #$20
     bcc read_loop       ;Ignore contron chars
     ldy index
-    sta file_disk_status, y
-    cpy #254
+    sta file_disk_status+13, y
+    cpy #241            ;Last index = 255 - 13 - 1, where 13 is length of ingress "disk status: " and 1 byte is reserved for end of string marker (a zero)
     beq eof
     inc index
     jmp read_loop
 
-eof:
-    iny
-    lda #0
-    sta file_disk_status,y
-
-    stz file_io_err
-
-    lda #15
-    jsr KERNAL_CLOSE
-    jsr KERNAL_CLRCHN
-
-    rts
 
 io_error:
     ldy #13
     lda #0
     sta file_disk_status,y
+    jmp close
+
+eof:
+    iny
+    lda #0              
+    sta file_disk_status+13,y   ;Set end of string marker
+
+close:
+    lda #15
+    jsr KERNAL_CLOSE
+    jsr KERNAL_CLRCHN
+
+    ;Return value
+    sec
+    lda file_disk_status+14     ;Error code, second digit
+    sbc #48
+    asl                         ;Shift 4 steps left
+    asl
+    asl
+    asl
+    sta index                   ;Just reusing index for temp storage.
+
+    sec
+    lda file_disk_status+13     ;Error code, first digit
+    sbc #48
+    clc
+    adc index                   ;Adding them together
+
     rts
 
 index:
@@ -329,6 +350,10 @@ index:
 
 .endproc
 
+
+;GLOBAL VARIABELS
+
+;Last disk status saved here
 file_disk_status:
     .byt "disk status: "
     .res 243, 0

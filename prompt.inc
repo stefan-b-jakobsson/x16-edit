@@ -150,10 +150,14 @@ clear_line:
     cmp #$20
     bcc exit
 
-    jmp prompt_insert
+    jsr prompt_insert
+    jsr prompt_go_right
+    jmp prompt_refresh
 
 delete:
-    jmp prompt_delete
+    jsr prompt_delete
+    jsr prompt_go_left
+    jmp prompt_refresh
 
 left_arrow:
     jsr prompt_go_left
@@ -198,12 +202,7 @@ exit:
 next:
     pla
     sta prompt_input,y
-
     inc prompt_len
-
-    jsr prompt_go_right  
-    jmp prompt_refresh
-
 exit:
     rts
 .endproc
@@ -224,9 +223,6 @@ exit:
     bne :-
 
     dec prompt_len
-    jsr prompt_go_left
-    
-    jmp prompt_refresh
 
 exit:
     rts
@@ -287,7 +283,7 @@ exit:
 
 .endproc
 
-
+;GLOBAL VARIABLES
 prompt_input:
     .res 256,1
 
