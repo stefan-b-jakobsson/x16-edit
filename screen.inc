@@ -49,21 +49,7 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_print_header
-    ;Prepare printing from topleft corner
-    lda #0
-    sta VERA_L
-    sta VERA_M
-    lda #(2<<4)
-    sta VERA_H
-
-    ldx #0
-:   lda msg,x
-    beq bg_color
-    sta VERA_D0
-    inx
-    jmp :-
-
-bg_color:
+    ;Set color
     lda #1
     sta VERA_L
     lda #0
@@ -72,17 +58,97 @@ bg_color:
     sta VERA_H
 
     ldx #80
-    lda #64             ;Background color selected here
+    lda #64             ;Background color
     
 :   sta VERA_D0
     dex
     bne :-
 
+    ;Clear text
+    lda #0
+    sta VERA_L
+    sta VERA_M
+    lda #(2<<4)
+    sta VERA_H
+    lda #32
+    ldy #80
+
+:   sta VERA_D0
+    dey
+    bne :-
+
+    ;Print program name
+    lda #0
+    sta VERA_L
+    sta VERA_M
+    lda #(2<<4)
+    sta VERA_H
+
+    ldx #0
+:   lda program_name,x
+    beq :+
+    sta VERA_D0
+    inx
+    jmp :-
+
+    ;Print current file name (centered)
+:   lda file_cur_filename_len
+    beq new_buffer
+
+    cmp #60
+    bcc :+
+    lda #60
+    sta filename_len
+    jmp :++
+
+:   sta filename_len
+
+:   sec
+    lda #78
+    sbc filename_len
+    and #%11111110
+
+    sta VERA_L
+    stz VERA_M
+    lda #(2<<4)
+    sta VERA_H
+
+    ldy #0
+:   lda file_cur_filename_base,y
+    sta VERA_D0
+    iny
+    cpy filename_len
+    bne :-
+
     rts
 
-msg:
-  .byt "x16 edit 0.0.2", 0
+new_buffer:
+    lda #(78-10)
+    sta VERA_L
+    stz VERA_M
+    lda #(2<<4)
+    sta VERA_H
+
+    ldy #0
+:   lda new_buffer_msg,y
+    sta VERA_D0
+    iny
+    cpy #10
+    bne :-
+
+    rts
+
+program_name:
+    .byt "x16 edit 0.0.2", 0
+
+new_buffer_msg:
+    .byt "new buffer"
+
+filename_len:
+    .byt 0
+
 .endproc
+
 
 ;******************************************************************************
 ;Function name.......: screen_print_footer

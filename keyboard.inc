@@ -324,19 +324,28 @@ abort:
 
 write_file:
     jsr cursor_disable
-    jsr prompt_close
 
     lda prompt_len
     ldx #<prompt_input
     ldy #>prompt_input
     jsr file_write          ;Write file
+
+    jsr prompt_close
     
     lda file_io_err         ;Check for Kernal I/O errors
     bne show_io_err
     
     jsr file_read_disk_status
 
-    ldx #<file_disk_status
+    bne :+                  ;Skip setting current file name if we had a disk error
+    
+    ldx #<prompt_input
+    ldy #>prompt_input
+    lda prompt_len
+    jsr file_set_filename
+    jsr screen_print_header
+
+:   ldx #<file_disk_status
     ldy #>file_disk_status
     jsr screen_print_status ;Print disk status message
 
@@ -384,12 +393,13 @@ abort:
 
 read_file:
     jsr cursor_disable
-    jsr prompt_close
 
     lda prompt_len
     ldx #<prompt_input
     ldy #>prompt_input
     jsr file_read               ;Read file from disk
+
+    jsr prompt_close
 
     lda file_io_err
     bne io_error
@@ -406,11 +416,17 @@ read_file:
     pla
     bne exit                    ;Exit if error code != $00
 
-    ;Read successful, move cursor to top left
+    ;Read successful
     ldx #0
     ldy #2
     jsr cursor_move
 
+    ldx #<prompt_input
+    ldy #>prompt_input
+    lda prompt_len
+    jsr file_set_filename
+    jsr screen_print_header
+    
     jmp exit
     
 io_error:

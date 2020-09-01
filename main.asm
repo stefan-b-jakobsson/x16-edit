@@ -36,6 +36,7 @@
 
     ;Initialize base functions
     jsr mem_init
+    jsr file_init
     jsr screen_init
     jsr cursor_init
     jsr irq_init

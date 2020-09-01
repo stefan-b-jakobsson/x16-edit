@@ -17,6 +17,10 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
+.proc file_init
+    stz file_cur_filename_len
+    rts
+.endproc
 
 ;******************************************************************************
 ;Function name.......: file_write
@@ -25,7 +29,7 @@
 ;                      Length of file name in A
 ;Returns.............: Nothing
 ;Error returns.......: Kernal I/O error code available in file_io_err
-.proc file_write
+.proc file_write   
     ;Set default = no i/o error
     stz file_io_err
     
@@ -126,7 +130,7 @@ page_len:
 ;                      Length of file name in A
 ;Returns.............: Nothing
 ;Error returns.......: Kernal I/O error code available in file_io_err
-.proc file_read
+.proc file_read  
     ;Set default = no I/O error
     stz file_io_err
 
@@ -350,6 +354,33 @@ index:
 
 .endproc
 
+;******************************************************************************
+;Function name.......: file_set_filename
+;Purpose.............: Store current filename
+;Input...............: Pointer to file name, X=LSB and Y=MSB
+;                      Length of file name in A
+;Returns.............: Nothing
+;Error returns.......: None
+.proc file_set_filename
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    
+    sta file_cur_filename_len
+    tay
+    beq exit
+    dey
+
+:   lda (TMP1_ADR),y
+    sta file_cur_filename_base,y
+    dey
+    cpy #$ff
+    bne :-
+
+exit:
+    rts
+
+.endproc
+
 
 ;GLOBAL VARIABELS
 
@@ -383,3 +414,11 @@ file_ioerr_8:
     .byt "i/o error: file name is missing", 0
 file_ioerr_9:
     .byt "i/o error: illegal device number", 0
+
+;Current file name
+file_cur_filename:
+    .byt $40, $30, $3a      ;Filename start sequence for save and replace "@0:"
+file_cur_filename_base:
+    .res 253,0              ;Actual file name
+file_cur_filename_len:      ;Len of file name without counting from file_cur_filename_base
+    .byt 0

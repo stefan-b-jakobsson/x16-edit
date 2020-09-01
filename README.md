@@ -26,8 +26,6 @@ The emulator may be downloaded from
 
 https://www.commanderx16.com/
 
-https://www.commanderx16.com
-
 
 Loading and saving files in X16 Edit require that the emulator is started with an attached sdcard. Use the switch -sdcard.
 
@@ -36,4 +34,4 @@ Loading and saving files in X16 Edit require that the emulator is started with a
 
 You may read more about the Commander X16 Platform on the website
 
-https://www.commanderx16.com
+https://www.commanderx16.com/
