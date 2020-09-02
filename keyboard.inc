@@ -362,6 +362,7 @@ show_io_err:
 
 exit:
     jsr cursor_activate
+    jsr screen_refresh
     lda #2                  ;mode_statusmessage
     sta APP_MOD
     rts
