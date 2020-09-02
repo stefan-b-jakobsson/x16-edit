@@ -114,7 +114,7 @@
     sta VERA_H
 
     ldy #0
-:   lda file_cur_filename_base,y
+:   lda file_cur_filename,y
     sta VERA_D0
     iny
     cpy filename_len
@@ -352,7 +352,7 @@ msg:
     sta columns
 
     ;Number of rows to be printed
-    lda #SCREEN_HEIGHT
+    lda #54
     sta rows
 
     ;Prepare printing from column 0, row 2
@@ -449,11 +449,11 @@ clean_stack:
 
 exit:
     ;Clear end of last line by printing spaces
-    lda columns
+    ldx columns
     beq :++
     lda #32
 :   sta VERA_D0
-    dec columns
+    dex
     bne :-
 
     ;Clear any remaining lines
@@ -461,10 +461,12 @@ exit:
     beq exit_2
 
 clearbottom:
+    lda #32
     ldx #SCREEN_WIDTH
 :   sta VERA_D0
     dex
     bne :-
+    ldx #SCREEN_WIDTH
     inc VERA_M
     stz VERA_L
     dey

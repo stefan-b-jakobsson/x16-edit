@@ -333,7 +333,7 @@ close:
 
     ;Return value
     sec
-    lda file_disk_status+14     ;Error code, second digit
+    lda file_disk_status+13     ;Error code, second digit
     sbc #48
     asl                         ;Shift 4 steps left
     asl
@@ -342,10 +342,9 @@ close:
     sta index                   ;Just reusing index for temp storage.
 
     sec
-    lda file_disk_status+13     ;Error code, first digit
+    lda file_disk_status+14     ;Error code, first digit
     sbc #48
-    clc
-    adc index                   ;Adding them together
+    ora index                   ;Adding them together
 
     rts
 
@@ -371,7 +370,7 @@ index:
     dey
 
 :   lda (TMP1_ADR),y
-    sta file_cur_filename_base,y
+    sta file_cur_filename,y
     dey
     cpy #$ff
     bne :-
@@ -417,8 +416,6 @@ file_ioerr_9:
 
 ;Current file name
 file_cur_filename:
-    .byt $40, $30, $3a      ;Filename start sequence for save and replace "@0:"
-file_cur_filename_base:
     .res 253,0              ;Actual file name
 file_cur_filename_len:      ;Len of file name without counting from file_cur_filename_base
     .byt 0

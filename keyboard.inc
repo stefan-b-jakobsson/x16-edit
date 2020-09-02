@@ -43,6 +43,8 @@ gotachar:
     beq mode_file_save
     cpx #5
     beq mode_file_open
+    cpx #6
+    beq mode_file_save_overwrite
 
 mode_default:
     jmp keyboard_mode_default
@@ -61,6 +63,9 @@ mode_file_save:
 
 mode_file_open:
     jmp keyboard_mode_file_open
+
+mode_file_save_overwrite:
+    jmp keyboard_mode_file_save_overwrite
 .endproc
 
 ;******************************************************************************
@@ -336,12 +341,100 @@ write_file:
     bne show_io_err
     
     jsr file_read_disk_status
-
-    bne :+                  ;Skip setting current file name if we had a disk error
+    beq :+                  ;Do not set current file name if we had a disk error
+    cmp #$63                ;File exists error
+    beq confirm_overwrite
+    jmp :++
     
-    ldx #<prompt_input
+:   ldx #<prompt_input
     ldy #>prompt_input
     lda prompt_len
+    jsr file_set_filename
+    jsr screen_print_header
+
+:   ldx #<file_disk_status
+    ldy #>file_disk_status
+    jsr screen_print_status ;Print disk status message
+
+    jmp exit
+
+show_io_err:
+    ldx file_io_err
+    dex
+    lda file_ioerr_H,x
+    tay
+    lda file_ioerr_L,x
+    tax
+    jsr screen_print_status
+
+exit:
+    jsr cursor_activate
+    jsr screen_refresh
+    lda #2                  ;mode_statusmessage
+    sta APP_MOD
+    rts
+
+confirm_overwrite:
+    lda #6
+    sta APP_MOD
+
+    ldx #<overwrite_msg
+    ldy #>overwrite_msg
+    jmp screen_print_status
+
+overwrite_msg:
+    .byt "file exists. overwrite (y/n)?", 0
+
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_file_save_overwrite
+;Purpose.............: Handle keypress, confirm overwriting file
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_file_save_overwrite
+    ;Y key pressed
+    cmp #$79
+    beq write_file
+
+    ;Else abort
+    stz APP_MOD         ;mode_default
+    jsr cursor_activate
+    jmp screen_clear_status
+
+write_file:
+    ;Prepend input with @0: to overwrite existing file
+    stz prompt_curpos
+    lda #64
+    jsr prompt_insert
+    inc prompt_curpos
+    lda #'0'
+    jsr prompt_insert
+    inc prompt_curpos
+    lda #':'
+    jsr prompt_insert
+    inc prompt_curpos
+    
+    ;Write file
+    lda prompt_len
+    ldx #<prompt_input
+    ldy #>prompt_input
+    jsr file_write
+
+    jsr screen_clear_status
+    
+    lda file_io_err         ;Check for Kernal I/O errors
+    bne show_io_err
+    
+    jsr file_read_disk_status
+    bne :+                  ;Skip setting current file name if we had a disk error
+    
+    ldx #<(prompt_input+3)
+    ldy #>(prompt_input+3)
+    sec
+    lda prompt_len
+    sbc #3
     jsr file_set_filename
     jsr screen_print_header
 

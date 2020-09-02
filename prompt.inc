@@ -12,10 +12,8 @@
     ;Backup cursor pos
     lda CRS_X
     sta prompt_cursor_backup
-    sta $5200
     lda CRS_Y
     sta prompt_cursor_backup+1
-    sta $5201
     
     ;Print message
     stz VERA_L
@@ -59,6 +57,45 @@ set_bgcolor:
     ldy #57
     jmp cursor_move
 
+.endproc
+
+;******************************************************************************
+;Function name.......: prompt_default_input
+;Purpose.............: Sets default input
+;Input...............: Pointer to default input string, X=LSB and Y=MSB,
+;                      A=string len
+;Returns.............: Nothing
+;Error returns.......: None
+.proc prompt_default_input
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    sta len
+
+    ldy #0
+    sty index
+    
+:   ldy index
+
+    cpy len
+    beq exit
+    cpy prompt_maxlen
+    beq exit
+
+    lda (TMP1_ADR),y
+    sta prompt_input,y
+    inc prompt_len
+    jsr prompt_go_right
+    
+    inc index
+    jmp :-
+
+exit:
+    jmp prompt_refresh
+    
+len:
+    .byt 0
+index:
+    .byt 0
 .endproc
 
 ;******************************************************************************

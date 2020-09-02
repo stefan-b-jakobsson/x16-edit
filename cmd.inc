@@ -45,7 +45,13 @@ msg:
     ldx #<msg
     ldy #>msg
     lda #250        ;maxlen
-    jmp prompt_init
+    jsr prompt_init
+
+    ldx #<file_cur_filename
+    ldy #>file_cur_filename
+    lda file_cur_filename_len
+    jmp prompt_default_input
+
 msg:
     .byt "write to file name:",0
 .endproc
