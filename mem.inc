@@ -503,6 +503,128 @@ store_char:
 ;Error returns.......: C=1 if at file start, else C=0
 ;                      X=1 if at line break, else X=0
 .proc mem_delete
+    ;Is CRS_IDX=0?
+    ldy CRS_IDX
+    beq at_page_start
+
+    ;Are we at last char: is CRS_IDX+1 >= page len
+    ldx CRS_BNK
+    stx BNK_SEL
+    
+    iny
+    tya
+    ldy #4
+    cmp (CRS_ADR),y
+    bcs at_page_last
+
+default:
+    lda #5
+    sta CRS_ADR
+    
+    ;Check if char we're deleting is a LF
+    ldx #0
+    ldy CRS_IDX
+    dey
+    lda (CRS_ADR),y
+    cmp #LF
+    bne :+
+    ldx #1
+
+    ;copy from cursor to page end and save to cursor-1 to page end -1
+:   ldy CRS_IDX
+:   lda (CRS_ADR),y
+    dey
+    sta (CRS_ADR),y
+    iny
+    iny
+    cpy #250
+    bne :-
+
+    ;Decrease mem page len
+    stz CRS_ADR
+    ldy #4
+    lda (CRS_ADR),y
+    sec
+    sbc #1
+    sta (CRS_ADR),y
+
+    ;Decrease CRS_IDX
+    dec CRS_IDX
+
+    ;Return
+    clc
+    rts
+    
+at_page_last:
+    ;Decrease page len
+    dey
+    tya
+    ldy #4
+    sta (CRS_ADR),y
+
+    ;Decrease CRS_IDX
+    dec CRS_IDX
+
+    ;Check if deleted char was a LF
+    ldx #0
+
+    clc
+    adc #5
+    tay
+    lda (CRS_ADR),y
+    cmp #LF
+    bne :+
+    ldx #1
+
+:   clc
+    rts
+
+at_page_start:
+    ;Find previous page (non-zero len)
+    ldx CRS_ADR+1
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+
+:   ldy #0
+    lda (TMP1_ADR),y
+    tax
+    ldy #1
+    lda (TMP1_ADR),y
+    beq start_of_file
+    sta TMP1_ADR+1
+    stx BNK_SEL
+    ldy #4
+    lda (TMP1_ADR),y
+    beq :-
+
+    ;A non-zero length page found
+    ;Decrease len
+    sec
+    sbc #1
+    sta (TMP1_ADR),y
+
+    ;Check if we deleted a LF
+    ldx #0
+
+    clc
+    adc #5
+    tay
+    lda (TMP1_ADR),y
+    cmp #LF
+    bne :+
+    ldx #1
+
+:   clc
+    rts
+
+start_of_file:
+    sec
+    ldx #0
+    rts
+
+.endproc
+
+.proc mem_delete_old
     ;First take one step left
     jsr mem_crs_step_left
     bcc continue              
@@ -549,7 +671,6 @@ loop:
     jmp loop
 
 at_end_of_mempage:
-    ;If we're at end of the text stored in this mem page we don't need to move any text, just decrease page len by 1
     stz CRS_ADR
 
     ldy #4
@@ -557,7 +678,11 @@ at_end_of_mempage:
     lda page_len
     sta (CRS_ADR),y
 
-    clc
+    lda page_len
+    bne :+
+    ;jsr mem_crs_step_left
+
+:   clc
     rts
 
 page_len:
@@ -573,115 +698,87 @@ page_len:
 ;                      .X=1 if LF else .X=0
 ;Error returns.......: Nothing
 .proc mem_crs_step_right
-    ;Get mem page len
+    ;Read char at current position and check for line break
+    stz was_at_line_break
+
     lda CRS_BNK
     sta BNK_SEL
-
-    ldy #3
-    lda (CRS_ADR),y
-    sta next_page
-    
-    ;Try to get next page if crs_idx >=250
-    lda CRS_IDX
-    cmp #250
-    bcs goto_next_page
-
-    lda next_page
-    beq at_last_page
-
-    ;Index < 250
-    ldy #4
-    lda CRS_IDX
-    cmp (CRS_ADR),y
-    bcs goto_next_page
-
-    ldx #0         ;Set default return value, not at end of line
-
+    ldy CRS_IDX
     lda #5
     sta CRS_ADR
-    ldy CRS_IDX
     lda (CRS_ADR),y
     cmp #LF
     bne :+
-    ldx #1          ;At end of line, return X=1
-:   inc CRS_IDX
-    stz CRS_ADR     ;Restore to default value
-    clc
-    rts
+    lda #1
+    sta was_at_line_break
 
-at_last_page:
-    ;We're at last mem page, increase crs_idx, go one beyond last char position if we are at end of file
+    ;Is CRS_IDX + 1 >= current mem page len?
+:   iny
+    tya
+
     ldy #4
-    lda CRS_IDX
+    stz CRS_ADR
     cmp (CRS_ADR),y
-    bcs :++
+    bcs at_page_last
 
-    ldx #0          ;Set default return value, not at end of line
-    lda #5
-    sta CRS_ADR
-    ldy CRS_IDX
-    lda (CRS_ADR),y
-    cmp #LF
-    bne :+
-    ldx #1          ;At end of line, return X=1
-:   stz CRS_ADR     ;Restore to default value
+    ;We're not at last char of current mem page
     inc CRS_IDX
     clc
+    ldx was_at_line_break
     rts
 
-:   sta CRS_IDX
-    ldx #0
-    sec
-    rts
-
-goto_next_page:
-    ldx #0          ;Set default return value
-    lda #5
-    sta CRS_ADR
-    ldy CRS_IDX
+at_page_last:
+:   ldy #3
     lda (CRS_ADR),y
-    cmp #LF
-    bne :+
-    ldx #1          ;At line break, return X=1
-
-:   stz CRS_ADR     ;Restore default value
-
+    beq at_eof
+    
+    tax
     ldy #2
     lda (CRS_ADR),y
-    pha
-    
-    ldy #3
-    lda (CRS_ADR),y
-    beq eof
-
-    sta CRS_ADR+1
-    pla
     sta CRS_BNK
     sta BNK_SEL
+    txa
+    sta CRS_ADR+1
 
     ldy #4
     lda (CRS_ADR),y
-    beq goto_next_page
+    beq :-
 
     stz CRS_IDX
-
     clc
+    ldx was_at_line_break
     rts
 
-eof:
-    ;Clean stack
-    pla
+at_eof:
+    ldy #4
+    lda (CRS_ADR),y
+    cmp #251
+    bcs at_eof_page_full
 
+    cmp CRS_IDX
+    bcs :+
+
+    sec
+    ldx was_at_line_break
+    rts
+
+:   inc CRS_IDX
+    clc
+    ldx was_at_line_break
+    rts
+
+at_eof_page_full:
     jsr mem_alloc
+
     sty CRS_BNK
     stx CRS_ADR+1
     stz CRS_IDX
-
-    ldx #0
+    
     sec
+    ldx was_at_line_break
     rts
 
-next_page:
+was_at_line_break:
     .byt 0
 
 .endproc

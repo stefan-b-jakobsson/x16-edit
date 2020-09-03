@@ -414,6 +414,7 @@ next_mem_page:
     ldy #4
     lda (TMP1_ADR),y    ;Next page len
     sta len
+    beq next_mem_page
 
     lda #5              ;Set offset to 5 to skip mem page metadata
     sta TMP1_ADR
@@ -565,6 +566,7 @@ next_page:
     ldy #4         
     lda (TMP1_ADR),y
     sta page_len
+    beq next_page
 
     ;Set offset to skip mem page metadata
     lda #5
