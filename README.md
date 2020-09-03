@@ -26,6 +26,10 @@ The emulator may be downloaded from
 
 https://www.commanderx16.com/
 
+Run the program with the following command
+
+./x16emu -sdcard sdcard.img -prg x16edit.prg -run
+
 
 Loading and saving files in X16 Edit require that the emulator is started with an attached sdcard. Use the switch -sdcard.
 
