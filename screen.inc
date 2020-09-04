@@ -49,32 +49,21 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_print_header
-    ;Set color
-    lda #1
+    ;Clear and set color
+    lda #0
     sta VERA_L
     lda #0
     sta VERA_M
-    lda #(2<<4)
+    lda #(1<<4)
     sta VERA_H
 
     ldx #80
-    lda #64             ;Background color
+    ldy #32             ;Blank space
+    lda #64             ;Color
     
-:   sta VERA_D0
+:   sty VERA_D0
+    sta VERA_D0
     dex
-    bne :-
-
-    ;Clear text
-    lda #0
-    sta VERA_L
-    sta VERA_M
-    lda #(2<<4)
-    sta VERA_H
-    lda #32
-    ldy #80
-
-:   sta VERA_D0
-    dey
     bne :-
 
     ;Print program name
@@ -91,8 +80,10 @@
     inx
     jmp :-
 
+:   jsr screen_print_mod_status
+
     ;Print current file name (centered)
-:   lda file_cur_filename_len
+    lda file_cur_filename_len
     beq new_buffer
 
     cmp #60
@@ -147,6 +138,33 @@ new_buffer_msg:
 filename_len:
     .byt 0
 
+.endproc
+
+.proc screen_print_mod_status
+    ;Print modified status
+    lda #77*2
+    sta VERA_L
+    stz VERA_M
+    lda #(2<<4)
+    sta VERA_H
+
+    lda mem_modified
+    beq :+
+
+    lda #'m'
+    sta VERA_D0
+    lda #'o'
+    sta VERA_D0
+    lda #'d'
+    sta VERA_D0
+    rts
+
+:   lda #32
+    sta VERA_D0
+    sta VERA_D0
+    sta VERA_D0
+
+    rts
 .endproc
 
 

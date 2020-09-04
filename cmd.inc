@@ -64,7 +64,19 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_file_open
-    lda #5
+    lda mem_modified
+    beq :+
+    
+    lda #7
+    sta APP_MOD
+    
+    ldx #<msg2
+    ldy #>msg2
+    jsr screen_print_status
+
+    rts
+
+:   lda #5
     sta APP_MOD     ;mode_file_open
 
     ldx #<msg
@@ -73,6 +85,8 @@ msg:
     jmp prompt_init
 msg:
     .byt "open file name:",0
+msg2:
+    .byt "document modified. do you want to save? (y/n)",0
 .endproc
 
 ;******************************************************************************

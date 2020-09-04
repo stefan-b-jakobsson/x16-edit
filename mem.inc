@@ -147,6 +147,9 @@
     ldy #4
     sta (CRS_ADR),y     ;Len = 0
 
+    ;Set memory not modified
+    stz mem_modified
+
     rts
 .endproc
 
@@ -384,6 +387,11 @@ set_page_len:
     ;Page len is >=251, return overflow without increasing mem page len
     lda last_char
     sec
+
+    ;Set mem modified
+    ldx #1
+    stx mem_modified
+
     rts
 
 no_overflow:
@@ -491,6 +499,10 @@ store_char:
     ;Move cursor memory pointer
     jsr mem_crs_step_right
 
+    ;Set mem modified
+    ldx #1
+    stx mem_modified
+
     rts
 
 .endproc
@@ -557,9 +569,17 @@ default:
     
 at_page_last:
     ;Decrease page len
-    dey
-    tya
     ldy #4
+    lda (CRS_ADR),y
+    sec
+    sbc #1
+    sta (CRS_ADR),y
+
+    tay
+    lda #5
+    sta CRS_ADR
+    lda (CRS_ADR),y
+    dey
     sta (CRS_ADR),y
 
     ;Decrease CRS_IDX
@@ -622,71 +642,6 @@ start_of_file:
     ldx #0
     rts
 
-.endproc
-
-.proc mem_delete_old
-    ;First take one step left
-    jsr mem_crs_step_left
-    bcc continue              
-    
-    ;C=1; we're at start of file
-    ldx #0
-    sec
-
-    rts
-
-continue:
-    ;Get page len
-    lda CRS_BNK
-    sta BNK_SEL
-    
-    ldy #4
-    lda (CRS_ADR),y
-    sta page_len
-    
-    ldy CRS_IDX
-    iny
-    cpy page_len
-    bcs at_end_of_mempage
-
-    ;Not at end of mem page, prepare copying text one step to left in mem page
-    lda CRS_ADR+1
-    sta TMP1_ADR+1
-
-    lda #4
-    sta CRS_ADR
-
-    lda #5
-    sta TMP1_ADR
-
-loop:
-    ;Loop to move text from the cursor to the end of the mem page one step left
-    lda (TMP1_ADR),y
-    sta (CRS_ADR),y
-
-    cpy page_len
-    beq at_end_of_mempage
-
-    iny
-    jmp loop
-
-at_end_of_mempage:
-    stz CRS_ADR
-
-    ldy #4
-    dec page_len
-    lda page_len
-    sta (CRS_ADR),y
-
-    lda page_len
-    bne :+
-    ;jsr mem_crs_step_left
-
-:   clc
-    rts
-
-page_len:
-    .byt 0
 .endproc
 
 ;**********************************************************
@@ -756,9 +711,10 @@ at_eof:
     bcs at_eof_page_full
 
     cmp CRS_IDX
-    bcs :+
+    beq :+
+    bcs :++
 
-    sec
+:   sec
     ldx was_at_line_break
     rts
 
@@ -1180,6 +1136,9 @@ crs_backup:
 .endproc
 
 ;GLOBAL VARIABLES
+
+mem_modified:
+    .byte 0
 
 mem_map:
     .byt 0

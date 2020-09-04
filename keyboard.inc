@@ -45,6 +45,8 @@ gotachar:
     beq mode_file_open
     cpx #6
     beq mode_file_save_overwrite
+    cpx #7
+    beq mode_file_open_save_before
 
 mode_default:
     jmp keyboard_mode_default
@@ -66,6 +68,9 @@ mode_file_open:
 
 mode_file_save_overwrite:
     jmp keyboard_mode_file_save_overwrite
+
+mode_file_open_save_before:
+    jmp keyboard_mode_file_open_save_before
 .endproc
 
 ;******************************************************************************
@@ -346,7 +351,9 @@ write_file:
     beq confirm_overwrite
     jmp :++
     
-:   ldx #<prompt_input
+:   stz mem_modified
+    
+    ldx #<prompt_input
     ldy #>prompt_input
     lda prompt_len
     jsr file_set_filename
@@ -430,6 +437,8 @@ write_file:
     jsr file_read_disk_status
     bne :+                  ;Skip setting current file name if we had a disk error
     
+    stz mem_modified
+
     ldx #<(prompt_input+3)
     ldy #>(prompt_input+3)
     sec
@@ -515,6 +524,8 @@ read_file:
     ldy #2
     jsr cursor_move
 
+    stz mem_modified
+
     ldx #<prompt_input
     ldy #>prompt_input
     lda prompt_len
@@ -540,6 +551,37 @@ exit:
     lda #2              ;mode_statusmessage
     sta APP_MOD
 
+    rts
+
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_file_open_save_before
+;Purpose.............: Handle keypress when asking to save file before open
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_file_open_save_before
+    ;Y key pressed
+    cmp #$79
+    beq save
+
+    ;N key pressed
+    cmp #$6e
+    beq discard
+
+    ;Else ignore keypress
+    rts
+
+save:
+    jsr screen_clear_status
+    jmp cmd_file_save
+
+discard:
+    stz mem_modified
+    jsr screen_clear_status
+    jsr cmd_file_open
+    inc mem_modified
     rts
 
 .endproc
