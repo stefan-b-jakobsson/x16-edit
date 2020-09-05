@@ -196,3 +196,39 @@ msg:
     sta keyboard_tabwidth
     rts
 .endproc
+
+;******************************************************************************
+;Function name.......: cmd_new_buffer
+;Purpose.............: Command: Create a new empty text buffer
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_new_buffer
+    ;Check if document modified
+    lda mem_modified
+    beq :+
+
+    ldx #<msg
+    ldy #>msg
+    jsr screen_print_status
+
+    lda #9
+    sta APP_MOD
+    rts
+    
+:   jsr mem_init
+    
+    ldx #0
+    ldy #2
+    jsr cursor_move
+
+    stz file_cur_filename_len
+
+    jsr screen_refresh
+    jsr screen_print_header
+    rts
+
+msg:
+    .byt "document modified. do you want to save? (y/n)",0
+.endproc

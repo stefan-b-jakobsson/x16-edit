@@ -49,6 +49,8 @@ gotachar:
     beq mode_file_open_save_before
     cpx #8
     beq mode_exit_save_before
+    cpx #9
+    beq mode_new_buffer_save_before
 
 mode_default:
     jmp keyboard_mode_default
@@ -73,8 +75,12 @@ mode_file_save_overwrite:
 
 mode_file_open_save_before:
     jmp keyboard_mode_file_open_save_before
+
 mode_exit_save_before:
     jmp keyboard_mode_exit_save_before
+
+mode_new_buffer_save_before:
+    jmp keyboard_mode_new_buffer_save_before
 .endproc
 
 ;******************************************************************************
@@ -164,6 +170,10 @@ mode_exit_save_before:
     cmp #$06
     beq ctrl_f
 
+    ;Ctrl+n
+    cmp #$0e
+    beq ctrl_n
+
     ;Function keys
     cmp #$85
     beq f1
@@ -251,6 +261,9 @@ ctrl_p:
 
 ctrl_f:
     jmp cmd_find
+
+ctrl_n:
+    jmp cmd_new_buffer
 
 f1:
     jmp cmd_show_help
@@ -729,6 +742,37 @@ discard:
     jsr cmd_file_open
     inc mem_modified
     rts
+
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_new_buffer_save_before
+;Purpose.............: Handle keypress when asking to save file before create
+;                      new buffer
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_new_buffer_save_before
+    ;Y key pressed
+    cmp #$79
+    beq save
+
+    ;N key pressed
+    cmp #$6e
+    beq discard
+
+    ;Else ignore keypress
+    rts
+
+save:
+    jsr screen_clear_status
+    jmp cmd_file_save
+
+discard:
+    jsr screen_clear_status
+    stz APP_MOD
+    stz mem_modified
+    jmp cmd_new_buffer
 
 .endproc
 
