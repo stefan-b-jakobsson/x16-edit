@@ -23,7 +23,7 @@
     rts
 
 msg:
-    .byt "document modified. do you want to save? (y/n)",0
+    .byt "buffer modified. do you want to save? (y/n)",0
 .endproc
 
 ;******************************************************************************
@@ -102,7 +102,7 @@ msg:
 msg:
     .byt "open file name:",0
 msg2:
-    .byt "document modified. do you want to save? (y/n)",0
+    .byt "buffer modified. do you want to save? (y/n)",0
 .endproc
 
 ;******************************************************************************
@@ -230,5 +230,5 @@ msg:
     rts
 
 msg:
-    .byt "document modified. do you want to save? (y/n)",0
+    .byt "buffer modified. do you want to save? (y/n)",0
 .endproc
