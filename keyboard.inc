@@ -164,6 +164,31 @@ mode_exit_save_before:
     cmp #$06
     beq ctrl_f
 
+    ;Function keys
+    cmp #$85
+    beq f1
+
+    cmp #$89
+    beq f2
+
+    cmp #$86
+    beq f3
+
+    cmp #$8a
+    beq f4
+
+    cmp #$87
+    beq f5
+
+    cmp #$8b
+    beq f6
+
+    cmp #$88
+    beq f7
+
+    cmp #$8c
+    beq f8
+
     ;If no other match, goto default handler
     jmp keyboard_default_keyhandler
 
@@ -225,6 +250,30 @@ ctrl_p:
     jmp cmd_show_curpos
 
 ctrl_f:
+    jmp cmd_find
+
+f1:
+    jmp cmd_show_help
+
+f2:
+    jmp cmd_exit
+
+f3:
+    jmp cmd_file_save
+
+f4:
+    jmp cmd_file_open
+
+f5:
+    jmp cmd_cut
+
+f6:
+    jmp cmd_paste
+
+f7:
+    jmp cmd_show_curpos
+
+f8:
     jmp cmd_find
 
 .endproc
@@ -312,19 +361,82 @@ exit_help:
     cmp #$67
     beq show_help
 
+    ;x
+    cmp #$78
+    beq exit
+
+    ;w
+    cmp #$77
+    beq save
+
+    ;o
+    cmp #$6f
+    beq open
+
+    ;y
+    cmp #$79
+    beq pgup
+
+    ;v
+    cmp #$76
+    beq pgdown
+
+    ;k
+    cmp #$6b
+    beq cut
+
+    ;u
+    cmp #$75
+    beq paste
+
+    ;p
+    cmp #$70
+    beq curpos
+
+    ;f
+    cmp #$66
+    beq find
+
     ;1..9
     cmp #$31
     bcc exit
     cmp #$3a
     bcc tab_width
 
-exit:
+    ;Uknown command, ignore
     rts
 
 show_help:
     stz APP_MOD
     jsr screen_clear_status
     jmp cmd_show_help
+
+exit:
+    jmp cmd_exit
+
+save:
+    jmp cmd_file_save
+
+open:
+    jmp cmd_file_open
+
+pgup:
+    jmp keyboard_cmd_pageup
+
+pgdown:
+    jmp keyboard_cmd_pagedown
+
+cut:
+    jmp cmd_cut
+
+paste:
+    jmp cmd_paste
+
+curpos:
+    jmp cmd_show_curpos
+
+find:
+    jmp cmd_find
 
 tab_width:
     pha
