@@ -47,6 +47,8 @@ gotachar:
     beq mode_file_save_overwrite
     cpx #7
     beq mode_file_open_save_before
+    cpx #8
+    beq mode_exit_save_before
 
 mode_default:
     jmp keyboard_mode_default
@@ -71,6 +73,8 @@ mode_file_save_overwrite:
 
 mode_file_open_save_before:
     jmp keyboard_mode_file_open_save_before
+mode_exit_save_before:
+    jmp keyboard_mode_exit_save_before
 .endproc
 
 ;******************************************************************************
@@ -223,6 +227,36 @@ ctrl_p:
 ctrl_f:
     jmp cmd_find
 
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_exit_save_before
+;Purpose.............: Key handler for prompt the user to save before exit 
+;                      program
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_exit_save_before
+    ;Y key pressed
+    cmp #$79
+    beq save
+
+    ;N key pressed
+    cmp #$6e
+    beq discard
+
+    ;Else ignore keypress
+    rts
+
+save:
+    jsr screen_clear_status
+    jmp cmd_file_save
+
+discard:
+    ;Set app quit signal
+    lda #1
+    sta APP_QUIT
+    rts
 .endproc
 
 ;******************************************************************************

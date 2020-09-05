@@ -5,9 +5,25 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_exit
-    lda #1          ;APP_QUIT=1 signals to irq_handler to close down
+    ;Check if document modified first
+    lda mem_modified
+    beq :+
+    
+    ldx #<msg
+    ldy #>msg
+    jsr screen_print_status
+
+    lda #8
+    sta APP_MOD
+    rts
+
+    ;Set quit signal
+:   lda #1          ;APP_QUIT=1 signals to irq_handler to close down
     sta APP_QUIT
     rts
+
+msg:
+    .byt "document modified. do you want to save? (y/n)",0
 .endproc
 
 ;******************************************************************************

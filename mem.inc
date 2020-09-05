@@ -515,14 +515,14 @@ store_char:
 ;Error returns.......: C=1 if at file start, else C=0
 ;                      X=1 if at line break, else X=0
 .proc mem_delete
+    ldx CRS_BNK
+    stx BNK_SEL
+    
     ;Is CRS_IDX=0?
     ldy CRS_IDX
     beq at_page_start
 
     ;Are we at last char: is CRS_IDX+1 >= page len
-    ldx CRS_BNK
-    stx BNK_SEL
-    
     iny
     tya
     ldy #4
@@ -568,33 +568,34 @@ default:
     rts
     
 at_page_last:
+    ;Check if char we're deleting is a LF
+    ldx #0
+
+    lda #5
+    sta CRS_ADR
+    ldy CRS_IDX
+    dey
+    lda (CRS_ADR),y
+    cmp #LF
+    bne :+
+    ldx #1
+
+    ;Move char at cursor one step left
+:   ldy CRS_IDX
+    lda (CRS_ADR),y
+    dey
+    sta (CRS_ADR),y
+
     ;Decrease page len
+    stz CRS_ADR
     ldy #4
     lda (CRS_ADR),y
     sec
     sbc #1
     sta (CRS_ADR),y
 
-    tay
-    lda #5
-    sta CRS_ADR
-    lda (CRS_ADR),y
-    dey
-    sta (CRS_ADR),y
-
     ;Decrease CRS_IDX
     dec CRS_IDX
-
-    ;Check if deleted char was a LF
-    ldx #0
-
-    clc
-    adc #5
-    tay
-    lda (CRS_ADR),y
-    cmp #LF
-    bne :+
-    ldx #1
 
 :   clc
     rts
