@@ -29,7 +29,7 @@
     jsr KERNAL_GETIN
     bne gotachar
     rts
-
+    
 gotachar:
     ;Select key handler according to program mode
     ldx APP_MOD
@@ -307,6 +307,10 @@ f8:
     cmp #$6e
     beq discard
 
+    ;ESC key pressed
+    cmp #$03
+    beq abort
+
     ;Else ignore keypress
     rts
 
@@ -318,6 +322,11 @@ discard:
     ;Set app quit signal
     lda #1
     sta APP_QUIT
+    rts
+
+abort:
+    stz APP_MOD
+    jsr screen_clear_status
     rts
 .endproc
 
@@ -355,6 +364,7 @@ exit_help:
     ;Set program to default mode (0) and clear status message
     stz APP_MOD
     jsr screen_clear_status
+    jsr cursor_activate
 
     rts
 .endproc
@@ -397,6 +407,10 @@ exit_help:
     ;k
     cmp #$6b
     beq cut
+
+    ;m
+    cmp #$6d
+    beq mem_usage
 
     ;u
     cmp #$75
@@ -441,6 +455,9 @@ pgdown:
 
 cut:
     jmp cmd_cut
+
+mem_usage:
+    jmp cmd_mem_usage
 
 paste:
     jmp cmd_paste
@@ -564,7 +581,18 @@ overwrite_msg:
     cmp #$79
     beq write_file
 
-    ;Else abort
+    ;N key
+    cmp #$6e
+    beq abort
+
+    ;ESC key
+    cmp #$03
+    beq abort
+
+    ;Else ignore key
+    rts
+
+abort:
     stz APP_MOD         ;mode_default
     jsr cursor_activate
     jmp screen_clear_status
@@ -729,6 +757,10 @@ exit:
     cmp #$6e
     beq discard
 
+    ;ESC key
+    cmp #$03
+    beq abort
+
     ;Else ignore keypress
     rts
 
@@ -741,6 +773,11 @@ discard:
     jsr screen_clear_status
     jsr cmd_file_open
     inc mem_modified
+    rts
+
+abort:
+    stz APP_MOD
+    jsr screen_clear_status
     rts
 
 .endproc
@@ -761,6 +798,10 @@ discard:
     cmp #$6e
     beq discard
 
+    ;ESC key
+    cmp #$03
+    beq abort
+
     ;Else ignore keypress
     rts
 
@@ -774,6 +815,10 @@ discard:
     stz mem_modified
     jmp cmd_new_buffer
 
+abort:
+    stz APP_MOD
+    jsr screen_clear_status
+    rts
 .endproc
 
 ;******************************************************************************
@@ -1363,12 +1408,13 @@ linecount:
 
     ;Move cursor
     jsr cursor_move_right
-    bcc :+
+    bcc exit
+
     ;Carry set, cursor at rightmost position, need to scroll
     jsr mem_lnv_step_right
 
-:   jsr screen_println
-
+exit:
+    jsr screen_println
     rts
 .endproc
 

@@ -130,7 +130,7 @@ new_buffer:
     rts
 
 program_name:
-    .byt "x16 edit 0.0.3", 0
+    .byt "x16 edit 0.0.4", 0
 
 new_buffer_msg:
     .byt "new buffer"
@@ -476,10 +476,12 @@ exit:
     bne :-
 
     ;Clear any remaining lines
-:   ldy rows
+:   inc VERA_M
+    ldy rows
     beq exit_2
 
 clearbottom:
+    stz VERA_L  
     lda #32
     ldx #SCREEN_WIDTH
 :   sta VERA_D0

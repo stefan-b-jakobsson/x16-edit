@@ -23,7 +23,7 @@
     rts
 
 msg:
-    .byt "buffer modified. do you want to save? (y/n)",0
+    .byt "buffer modified. save before exit? (y/n)",0
 .endproc
 
 ;******************************************************************************
@@ -102,7 +102,7 @@ msg:
 msg:
     .byt "open file name:",0
 msg2:
-    .byt "buffer modified. do you want to save? (y/n)",0
+    .byt "buffer modified. save before open file? (y/n)",0
 .endproc
 
 ;******************************************************************************
@@ -230,5 +230,63 @@ msg:
     rts
 
 msg:
-    .byt "buffer modified. do you want to save? (y/n)",0
+    .byt "buffer modified. save before create new buffer? (y/n)",0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_mem_usage
+;Purpose.............: Displays memory usage
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_mem_usage
+    ldx mem_blocks_free
+    ldy mem_blocks_free+1
+    lda #0
+    jsr util_convert_to_decimal
+
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+
+    ldx #14
+    ldy #0
+
+:   lda (TMP1_ADR),y
+    beq insert_msg_end
+    sta msg,x
+    iny
+    inx
+    jmp :-
+
+insert_msg_end:
+    ldy #0
+:   lda msg_end,y
+    beq exit
+    sta msg,x
+    iny
+    inx
+    jmp :-
+
+exit:
+    sta msg,x
+
+    jsr screen_clear_status
+    
+    lda #2
+    sta APP_MOD
+
+    ldx #<msg
+    ldy #>msg
+    jsr screen_print_status
+
+    rts  
+
+msg:
+    .byt "memory usage: 00000000             "
+
+msg_end:
+    .byt " blocks free", 0
+
+
 .endproc

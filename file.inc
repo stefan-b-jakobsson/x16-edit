@@ -238,7 +238,7 @@ eof:
     ldy #4
     lda curpage_len
     sta (CRS_ADR),y
-
+      
     ;Set cursor mem pointer to start of text
     lda #1
     sta CRS_BNK

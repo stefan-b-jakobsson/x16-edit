@@ -17,62 +17,6 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-
-;**********************************************************
-;General description of the memory model
-;---------------------------------------
-;Text entered by the user is stored in banked RAM.
-;All available banks are used, and the text may be almost
-;2 MB of size.
-;
-;The memory isn't organized as one continuous string since
-;this would make the operation of the program too slow.
-;This is the especially true for large text if you like
-;to insert new text at the top. The program would then
-;need to copy all of the text one step forward to make
-;room for the text to be inserted.
-;
-;To avoid that, the memory is divided into memory
-;pages of 256 bytes each. For example, bank 1, address
-;range $a000 to $a0ff is a memory page.
-;
-;Each memory page contains a separate string.
-;
-;The memory pages are doubly-linked to each other,
-;holding a reference both to the previous and to the next
-;memory page. Each memory page also holds the length
-;of the text stored within it.
-;
-;The memory pages are dynamically linked throughout the
-;operation of the program, which makes it possible to
-;avoid copying large amounts of data when new text is
-;inserted. The program just links in a new memory page
-;if needed.
-;
-;Each memory page contains the following fields:
-;
-;Offset Content
-;00     Previous page / Bank number
-;01     Previous page / AddressH
-;02     Next page / Bank number
-;03     Next page / AddressH
-;04     Length of text stored in the memory page
-;05-ff  Text (max 251 bytes)
-;
-;The memory model is somewhat inspired by the
-;1541 disk format.
-;
-;The program uses the following three zero page pointers
-;to the memory in order to display the text:
-;
-;1. CRS_BNK + CRS_ADR + CRS_IDX (Cursor location in memory)
-;2. LNV_BNK + LNV_ADR + LNV_IDX (First visible char of the currently edited line)
-;3. SCR_BNK + SCR_ADR + SCR_IDX (First visible char of the screen)
-;
-;LNV_ is used to scroll the current line horizontally
-;SCR_ us used to scroll the text vertically
-
-
 ;**********************************************************
 ;Function name.......: mem_init
 ;Description.........: Initializes program's memory
@@ -82,6 +26,10 @@
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_init
+    ;Set reserved memory banks
+    lda #1
+    sta mem_reserved_banks
+
     ;Clear memory memory map, mark all mem pages as free
     ldy #0
     lda #0
@@ -145,12 +93,171 @@
     sta (CRS_ADR),y     ;Next page = 0, i.e. null
 
     ldy #4
-    sta (CRS_ADR),y     ;Len = 0
+    lda #0
+    sta (CRS_ADR),y     ;Len = 1
 
     ;Set memory not modified
     stz mem_modified
 
+    ;Set mem blocks free counter
+    lda #223
+    sta mem_blocks_free
+    lda #31
+    sta mem_blocks_free+1
+
     rts
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_is_head
+;Description.........: Finds out if page is head of buffer
+;Input...............: Y    Bank
+;                      X    Page
+;Returns.............: C = 1    Is head
+;                      C = 0    Is not head
+;Error returns.......: None
+.proc mem_is_head
+    cpy #1
+    bne :+
+    cpx #$a0
+    bne :+
+
+    sec
+    rts
+
+:   clc
+    rts
+
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_is_reserved
+;Description.........: Find out if a bank is available to
+;                      the program or reserved for other
+;                      purposes
+;Input...............: Y    Bank
+;Returns.............: C = 1    Bank is reserved
+;                      C = 0    Bank is not reserved
+;Error returns.......: None
+.proc mem_is_reserved
+    tya
+    tax
+    lsr
+    lsr
+    lsr
+    tay
+
+    txa
+    and #7
+    tax
+
+    lda bitmask,x
+    and mem_reserved_banks,y
+    bne bank_reserved
+
+bank_not_reserved:
+    clc
+    rts
+
+bank_reserved:
+    sec
+    rts
+
+bitmask:
+    .byt 1,2,4,8,16,32,64,128
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_at_bof
+;Description.........: Returns if current position is
+;                      beginning of file, i.e. first char
+;                      of the file
+;Input...............: Nothing
+;Returns.............: C = 1    Cursor at beginning of file
+;                      C = 0    Not at beginning of file
+;Error returns.......: Nothing
+.proc mem_at_bof
+    lda CRS_IDX
+    beq :+
+
+    ;If CRS_IDX > 0 we are not at bof
+    clc
+    rts
+
+:   lda CRS_BNK
+    sta BNK_SEL
+
+    lda CRS_ADR+1
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+
+:   ldy #1
+    lda (TMP1_ADR),y
+    beq at_bof
+
+    tax
+    ldy #0
+    lda (TMP1_ADR),y
+    sta BNK_SEL
+    stx TMP1_ADR+1
+    
+    ldy #4
+    lda (TMP1_ADR),y
+    beq :-
+
+not_bof:
+    clc
+    rts
+
+at_bof:
+    sec
+    rts
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_at_eof
+;Description.........: Returns if current position is
+;                      end of file, at last char or 
+;                      beyond
+;Input...............: Nothing
+;Returns.............: C = 1    Cursor at end of file
+;                      C = 0    Not at end of file
+;Error returns.......: Nothing
+.proc mem_at_eof
+    lda CRS_BNK
+    sta BNK_SEL
+    lda CRS_ADR+1
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+
+    ldy #4
+    lda CRS_IDX
+    clc
+    adc #1
+    cmp (TMP1_ADR),y
+    bcc not_eof
+
+:   ldy #3
+    lda (TMP1_ADR),y
+    beq at_eof
+
+    tax
+    ldy #2
+    lda (TMP1_ADR),y
+    sta BNK_SEL
+
+    ldy #4
+    lda (TMP1_ADR),y
+    beq :-
+
+not_eof:
+    clc
+    rts
+
+at_eof:
+    sec
+    rts
+
 .endproc
 
 ;**********************************************************
@@ -306,7 +413,14 @@ exit:
     ldy newbank
     ldx newpage
 
-    rts
+    ;Decrease mem blocks free counter
+    dec mem_blocks_free
+    lda mem_blocks_free
+    cmp #$ff
+    bne :+
+    dec mem_blocks_free+1
+
+:   rts
 
 newbank:
     .byt 0
@@ -327,6 +441,161 @@ nextpage:
 .endproc
 
 ;**********************************************************
+;Procedure name......: mem_free
+;Description.........: Frees a page in banked RAM
+;Input...............: Y    Bank
+;                      X    Page
+;Returns.............: Nohting
+;Error returns.......: C = 1    Could not free page
+.proc mem_free
+    ;Save input params
+    sty bank
+    stx page
+    
+    ;Check if bank is reserved, exit without deallocating if true
+    jsr mem_is_reserved
+    bcc :+
+    rts         ;Is reserved, exit
+
+    ;Check if page is head of buffer, exit without deallocating if true
+:   ldy bank
+    ldx page
+    jsr mem_is_head
+    bcc :+
+    rts         ;Is head of buffer, exit
+
+    ;Page not reserved or head of buffer ...
+    ;Find out position in mem_map corresponding to specified bank/page
+:   lda bank
+    lsr
+    lsr
+    lsr
+    lsr
+    lsr
+    lsr
+    clc
+    adc #>mem_map
+    sta TMP1_ADR+1      ;High byte = bank/64 + mem_mapH
+    
+    lda bank
+    asl
+    asl
+    adc #<mem_map
+    sta TMP1_ADR        ;Low byte = bank * 4 + mem_mapL
+    lda #0
+    adc TMP1_ADR+1
+    sta TMP1_ADR+1      ;Add possible overflow to high byte
+
+    lda page
+    sec
+    sbc #$a0
+    lsr
+    lsr
+    lsr
+    tay                 ;Set offset, Y = page/8
+
+    lda page
+    and #7
+    tax                 ;Set X to bitmask position
+
+    lda bitmask,x
+    and (TMP1_ADR),y
+    beq exit            ;Page already free, exit
+    
+    lda bitmask,x
+    eor #255
+    and (TMP1_ADR),y
+    sta (TMP1_ADR),y    ;Mark page as free
+
+    ;Get prev and next page
+    lda bank
+    sta BNK_SEL
+    lda page
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+
+    ldy #0
+    lda (TMP1_ADR),y
+    sta prev
+    ldy #1
+    lda (TMP1_ADR),y
+    sta prev+1
+
+    ldy #2
+    lda (TMP1_ADR),y
+    sta next
+    ldy #3
+    lda (TMP1_ADR),y
+    sta next+1
+
+    ;Set prev page pointer
+    lda prev+1
+    beq next_page_link      ;Prev page null, shouldn't happen ...
+   
+    sta TMP1_ADR+1
+    lda prev
+    sta BNK_SEL
+
+    ldy #2
+    lda next
+    sta (TMP1_ADR),y
+    ldy #3
+    lda next+1
+    sta (TMP1_ADR),y
+
+    ;Set next page pointer
+next_page_link:
+    lda next+1
+    beq exit             ;Next page null
+    
+    sta TMP1_ADR+1
+    lda next
+    sta BNK_SEL
+
+    ldy #0
+    lda prev
+    sta (TMP1_ADR),y
+    ldy #1
+    lda prev+1
+    sta (TMP1_ADR),y
+
+exit:
+    clc
+
+    ;Increase mem block free counter
+    inc mem_blocks_free
+    bne :+
+    inc mem_blocks_free+1
+
+:   rts
+
+bank:
+    .byt 0
+
+page:
+    .byt 0
+
+prev:
+    .byt 0,0
+
+next:
+    .byt 0,0
+
+bitmask:
+    .byt 1,2,4,8,16,32,64,128
+.endproc
+
+;**********************************************************
+;Function name.......: mem_defrag
+;Description.........: Defragments one mem page per invocation
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc mem_defrag
+    rts
+.endproc
+
+;**********************************************************
 ;Function name.......: mem_push
 ;Description.........: Pushes content of a mem page
 ;                      one step forward
@@ -334,84 +603,85 @@ nextpage:
 ;Returns.............: C=1 if overflow; overflow char returned in .A
 ;Error returns.......: Nothing
 .proc mem_push
-    sta start_push
+    ;Save push start index for later use
+    sta start
 
-    ;Get page len
+    ;Set zero page pointers
     sty BNK_SEL
-    sty TMP1_BNK
-
     stx TMP1_ADR+1
     stz TMP1_ADR
+    stx TMP2_ADR+1
 
+    ;Get len
     ldy #4
     lda (TMP1_ADR),y
-    sta page_len
+    sta len
 
-    ;Save last char, should we need to return an overflow
-    ldy #255
+    ;If len = 0 there's nothing to push. Set len = 1 and exit
+    cmp #0
+    bne :+
+
+    lda #1
+    sta (TMP1_ADR),y
+    clc
+    rts
+    
+    ;Save last char in mem page, if there is overflow to return later
+:   ldy #255
     lda (TMP1_ADR),y
     sta last_char
 
-    ;If start push index >=250 (i.e. last index in mem page)
-    lda start_push
+    ;Is start index >= 250, skip push routine
+    lda start
     cmp #250
-    bcc push
-
-    jmp set_page_len
-
-push:
-    ;Set offset 5 to skip mem page metadata
-    lda #5
+    bcc :+
+    jmp setlen
+    
+    ;Set offset used when pushing data
+:   lda #5
     sta TMP1_ADR
-
+    lda #6
+    sta TMP2_ADR
+    
     ldy #249
 
 loop:
     lda (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    dey
-    cpy start_push
-    beq set_page_len
+    sta (TMP2_ADR),y
+
+    cpy start
+    beq setlen
     dey
     jmp loop
 
-set_page_len:
-    ;Restore offset to get mem page metadata
+setlen:
+    ;Restore to default value
     stz TMP1_ADR
 
-    lda page_len
+    ;Len < 251? Yes: Increase len before exit
+    lda len
     cmp #251
-    bcc no_overflow
+    bcc :+
 
-    ;Page len is >=251, return overflow without increasing mem page len
-    lda last_char
+    ;Len >= 251. Don't increase len. Return overflow, indicated by carry=1
     sec
-
-    ;Set mem modified
-    ldx #1
-    stx mem_modified
-
+    lda last_char
     rts
 
-no_overflow:
-    inc page_len
-    lda page_len
+:   inc len
+    lda len
     ldy #4
     sta (TMP1_ADR),y
-
+    
     clc
     rts
 
-start_push:
+start:
     .byt 0
-
-page_len:
+len:
     .byt 0
-
 last_char:
     .byt 0
-
 .endproc
 
 ;**********************************************************
@@ -424,87 +694,156 @@ last_char:
     ;Save char on stack
     pha
 
-    ;Push mem page content to make room for new char
-    ldy CRS_BNK
-    ldx CRS_ADR+1
+    ;Check if we are at beginning of mem page, and if there is room to insert
+    ;the char in previous mem page
     lda CRS_IDX
-    jsr mem_push
-    bcc store_char
-
-    ;Handle overflow from mem page push
-    pha
+    bne pushforward
 
     lda CRS_BNK
     sta BNK_SEL
 
-    ;Get next mem page, if next page null, alloc new mem page
-    ldy #2
-    lda (CRS_ADR),y     ;bank
+    ldy #1
+    lda (CRS_ADR),y
+    beq pushforward
     tax
-    ldy #3
-    lda (CRS_ADR),y     ;page
-    beq alloc_new
-    
-    sta TMP1_ADR+1
-    stz TMP1_ADR
-    
-    stx TMP1_BNK
-    stx BNK_SEL
-
-    ;Get next page len, if it's full, alloc new page
-    ldy #4
-    lda (TMP1_ADR),y
-    cmp #251
-    bcs alloc_new
-
-    ;Push next page content
-    ldy TMP1_BNK
-    ldx TMP1_ADR+1
-    lda #0
-    jsr mem_push 
-
-    ldy #5              ;Store overflow char at beginning of next page
-    pla                 ;Pull back overflow char
-    sta (TMP1_ADR),y
-
-    jmp store_char
-
-alloc_new:
-    jsr mem_alloc       ;Next page was not allocated or was full, we're allocating a new page
-
-    sty BNK_SEL
+    ldy #0
+    lda (CRS_ADR),y
+    sta BNK_SEL
+    sta TMP1_BNK
     stx TMP1_ADR+1
     stz TMP1_ADR
 
-    pla                 ;Pull back overflow char (02)
-    ldy #5
-    sta (TMP1_ADR),y    ;Store overflow char at beginning of the new page
+    ldy #4
+    lda (TMP1_ADR),y
+    cmp #251
+    bcs pushforward
+
+    ;There was room in previous mem page, let's insert char there
+    tax     ;Temp storage for prev page len
+    clc
+    adc #5  ;Add 5 to skip mem page metadata
+    tay
+    pla     ;Get char from stack
+    sta (TMP1_ADR),y
+    
+    inx     ;Increase prev page len
+    txa
+    ldy #4
+    sta (TMP1_ADR),y
+
+    dex             ;Decrease to represent last index in prev page
+
+    ;Check if LNV_XXX is at CRS_XXX. If so, step left to char we inserted
+    lda LNV_BNK
+    cmp CRS_BNK
+    bne :+
+    lda LNV_ADR+1
+    cmp CRS_ADR+1
+    bne :+
+    lda LNV_IDX
+    cmp CRS_IDX
+    bne :+
+
+    lda TMP1_BNK
+    sta LNV_BNK
+    lda TMP1_ADR+1
+    sta LNV_ADR+1
+    stx LNV_IDX    
+
+    ;Check if SCR_XXX is at CRS_XXX. If so, step left to char we inserted
+:   lda SCR_BNK
+    cmp CRS_BNK
+    bne :+
+    lda SCR_ADR+1
+    cmp CRS_ADR+1
+    bne :+
+    lda SCR_IDX
+    cmp CRS_IDX
+    bne :+
+
+    lda TMP1_BNK
+    sta SCR_BNK
+    lda TMP1_ADR+1
+    sta SCR_ADR+1
+    stx SCR_IDX
+
+    ;Exit
+:   lda #1
+    sta mem_modified
+    rts
+
+pushforward:
+    ldy CRS_BNK
+    ldx CRS_ADR+1
+    lda CRS_IDX
+    jsr mem_push
+    bcc insert
+
+;Store overflow
+    pha
+    lda CRS_BNK
+    sta BNK_SEL
+    
+    ldy #3
+    lda (CRS_ADR),y
+    beq alloc
+    
+    tax
+    
+    ldy #2
+    lda (CRS_ADR),y
+    
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+    sta BNK_SEL
+    sta TMP1_BNK
 
     ldy #4
-    lda #1
-    sta (TMP1_ADR),y    ;Set new page len = 1
+    lda (TMP1_ADR),y
+    cmp #251
+    bcs alloc
+    
+    ldy TMP1_BNK
+    ldx TMP1_ADR+1
+    lda #0
+    jsr mem_push
 
-store_char:    
-    lda CRS_BNK         ;And now, finally, store that char we liked to insert
+    pla
+    ldy #5
+    stz TMP1_ADR
+    sta (TMP1_ADR),y
+    jmp insert
+
+alloc:
+    jsr mem_alloc
+    sty BNK_SEL
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+    
+    pla
+    ldy #5
+    sta (TMP1_ADR),y
+    ldy #4
+    lda #1
+    sta (TMP1_ADR),y
+
+insert:
+    lda CRS_BNK
     sta BNK_SEL
 
-    lda #5              ;Set offset=5 to skip mem page metadata
+    lda #5
     sta CRS_ADR
-    pla                 ;Pull back char to insert
+
+    pla
     ldy CRS_IDX
     sta (CRS_ADR),y
 
-    stz CRS_ADR         ;Restore offset
+    stz CRS_ADR
 
-    ;Move cursor memory pointer
-    jsr mem_crs_step_right
+    lda #1
+    sta mem_modified
 
-    ;Set mem modified
-    ldx #1
-    stx mem_modified
-
-    rts
-
+    jmp mem_crs_step_right
 .endproc
 
 ;**********************************************************
@@ -515,95 +854,25 @@ store_char:
 ;Error returns.......: C=1 if at file start, else C=0
 ;                      X=1 if at line break, else X=0
 .proc mem_delete
-    ldx CRS_BNK
-    stx BNK_SEL
-    
-    ;Is CRS_IDX=0?
-    ldy CRS_IDX
-    beq at_page_start
+    stz at_lf
 
-    ;Are we at last char: is CRS_IDX+1 >= page len
-    iny
-    tya
-    ldy #4
-    cmp (CRS_ADR),y
-    bcs at_page_last
+    ;Cursor at beginning of file?
+    jsr mem_at_bof
+    bcc :+
 
-default:
-    lda #5
-    sta CRS_ADR
-    
-    ;Check if char we're deleting is a LF
     ldx #0
-    ldy CRS_IDX
-    dey
-    lda (CRS_ADR),y
-    cmp #LF
-    bne :+
-    ldx #1
-
-    ;copy from cursor to page end and save to cursor-1 to page end -1
-:   ldy CRS_IDX
-:   lda (CRS_ADR),y
-    dey
-    sta (CRS_ADR),y
-    iny
-    iny
-    cpy #250
-    bne :-
-
-    ;Decrease mem page len
-    stz CRS_ADR
-    ldy #4
-    lda (CRS_ADR),y
     sec
-    sbc #1
-    sta (CRS_ADR),y
-
-    ;Decrease CRS_IDX
-    dec CRS_IDX
-
-    ;Return
-    clc
-    rts
-    
-at_page_last:
-    ;Check if char we're deleting is a LF
-    ldx #0
-
-    lda #5
-    sta CRS_ADR
-    ldy CRS_IDX
-    dey
-    lda (CRS_ADR),y
-    cmp #LF
-    bne :+
-    ldx #1
-
-    ;Move char at cursor one step left
-:   ldy CRS_IDX
-    lda (CRS_ADR),y
-    dey
-    sta (CRS_ADR),y
-
-    ;Decrease page len
-    stz CRS_ADR
-    ldy #4
-    lda (CRS_ADR),y
-    sec
-    sbc #1
-    sta (CRS_ADR),y
-
-    ;Decrease CRS_IDX
-    dec CRS_IDX
-
-:   clc
     rts
 
-at_page_start:
-    ;Find previous page (non-zero len)
-    ldx CRS_ADR+1
-    stx TMP1_ADR+1
+    ;Cursor at beginning of page?
+:   lda CRS_IDX
+    bne default
+
+    lda CRS_BNK
+    sta TMP1_BNK
+    sta BNK_SEL
+    lda CRS_ADR+1
+    sta TMP1_ADR+1
     stz TMP1_ADR
 
 :   ldy #0
@@ -611,39 +880,85 @@ at_page_start:
     tax
     ldy #1
     lda (TMP1_ADR),y
-    beq start_of_file
     sta TMP1_ADR+1
+    stx TMP1_BNK
     stx BNK_SEL
     ldy #4
     lda (TMP1_ADR),y
     beq :-
 
-    ;A non-zero length page found
-    ;Decrease len
     sec
     sbc #1
     sta (TMP1_ADR),y
 
-    ;Check if we deleted a LF
-    ldx #0
-
-    clc
-    adc #5
     tay
+    lda #5
+    sta TMP1_ADR
     lda (TMP1_ADR),y
     cmp #LF
     bne :+
-    ldx #1
+    inc at_lf
 
-:   clc
+:   ldx at_lf
+    clc
+    lda #1
+    sta mem_modified
     rts
 
-start_of_file:
+default:
+    jsr mem_crs_step_left
+
+    lda CRS_BNK
+    sta BNK_SEL
+    lda #5
+    sta CRS_ADR
+    ldy CRS_IDX
+    lda (CRS_ADR),y
+    cmp #LF
+    bne :+
+    inc at_lf
+
+:   stz CRS_ADR
+    ldy #4
+    lda (CRS_ADR),y
     sec
-    ldx #0
+    sbc #1
+    sta (CRS_ADR),y
+
+    lda #5
+    sta CRS_ADR
+    ldy CRS_IDX  
+    iny
+
+:   lda (CRS_ADR),y
+    dey
+    sta (CRS_ADR),y
+    iny
+    iny
+    cpy #251
+    bne :-
+
+    stz CRS_ADR
+
+    ldy #4
+    lda (CRS_ADR),y
+    bne :+
+
+    jsr mem_at_eof
+    bcs :+
+    jsr mem_crs_step_left
+
+:   ldx at_lf
+    clc
+    lda #1
+    sta mem_modified
     rts
+
+at_lf:
+    .byt 0
 
 .endproc
+
 
 ;**********************************************************
 ;Procedure name......: mem_crs_step_right
@@ -654,90 +969,85 @@ start_of_file:
 ;                      .X=1 if LF else .X=0
 ;Error returns.......: Nothing
 .proc mem_crs_step_right
-    ;Read char at current position and check for line break
-    stz was_at_line_break
+    ;Is cursor at LF?
+    stz at_lf
 
     lda CRS_BNK
     sta BNK_SEL
-    ldy CRS_IDX
-    lda #5
-    sta CRS_ADR
+    clc
+    lda CRS_IDX
+    adc #5
+    tay
     lda (CRS_ADR),y
     cmp #LF
     bne :+
-    lda #1
-    sta was_at_line_break
+    inc at_lf
 
-    ;Is CRS_IDX + 1 >= current mem page len?
-:   iny
-    tya
+    ;Is cursor at end of file?
+:   jsr mem_at_eof
+    bcc :+
 
-    ldy #4
-    stz CRS_ADR
-    cmp (CRS_ADR),y
-    bcs at_page_last
-
-    ;We're not at last char of current mem page
-    inc CRS_IDX
-    clc
-    ldx was_at_line_break
-    rts
-
-at_page_last:
-:   ldy #3
-    lda (CRS_ADR),y
-    beq at_eof
-    
-    tax
-    ldy #2
-    lda (CRS_ADR),y
-    sta CRS_BNK
+    lda CRS_BNK
     sta BNK_SEL
-    txa
+    lda CRS_IDX
+    clc
+    adc #1
+    ldy #4
+    cmp (CRS_ADR),y
+    beq goto_eof
+    
+    sec
+    ldx #0
+    rts
+
+:   ;Is cursor at end of mem page?
+    lda CRS_BNK
+    sta BNK_SEL
+    lda CRS_IDX
+    clc
+    adc #1
+    cmp (CRS_ADR),y
+    bcc default
+
+    ;Go to next mem page
+:   ldy #2
+    lda (CRS_ADR),y
+    tax
+    ldy #3
+    lda (CRS_ADR),y
+    stx CRS_BNK
+    stx BNK_SEL
     sta CRS_ADR+1
-
-    ldy #4
-    lda (CRS_ADR),y
-    beq :-
-
     stz CRS_IDX
-    clc
-    ldx was_at_line_break
-    rts
-
-at_eof:
     ldy #4
     lda (CRS_ADR),y
-    cmp #251
-    bcs at_eof_page_full
+    beq :-              ;Len = 0, continue searching...
 
-    cmp CRS_IDX
-    beq :+
-    bcs :++
-
-:   sec
-    ldx was_at_line_break
-    rts
-
-:   inc CRS_IDX
     clc
-    ldx was_at_line_break
+    ldx at_lf
     rts
 
-at_eof_page_full:
-    jsr mem_alloc
+goto_eof:
+    lda CRS_IDX
+    cmp #250
+    bne default
 
+    jsr mem_alloc
     sty CRS_BNK
     stx CRS_ADR+1
     stz CRS_IDX
-    
-    sec
-    ldx was_at_line_break
+    clc
+    ldx at_lf
     rts
 
-was_at_line_break:
-    .byt 0
+default:
+    inc CRS_IDX
+    clc
+    ldx at_lf
+    rts
 
+at_lf:
+    .byt 0
 .endproc
 
 ;**********************************************************
@@ -750,80 +1060,63 @@ was_at_line_break:
 ;                      .X=1 if line break, else .X=0
 ;Error returns.......: Nothing
 .proc mem_crs_step_left
-    lda CRS_BNK
-    sta BNK_SEL
+    ;Is cursor at beginning of file?
+    jsr mem_at_bof
+    bcc :+
 
-    ;Check if we are at beginning of mem page, if so get previous page
-    lda CRS_IDX
-    cmp #0
-    beq get_prev_page
-
-    ;Otherwise just decrease index
-    dec CRS_IDX
-
+    sec
     ldx #0
-    lda CRS_IDX
-    clc
-    adc #5
-    tay
-    lda (CRS_ADR),y
-    cmp #LF
-    bne :+
-    ldx #1
-:   clc
     rts
 
-get_prev_page:
-    ;Get previous bank
-    ldy #0
+:   ;Is cursor at start of mem page?
+    lda CRS_IDX
+    bne default
+
+:   lda CRS_BNK
+    sta BNK_SEL
+
+:   ldy #1
     lda (CRS_ADR),y
     tax
-
-    ;Get previous mem page, check if at beginning of file
-    ldy #1
+    ldy #0
     lda (CRS_ADR),y
-    beq bof
+    sta CRS_BNK
+    sta BNK_SEL
+    stx CRS_ADR+1
 
-    ;Set cursor to previous bank and mem page
-    sta CRS_ADR+1
-    stx CRS_BNK
-    stx BNK_SEL
-
-    ;Get page len
     ldy #4
     lda (CRS_ADR),y
+    beq :-              ;Len = 0, continue searching...
 
-    ;Len = 0?
-    beq prev_page_empty
-
-    ;Set index to last char = page len - 1
     sec
     sbc #1
     sta CRS_IDX
 
+    jmp exit
+
+default:
+    dec CRS_IDX
+
+exit:
     ldx #0
-    lda CRS_IDX
+    
+    lda CRS_BNK
+    sta BNK_SEL
+    
     clc
+    lda CRS_IDX
     adc #5
     tay
     lda (CRS_ADR),y
     cmp #LF
     bne :+
     ldx #1
+    
 :   clc
     rts
 
-prev_page_empty:
-    ;Try again!
-    jmp get_prev_page
-
-bof:
-    ;At beginning of file, set cursor index=0 and exit
-    stz CRS_IDX
-    ldx #0
-    sec
-    rts
-
+at_lf:
+    .byt 0
 .endproc
 
 ;**********************************************************
@@ -837,7 +1130,8 @@ bof:
 .proc mem_crs_move_to_line_start
     stz count
     stz count+1
-
+    stz count+2
+  
 loop:
     stz CRS_ADR
 
@@ -847,11 +1141,13 @@ loop:
     inc count
     bne :+
     inc count+1
+    bne :+
+    inc count+2
 
-    lda CRS_BNK
+:   lda CRS_BNK
     sta BNK_SEL
 
-:   ldy CRS_IDX
+    ldy CRS_IDX
     lda #5
     sta CRS_ADR
     lda (CRS_ADR),y
@@ -861,20 +1157,26 @@ loop:
     stz CRS_ADR
 
     jsr mem_crs_step_right
+    
     dec count
     lda count
     cmp #$ff
     bne exit
     dec count+1
+    lda count+1
+    cmp #$ff
+    bne exit
+    dec count+2
 
 exit:
     ldx count
     ldy count+1
+    lda count+2
     
     rts
 
 count:
-    .byt 0,0
+    .byt 0,0,0
 .endproc
 
 ;**********************************************************
@@ -898,7 +1200,7 @@ loop:
     ldy CRS_IDX
     lda (CRS_ADR),y
     cmp #LF
-    beq at_enter
+    beq exit
 
     stz CRS_ADR
     jsr mem_crs_step_right
@@ -910,13 +1212,8 @@ loop:
 
     jmp loop
 
-at_enter:
-    ;jsr mem_crs_step_left
-    bcs exit
-
 exit:
     stz CRS_ADR
-
     ldy count+1 ;MSB
     ldx count   ;LSB
 
@@ -938,11 +1235,11 @@ count:
 .proc mem_lnv_step_left
     ;Backup CRS pointers
     lda CRS_BNK
-    sta TMP1_BNK
+    sta backup
     lda CRS_ADR+1
-    sta TMP1_ADR+1
+    sta backup+1
     lda CRS_IDX
-    sta TMP1_IDX
+    sta backup+2
 
     ;Move LNV pointers to CRS
     lda LNV_BNK
@@ -964,14 +1261,17 @@ count:
     sta LNV_IDX
 
     ;Restore CRS pointers
-    lda TMP1_BNK
+    lda backup
     sta CRS_BNK
-    lda TMP1_ADR+1
+    lda backup+1
     sta CRS_ADR+1
-    lda TMP1_IDX
+    lda backup+2
     sta CRS_IDX
     
     rts
+
+backup:
+    .byt 0,0,0
 .endproc
 
 ;**********************************************************
@@ -985,11 +1285,11 @@ count:
 .proc mem_lnv_step_right
     ;Backup CRS pointers
     lda CRS_BNK
-    sta TMP1_BNK
+    sta backup
     lda CRS_ADR+1
-    sta TMP1_ADR+1
+    sta backup+1
     lda CRS_IDX
-    sta TMP1_IDX
+    sta backup+2
 
     ;Move LNV pointers to CRS
     lda LNV_BNK
@@ -1011,14 +1311,17 @@ count:
     sta LNV_IDX
 
     ;Restore CRS pointers
-    lda TMP1_BNK
+    lda backup
     sta CRS_BNK
-    lda TMP1_ADR+1
+    lda backup+1
     sta CRS_ADR+1
-    lda TMP1_IDX
+    lda backup+2
     sta CRS_IDX
     
     rts
+
+backup:
+    .byt 0,0,0
 .endproc
 
 ;**********************************************************
@@ -1031,11 +1334,11 @@ count:
 ;Error returns.......: Nothing
 .proc mem_scr_move_down
     lda CRS_BNK
-    sta crs_backup
+    sta backup
     lda CRS_ADR+1
-    sta crs_backup+1
+    sta backup+1
     lda CRS_IDX
-    sta crs_backup+2
+    sta backup+2
 
     lda SCR_BNK
     sta CRS_BNK
@@ -1054,16 +1357,16 @@ count:
     lda CRS_IDX
     sta SCR_IDX
 
-    lda crs_backup
+    lda backup
     sta CRS_BNK
-    lda crs_backup+1
+    lda backup+1
     sta CRS_ADR+1
-    lda crs_backup+2
+    lda backup+2
     sta CRS_IDX
     
     rts
     
-crs_backup:
+backup:
     .byt 0,0,0
 .endproc
 
@@ -1077,11 +1380,11 @@ crs_backup:
 ;Error returns.......: Nothing
 .proc mem_scr_move_up
     lda CRS_BNK
-    sta crs_backup
+    sta backup
     lda CRS_ADR+1
-    sta crs_backup+1
+    sta backup+1
     lda CRS_IDX
-    sta crs_backup+2
+    sta backup+2
 
     lda SCR_BNK
     sta CRS_BNK
@@ -1101,16 +1404,16 @@ crs_backup:
     lda CRS_IDX
     sta SCR_IDX
 
-    lda crs_backup
+    lda backup
     sta CRS_BNK
-    lda crs_backup+1
+    lda backup+1
     sta CRS_ADR+1
-    lda crs_backup+2
+    lda backup+2
     sta CRS_IDX
     
     rts
 
-crs_backup:
+backup:
     .byt 0,0,0
 .endproc
 
@@ -1139,7 +1442,13 @@ crs_backup:
 ;GLOBAL VARIABLES
 
 mem_modified:
-    .byte 0
+    .byt 0
+
+mem_blocks_free:
+    .byt 0,0
+
+mem_reserved_banks:
+    .res 32,0
 
 mem_map:
     .byt 0

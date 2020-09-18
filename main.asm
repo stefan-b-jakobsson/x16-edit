@@ -47,6 +47,52 @@
     bne :-
     
     rts
+
+count:
+    .byt 32
+.endproc
+
+;A routine to feed test characters to the editor 
+;for debugging purposes
+.proc feed_test
+    lda #<testtext
+    sta $40
+    lda #>testtext
+    sta $41
+    stz index
+
+:   ldy index
+    lda ($40),y
+    beq eof
+    jsr keyboard_mode_default
+    inc index
+    bne :-
+    inc $41
+    jmp :-
+    
+eof:
+    jsr screen_refresh
+    rts
+
+index:
+    .byt 0
+
+testtext:
+    .res 59, 65
+    .byt 13
+
+    .res 59, 66
+    .byt 13
+
+    .res 59, 67
+    .byt 13
+
+    .res 59, 68
+    .byt 13
+
+    .res 11, 69
+    .byt 0
+
 .endproc
 
 .include "screen.inc"
@@ -56,4 +102,5 @@
 .include "irq.inc"
 .include "cursor.inc"
 .include "file.inc"
+.include "util.inc"
 .include "mem.inc"

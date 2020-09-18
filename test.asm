@@ -32,10 +32,58 @@ cld
 ;jsr test_mem_step_right
 ;jsr test_mem_insert
 ;jsr test_screen_println
-jsr test_initial
+;jsr test_initial
 ;jsr test_keyboard
 ;jsr test_prompt
+;jsr test_mem_free
+;jsr test_decimal
+jsr test_mem_step
+
 rts
+
+.proc test_mem_step
+    jsr mem_init
+    ldy #4
+    lda #251
+    sta (CRS_ADR),y
+
+    lda #251
+    sta counter
+    
+:   jsr mem_crs_step_right
+    dec counter
+    bne :-
+
+    lda CRS_BNK
+    sta $5000
+    lda CRS_ADR
+    sta $5001   
+    lda CRS_ADR+1
+    sta $5002
+    lda CRS_IDX
+    sta $5003
+
+    lda #251
+    sta counter
+
+:   jsr mem_crs_step_left
+    dec counter
+    bne :-
+
+    lda CRS_BNK
+    sta $5004
+    lda CRS_ADR
+    sta $5005   
+    lda CRS_ADR+1
+    sta $5006
+    lda CRS_IDX
+    sta $5007
+
+    rts
+
+counter:
+    .byt 0
+.endproc
 
 .proc test_ram
     lda #3
@@ -412,15 +460,113 @@ counter:
 
     lda #0
     sta counter
+    lda #4
+    sta counter+1
 
     :lda counter
     jsr mem_insert
+    stz CRS_IDX
     dec counter
     bne :-
+
+    dec counter+1
+    bne :-
+
+    ;Verify
+    stz $5000
+    stz $5001
+
+    stz TMP1_ADR
+    lda #$a0
+    sta TMP1_ADR+1
+    lda #1
+    sta BNK_SEL
+
+    ldy #4
+    lda (TMP1_ADR),y
+    sta len
+
+    lda #$ff
+    sta counter
+    lda #5
+    sta TMP1_ADR
+
+    ldy #0
+
+:   cpy len
+    beq :+
+    inc counter
+    lda (TMP1_ADR),y
+    cmp counter
+    bne fail
+    iny
+    bne :-
+
+:   stz TMP1_ADR
+    ldy #3
+    lda (TMP1_ADR),y
+    beq exit
+    tax
+    ldy #2
+    lda (TMP1_ADR),y
+    sta BNK_SEL
+    stx TMP1_ADR+1
+    ldy #4
+    lda (TMP1_ADR),y
+    sta len
+
+    lda #5
+    sta TMP1_ADR
+
+    ldy #0
     
+    jmp :--
+
+exit:
+    lda #1
+    sta CRS_BNK
+    lda #$a0
+    sta CRS_ADR+1
+    stz CRS_ADR
+    lda #250
+    sta CRS_IDX
+    lda #251
+    ldy #4
+    sta (CRS_ADR),y
+    lda #255
+    ldy #255
+    sta (CRS_ADR),y
+
+    jsr mem_alloc
+    lda #$a6
+    sta CRS_ADR+1
+    lda #1
+    ldy #5
+    sta (CRS_ADR),y
+    ldy #6
+    lda #2
+    sta (CRS_ADR),y
+    ldy #7
+    lda #3
+    sta (CRS_ADR),y
+    lda #$a0
+    sta CRS_ADR+1
+    
+    lda #$ff
+    jsr mem_insert
+
+    rts
+
+fail:
+    lda TMP1_ADR+1
+    sta $5000
+    sty $5001
     rts
 
 counter:
+    .byt 0,0
+
+len:
     .byt 0
 .endproc
 
@@ -476,7 +622,65 @@ counter: .byt 0
     beq :-
 .endproc
 
-.include "mem.inc"
+.proc test_mem_free
+    jsr mem_init
+
+    lda #32
+    sta counter
+
+:   jsr mem_alloc
+    sty CRS_BNK
+    sty CRS_BNK
+    stx CRS_ADR+1
+    dec counter
+    bne :-
+    
+    ldy #1
+    ldx #$bf
+    jsr mem_free
+
+    ldy #2
+    ldx #$a0
+    jsr mem_free
+    
+    ldx #16
+:   lda mem_map+3,x
+    sta $5000-1,x
+    dex
+    bne :-
+    
+    rts
+
+counter:
+    .byt 32
+
+.endproc
+
+.proc test_decimal
+    lda #0
+    sta VERA_L
+    lda #2
+    sta VERA_M
+    lda #(2<<4)
+    sta VERA_H
+
+    ldx #5
+    ldy #100
+    lda #100
+    jsr util_convert_to_decimal
+
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    ldy #0
+:   lda (TMP1_ADR),y
+    beq exit
+    sta VERA_D0
+    iny
+    jmp :-
+exit:
+    rts
+.endproc
+
 .include "screen.inc"
 .include "keyboard.inc"
 .include "cmd.inc"
@@ -484,3 +688,5 @@ counter: .byt 0
 .include "irq.inc"
 .include "cursor.inc"
 .include "file.inc"
+.include "util.inc"
+.include "mem.inc"

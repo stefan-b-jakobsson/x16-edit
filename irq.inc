@@ -57,6 +57,7 @@
     bne shutdown
 
     ;Main loop
+
     jsr keyboard_read
     jsr cursor_toggle
     jsr screen_print_mod_status
