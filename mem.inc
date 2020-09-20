@@ -105,6 +105,17 @@
     lda #31
     sta mem_blocks_free+1
 
+    ;Set current line=1 and column=1
+    lda #1
+    sta mem_cur_line
+    sta mem_cur_col
+    
+    stz mem_cur_line+1
+    stz mem_cur_line+2
+
+    stz mem_cur_col+1
+    stz mem_cur_col+2
+
     rts
 .endproc
 
@@ -725,7 +736,7 @@ last_char:
     tay
     pla     ;Get char from stack
     sta (TMP1_ADR),y
-    
+
     inx     ;Increase prev page len
     txa
     ldy #4
@@ -1072,7 +1083,7 @@ at_lf:
     lda CRS_IDX
     bne default
 
-:   lda CRS_BNK
+    lda CRS_BNK
     sta BNK_SEL
 
 :   ldy #1
@@ -1111,8 +1122,8 @@ exit:
     cmp #LF
     bne :+
     ldx #1
-    
-:   clc
+ 
+ :  clc
     rts
 
 at_lf:
@@ -1172,7 +1183,7 @@ exit:
     ldx count
     ldy count+1
     lda count+2
-    
+   
     rts
 
 count:
@@ -1439,6 +1450,70 @@ backup:
     rts
 .endproc
 
+.proc mem_cur_col_inc
+    inc mem_cur_col
+    bne exit
+    inc mem_cur_col+1
+    bne exit
+    inc mem_cur_col+2
+
+exit:
+    rts
+.endproc
+
+.proc mem_cur_col_dec
+    dec mem_cur_col
+    lda mem_cur_col
+    cmp #$ff
+    bne exit
+
+    dec mem_cur_col+1
+    lda mem_cur_col+1
+    cmp #$ff
+    bne exit
+
+    dec mem_cur_col+2
+
+exit:
+    rts
+.endproc
+
+.proc mem_cur_col_ret
+    lda #1
+    sta mem_cur_col
+    stz mem_cur_col+1
+    stz mem_cur_col+2
+    rts
+.endproc
+
+.proc mem_cur_line_inc
+    inc mem_cur_line
+    bne exit
+    inc mem_cur_line+1
+    bne exit
+    inc mem_cur_line+2
+
+exit:
+    rts
+.endproc
+
+.proc mem_cur_line_dec
+    dec mem_cur_line
+    lda mem_cur_line
+    cmp #$ff
+    bne exit
+
+    dec mem_cur_line+1
+    lda mem_cur_line+1
+    cmp #$ff
+    bne exit
+    
+    dec mem_cur_line+2
+
+exit:
+    rts
+.endproc
+
 ;GLOBAL VARIABLES
 
 mem_modified:
@@ -1449,6 +1524,12 @@ mem_blocks_free:
 
 mem_reserved_banks:
     .res 32,0
+
+mem_cur_line:
+    .byt 1,0,0
+
+mem_cur_col:
+    .byt 1,0,0
 
 mem_map:
     .byt 0

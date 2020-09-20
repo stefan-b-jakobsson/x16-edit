@@ -51,6 +51,8 @@ gotachar:
     beq mode_exit_save_before
     cpx #9
     beq mode_new_buffer_save_before
+    cpx #10
+    beq mode_find
 
 mode_default:
     jmp keyboard_mode_default
@@ -81,6 +83,9 @@ mode_exit_save_before:
 
 mode_new_buffer_save_before:
     jmp keyboard_mode_new_buffer_save_before
+
+mode_find:
+    jmp keyboard_mode_find
 .endproc
 
 ;******************************************************************************
@@ -822,6 +827,35 @@ abort:
 .endproc
 
 ;******************************************************************************
+;Function name.......: keyboard_mode_find
+;Purpose.............: Handle keypress when entering search param
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_find
+    ;Enter key
+    cmp #13
+    beq search
+
+    ;ESC key
+    cmp #$03
+    beq abort
+
+    jmp prompt_keypress
+
+search:
+    jsr prompt_close
+    stz APP_MOD
+    jmp cmd_do_find
+
+abort:
+    jsr prompt_close
+    stz APP_MOD
+    rts
+
+.endproc
+
+;******************************************************************************
 ;Function name.......: keyboard_esc_key
 ;Purpose.............: Handles keypress
 ;Input...............: Nothing
@@ -852,6 +886,10 @@ msg:
     lda #LF
     jsr mem_insert
 
+    ;Move line, column index
+    jsr mem_cur_col_ret
+    jsr mem_cur_line_inc
+
     ;Move cursor to first column of next row
     jsr cursor_move_crlf
     bcc :+          
@@ -880,7 +918,8 @@ msg:
     cpx #1
     beq linebreak_deleted
 
-    ;We did not delete a line break, move cursor one column left and print line
+    ;We did not delete a line break, decrease column index, move cursor one column left and print line
+    jsr mem_cur_col_dec
     jsr cursor_move_left
     bcc :+
     jsr mem_lnv_step_left
@@ -898,6 +937,7 @@ linebreak_deleted:
     ;Carry set, we're at top of screen and need to scroll
     jsr mem_scr_move_up
 
+
 :   ;Move to line start, and save the number of chars moved over
     jsr mem_crs_move_to_line_start
     stx counter
@@ -908,6 +948,10 @@ linebreak_deleted:
 
     jsr screen_refresh
 
+    ;Set line and column index
+    jsr mem_cur_col_ret
+    jsr mem_cur_line_dec
+
 ;Loop to move the cursor back to the column we came from
 loop:
     lda counter
@@ -916,6 +960,7 @@ loop:
     beq exit
 
 :   jsr mem_crs_step_right
+    jsr mem_cur_col_inc
     jsr cursor_move_right
     bcc continue
 
@@ -948,18 +993,30 @@ counter:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_tab_key
+    stz counter
+    stz counter+1
+    stz counter+2
+
+    clc
     lda keyboard_tabwidth
+    adc counter
     sta counter
+    lda counter+1
+    adc #0
+    sta counter+1
+    lda counter+2
+    adc #0
+    sta counter+2
 
 :   lda #32
-    jsr keyboard_default_keyhandler
+    jsr cmd_insert
     dec counter
     bne :-
 
     rts
 
 counter:
-    .byt 0
+    .byt 0,0,0
 .endproc
 
 ;******************************************************************************
@@ -969,44 +1026,13 @@ counter:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_rightarrow_key
-    ;Move mem pointer one step right, carry set if at end of file, X=1 if at end of line
-    jsr mem_crs_step_right
-    bcs at_eof
-    cpx #1
-    beq at_eol
-
-    ;Move cursor one step right
-    jsr cursor_move_right
-    bcs at_rightmost
+    jsr cmd_go_right
+    bcs :+
 
     jsr screen_println
     rts
 
-at_rightmost:
-    ;Cursor at rightmost position but not end of line, need to scroll
-    jsr mem_lnv_step_right
-    jsr screen_println
-    rts
-
-at_eof:
-    ;End of file, do nothing
-    jsr screen_println
-    rts
-
-at_eol:
-    ;End of line, move cursor to start of next line, C=1 if at bottom of screen
-    jsr cursor_move_crlf
-    bcs at_bottom
-
-    jsr mem_set_lnv_to_crs  ;Set first visible char to cursor, i.e. start of line
-    jsr screen_refresh
-    rts
-
-at_bottom:
-    ;Cursor at bottom of screen, but not end of file, need to scroll
-    jsr mem_set_lnv_to_crs
-    jsr mem_scr_move_down
-    jsr screen_refresh
+:   jsr screen_refresh
     rts
 .endproc
 
@@ -1017,47 +1043,14 @@ at_bottom:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_leftarrow_key
-    ;Move mem pointer one step left, if C set we are at start of file, if X=1 we moved to line above
-    jsr mem_crs_step_left
-    bcs at_filestart
-    cpx #1
-    beq at_linebreak
-
-    ;Move cursor left, if C set we are at leftmost screen position, but not start of line (need to scroll)
-    jsr cursor_move_left
-    bcs at_leftmost
-
-    ;No special case to handle, refresh line
+    jsr cmd_go_left
+    bcs :+
+    
     jsr screen_println
     rts
 
-at_filestart:
-    ;We are at start of file, nothing to do
-    rts
-
-at_leftmost:
-    ;Cursor at leftmost screen position (but not start of line), scroll the line
-    jsr mem_lnv_step_left
-    jsr screen_println
-    rts
-
-at_linebreak:
-    ;Goto start of line
-    jsr mem_crs_move_to_line_start
-
-    ;Also set first visible char to start of line
-    jsr mem_set_lnv_to_crs
-
-    ;Move cursor up to start of line above
-    stz CRS_X
-    jsr cursor_move_up
-    bcc :+
-    ;C=1, we're at top of screen, need to scroll
-    jsr mem_scr_move_up
-
-    ;Use existing function to go to end of line
 :   jsr screen_refresh
-    jmp keyboard_end_key
+    rts
 .endproc
 
 ;******************************************************************************
@@ -1068,118 +1061,9 @@ at_linebreak:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_uparrow_key
-    ;Backup pointers so we can restore them if necessary
-    lda CRS_BNK
-    sta backup
-    lda CRS_ADR+1
-    sta backup+1
-    lda CRS_IDX
-    sta backup+2
-    
-    lda LNV_BNK
-    sta backup+3
-    lda LNV_ADR+1
-    sta backup+4
-    lda LNV_IDX
-    sta backup+5
-
-    ;Move to start of current line, and save number of chars stepped over
-    jsr mem_crs_move_to_line_start
-    stx count
-    sty count+1
-
-    ;Move one step left to get to end of line above
-    jsr mem_crs_step_left
-    bcs at_first_line           ;If carry set, we're at start of file
-
-    ;Move to start of that line
-    jsr mem_crs_move_to_line_start
-
-    ;Set pointer to first visible char on line to cursor position
-    jsr mem_set_lnv_to_crs
-
-    ;Move screen cursor to beginning of the line above
-    stz CRS_X
-    ldy CRS_Y
-    jsr cursor_move_up
-    bcc:+                       ;If carry set, we're at top of screen, need to scroll
-    jsr mem_scr_move_up
-:   jmp stepto_column
-
-at_first_line:
-    ;Restore pointers and exit
-    lda backup
-    sta CRS_BNK
-    lda backup+1
-    sta CRS_ADR+1
-    lda backup+2
-    sta CRS_IDX
-
-    lda backup+3
-    sta LNV_BNK
-    lda backup+4
-    sta LNV_ADR+1
-    lda backup+5
-    sta LNV_IDX
-
-    rts
-
-stepto_column:
-    ;Move back to the column we came from, but stop if we encounter a line separator before that
-    
-    ;Check column counter, exit if 0
-    lda count
-    bne :+
-    lda count+1
-    beq exit
-
-:   ;If char = LF then exit
-    lda #5
-    sta CRS_ADR
-    ldy CRS_IDX
-    lda (CRS_ADR),y
-    cmp #LF
-    beq exit
-    stz CRS_ADR
-
-    ;Move mem pointer one step right, exit C=1 (end of file)
-    jsr mem_crs_step_right
-    bcs exit
-
-    ;Move cursor, if at rightmost position (but not end of line), need to scroll line
-    jsr cursor_move_right
-    bcs :+
-    jmp dec_count
-:   ;C=1, need to scroll
-    jsr mem_lnv_step_right
-
-dec_count:
-    ;Decrease counter
-    dec count
-    lda count
-    cmp #$ff
-    bne stepto_column
-
-    lda count+1
-    beq exit
-    dec count+1
-
-    jmp stepto_column
-
-exit:
-    stz CRS_ADR         ;Restore to default value, so that we don't mess up other functions use of this pointer
-    
+    jsr cmd_go_up
     jsr screen_refresh
-    jsr screen_println
-
-    rts
-
-count:
-    .byt 0,0
-
-backup:
-    .byt 0,0,0,0,0,0
-
+    jmp screen_println
 .endproc
 
 ;******************************************************************************
@@ -1189,107 +1073,9 @@ backup:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_downarrow_key
-    ;Backup pointers so we can restore them later if necessary
-    lda CRS_BNK
-    sta backup
-    lda CRS_ADR+1
-    sta backup+1
-    lda CRS_IDX
-    sta backup+2
-    
-    lda LNV_BNK
-    sta backup+3
-    lda LNV_ADR+1
-    sta backup+4
-    lda LNV_IDX
-    sta backup+5
-
-    ;Move cursor mem pointer to start of line, and save number of chars stepped over
-    jsr mem_crs_move_to_line_start
-    stx count
-    sty count+1
-
-    ;Move cursor mem pointer to end of line, and move one more step to get to next line (carry set = end of file)
-    jsr mem_crs_move_to_line_end
-    jsr mem_crs_step_right
-    bcs at_last_line
-
-    ;Set pointer to first visible char on the line to cursor
-    jsr mem_set_lnv_to_crs
-
-    ;Move cursor to start of line below
-    stz CRS_X
-    ldy CRS_X
-    jsr cursor_move_down
-    bcc loop
-    
-    ;C=1, cursor at bottom of screen and we need to scroll
-    jsr mem_scr_move_down
-
-loop:
-    ;Loop to move back to column we came from, however stop if we encounter a line separator
-
-    ;Check column counter, exit if 0
-    lda count
-    bne loop_2
-    lda count+1
-    beq exit
-
-loop_2:
-    lda #5
-    sta CRS_ADR
-    ldy CRS_IDX
-    lda (CRS_ADR),y
-    cmp #LF
-    beq exit            ;Line separator found
-
-    stz CRS_ADR
-    jsr mem_crs_step_right
-    bcs exit            ;At end of file, exit
-
-    jsr cursor_move_right
-    bcc loop_3
-    ;At rightmost position of screen, need to scroll
-    jsr mem_lnv_step_right
-
-loop_3:
-    ;Decrease counter
-    dec count
-    lda count
-    cmp #$ff
-    bne loop
-    dec count+1
-    jmp loop
-
-at_last_line:
-    ;Restore pointers, and exit
-    lda backup
-    sta CRS_BNK
-    lda backup+1
-    sta CRS_ADR+1
-    lda backup+2
-    sta CRS_IDX
-
-    lda backup+3
-    sta LNV_BNK
-    lda backup+4
-    sta LNV_ADR+1
-    lda backup+5
-    sta LNV_IDX
-
-    rts
-
-exit:
-    stz CRS_ADR
+    jsr cmd_go_down
     jsr screen_refresh
-    jsr screen_println
-    rts
-
-count:
-    .byt 0,0
-
-backup:
-    .byt 0,0,0,0,0,0
+    jmp screen_println
 .endproc
 
 ;******************************************************************************
@@ -1299,16 +1085,8 @@ backup:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_home_key
-    ;Move cursor to leftmost position
-    ldx #0
-    ldy CRS_Y
-    jsr cursor_move
-    
-    ;Move cursor mem pointer to start of line, and set first visible char to same
-    jsr mem_crs_move_to_line_start
-    jsr mem_set_lnv_to_crs
-    jsr screen_println
-    rts
+    jsr cmd_go_home
+    jmp screen_println
 .endproc
 
 ;******************************************************************************
@@ -1318,39 +1096,8 @@ backup:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_end_key
-    ;Move cursor mem pointer to end of line, save number of chars stepped over
-    jsr mem_crs_move_to_line_end
-    sty counter+1
-    stx counter
-
-;Loop to move to end of line
-loop:
-    ;Check column counter, exit if 0
-    lda counter
-    bne :+
-    lda counter+1
-    beq exit
-
-:   jsr cursor_move_right
-    bcc :+                      
-    ;Carry set = cursor at rightmost position of screen, need to scroll
-    jsr mem_lnv_step_right
-
-    ;Decrease counter
-:   dec counter
-    lda counter
-    cmp #$ff
-    bne loop
-    dec counter+1
-    jmp loop
-
-exit:
-    jsr screen_println          ;To refresh current line
-    rts
-
-counter:
-    .byt 0,0
-
+    jsr cmd_go_end
+    jmp screen_println
 .endproc
 
 ;******************************************************************************
@@ -1363,11 +1110,11 @@ counter:
     lda #27
     sta linecount
 
-:   jsr keyboard_uparrow_key
+:   jsr cmd_go_up
     dec linecount
     bne :-
 
-    rts
+    jmp screen_refresh
 
 linecount:
     .byt 0
@@ -1385,11 +1132,11 @@ linecount:
     lda #27
     sta linecount
 
-:   jsr keyboard_downarrow_key
+:   jsr cmd_go_down
     dec linecount
     bne :-
 
-    rts
+    jmp screen_refresh
 
 linecount:
     .byt 0
@@ -1403,19 +1150,8 @@ linecount:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_default_keyhandler
-    ;Insert char into memory
-    jsr mem_insert
-
-    ;Move cursor
-    jsr cursor_move_right
-    bcc exit
-
-    ;Carry set, cursor at rightmost position, need to scroll
-    jsr mem_lnv_step_right
-
-exit:
-    jsr screen_println
-    rts
+    jsr cmd_insert
+    jmp screen_println
 .endproc
 
 ;GLOBAL VARIABLES
