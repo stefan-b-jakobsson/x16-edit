@@ -37,9 +37,21 @@ cld
 ;jsr test_prompt
 ;jsr test_mem_free
 ;jsr test_decimal
-jsr test_mem_step
+;jsr test_mem_step
+jsr test_util_bin
 
 rts
+
+.proc test_util_bin
+    ldx #$99
+    ldy #$10
+    lda #$23
+    jsr util_convert_to_binary
+    stx $5000
+    sty $5001
+    sta $5002
+    rts
+.endproc
 
 .proc test_mem_step
     jsr mem_init
