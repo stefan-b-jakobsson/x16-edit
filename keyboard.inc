@@ -53,6 +53,8 @@ gotachar:
     beq mode_new_buffer_save_before
     cpx #10
     beq mode_find
+    cpx #11
+    beq mode_goto_line
 
 mode_default:
     jmp keyboard_mode_default
@@ -86,6 +88,10 @@ mode_new_buffer_save_before:
 
 mode_find:
     jmp keyboard_mode_find
+
+mode_goto_line:
+    jmp keyboard_mode_goto_line
+
 .endproc
 
 ;******************************************************************************
@@ -170,6 +176,10 @@ mode_find:
     ;Ctrl+p
     cmp #$10
     beq ctrl_p
+
+    ;Ctrl+l
+    cmp #$0c
+    beq ctrl_l
 
     ;Ctrl+f
     cmp #$06
@@ -263,6 +273,9 @@ ctrl_u:
 
 ctrl_p:
     jmp cmd_show_curpos
+
+ctrl_l:
+    jmp cmd_goto_line
 
 ctrl_f:
     jmp cmd_find
@@ -1140,6 +1153,33 @@ linecount:
 
 linecount:
     .byt 0
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_goto_line
+;Purpose.............: Handler for goto line function
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_goto_line
+    ;Enter key
+    cmp #13
+    beq goto_line
+
+    ;ESC key
+    cmp #$03
+    beq abort
+
+    ;Default action
+    jmp prompt_keypress
+
+goto_line:
+    jmp cmd_do_goto_line
+
+abort:
+    stz APP_MOD
+    jmp prompt_close
+
 .endproc
 
 

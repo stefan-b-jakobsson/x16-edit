@@ -43,14 +43,22 @@ jsr test_util_bin
 rts
 
 .proc test_util_bin
-    ldx #$99
-    ldy #$10
-    lda #$23
-    jsr util_convert_to_binary
-    stx $5000
-    sty $5001
-    sta $5002
+    ldx #<test_val
+    ldy #>test_val
+    jsr util_str_to_bcd
+    
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    ldy #0
+    :lda (TMP1_ADR),y
+    sta $5000,y
+    iny
+    cpy #5
+    bne :-
     rts
+
+test_val:
+    .byt "1",0
 .endproc
 
 .proc test_mem_step
@@ -679,7 +687,7 @@ counter:
     ldx #5
     ldy #100
     lda #100
-    jsr util_convert_to_decimal
+    jsr util_bin_to_dec
 
     stx TMP1_ADR
     sty TMP1_ADR+1

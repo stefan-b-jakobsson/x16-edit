@@ -1,4 +1,23 @@
 ;******************************************************************************
+;Copyright 2020, Stefan Jakobsson.
+;
+;This file is part of X16 Edit.
+;
+;X16 Edit is free software: you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;X16 Edit is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
+;******************************************************************************
+
+;******************************************************************************
 ;Function name.......: cmd_insert
 ;Purpose.............: Inserts one char at cursor position and moves the cursor
 ;                      one step right. Does not refresh screen; users of this 
@@ -161,7 +180,7 @@ at_bottom:
 ;                      refresh screen; users of this procedure are responsible
 ;                      to do screen refresh
 ;Input...............: Nothing
-;Returns.............: Nothing
+;Returns.............: C=1 if at first line, else C=0
 ;Error returns.......: None
 .proc cmd_go_up
     ;Backup pointers so we can restore them if necessary
@@ -252,6 +271,9 @@ dec_count:
 
 exit:
     stz CRS_ADR         ;Restore to default value, so that we don't mess up other functions use of this pointer
+
+    clc
+
     rts
 
 at_first_line:
@@ -270,6 +292,8 @@ at_first_line:
     lda backup+5
     sta LNV_IDX
 
+    sec
+
     rts
 
 count:
@@ -285,7 +309,7 @@ backup:
 ;                      refresh screen; users of this procedure are responsible
 ;                      to do screen refresh
 ;Input...............: Nothing
-;Returns.............: Nothing
+;Returns.............: C=1 if at last line, else C=0
 ;Error returns.......: None
 .proc cmd_go_down
     ;Backup pointers so we can restore them later if necessary
@@ -366,6 +390,8 @@ loop_3:
 
 exit:
     stz CRS_ADR
+    clc
+
     rts
 
 at_last_line:
@@ -383,6 +409,8 @@ at_last_line:
     sta LNV_ADR+1
     lda backup+5
     sta LNV_IDX
+
+    sec
 
     rts
 
@@ -628,7 +656,8 @@ msg:
     ldx mem_cur_line
     ldy mem_cur_line+1
     lda mem_cur_line+2
-    jsr util_convert_to_decimal
+    jsr util_bin_to_bcd
+    jsr util_bcd_to_str
 
     stx TMP1_ADR
     sty TMP1_ADR+1
@@ -657,7 +686,8 @@ msg:
 :   ldx mem_cur_col
     ldy mem_cur_col+1
     lda mem_cur_col+2
-    jsr util_convert_to_decimal
+    jsr util_bin_to_bcd
+    jsr util_bcd_to_str
     
     stx TMP1_ADR
     sty TMP1_ADR+1
@@ -906,7 +936,8 @@ msg:
     ldx mem_blocks_free
     ldy mem_blocks_free+1
     lda #0
-    jsr util_convert_to_decimal
+    jsr util_bin_to_bcd
+    jsr util_bcd_to_str
 
     stx TMP1_ADR
     sty TMP1_ADR+1
@@ -950,5 +981,131 @@ msg:
 msg_end:
     .byt " blocks free", 0
 
+.endproc
 
+;******************************************************************************
+;Function name.......: cmd_goto_line
+;Purpose.............: Command: Goto line number, prompt for input
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_goto_line
+    lda #11
+    sta APP_MOD
+
+    ldx #<msg
+    ldy #>msg
+    lda #7
+    jmp prompt_init
+
+msg:
+    .byt "go to line number:",0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_do_goto_line
+;Purpose.............: Command: Goto line number, execute
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_do_goto_line
+    stz APP_MOD
+    jsr prompt_close
+    
+    ;Parse prompt input
+    ldx #<prompt_input
+    ldy #>prompt_input
+
+    ;Append null char
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    ldy prompt_len
+    lda #0
+    sta (TMP1_ADR),y
+    ldy TMP1_ADR+1
+
+    ;Convert string to BCD value
+    jsr util_str_to_bcd
+    bcs invalid_input
+
+    ;Convert BCD value to binary value, and store it
+    jsr util_bcd_to_bin
+    stx line
+    sty line+1
+    sta line+2
+
+    ;Goto start of line
+    jsr cmd_go_home
+
+    ;Compare
+    lda mem_cur_line+2
+    cmp line+2
+    bcc go_down
+    beq :+
+    jmp go_up
+
+:   lda mem_cur_line+1
+    cmp line+1
+    bcc go_down
+    beq :+
+    jmp go_up
+
+:   lda mem_cur_line
+    cmp line
+    bcc go_down
+    beq :+
+    jmp go_up
+
+:   rts         ;Already at that line
+
+go_up:
+    jsr cmd_go_up
+    bcs exit
+
+    lda mem_cur_line
+    cmp line
+    bne go_up
+    lda mem_cur_line+1
+    cmp line+1
+    bne go_up
+    lda mem_cur_line+1
+    cmp line+1
+    bne go_up
+    jsr screen_refresh
+    rts
+
+go_down:
+    jsr cmd_go_down
+    bcs exit
+
+    lda mem_cur_line
+    cmp line
+    bne go_down
+    lda mem_cur_line+1
+    cmp line+1
+    bne go_down
+    lda mem_cur_line+1
+    cmp line+1
+    bne go_down
+
+exit:
+    jsr screen_refresh
+    rts
+
+invalid_input:
+    lda #2
+    sta APP_MOD
+    ldx #<msg
+    ldy #>msg
+    jsr screen_print_status
+
+    rts
+
+line:
+    .byt 0,0,0
+
+msg:
+    .byt "invalid line number",0
 .endproc
