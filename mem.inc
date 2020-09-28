@@ -250,12 +250,14 @@ at_bof:
 
 :   ldy #3
     lda (TMP1_ADR),y
+    tax
     beq at_eof
 
     tax
     ldy #2
     lda (TMP1_ADR),y
     sta BNK_SEL
+    stx TMP1_ADR+1
 
     ldy #4
     lda (TMP1_ADR),y
@@ -880,7 +882,6 @@ insert:
     bne default
 
     lda CRS_BNK
-    sta TMP1_BNK
     sta BNK_SEL
     lda CRS_ADR+1
     sta TMP1_ADR+1
@@ -892,7 +893,6 @@ insert:
     ldy #1
     lda (TMP1_ADR),y
     sta TMP1_ADR+1
-    stx TMP1_BNK
     stx BNK_SEL
     ldy #4
     lda (TMP1_ADR),y
@@ -914,6 +914,7 @@ insert:
     clc
     lda #1
     sta mem_modified
+
     rts
 
 default:

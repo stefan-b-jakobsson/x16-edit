@@ -17,7 +17,6 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-
 ;******************************************************************************
 ;Function name.......: keyboard_read
 ;Purpose.............: Reads one character from the keyboard buffer
@@ -33,28 +32,48 @@
 gotachar:
     ;Select key handler according to program mode
     ldx APP_MOD
+
     cpx #1
     beq mode_helpscreen
+    
     cpx #2
     beq mode_statusmessage
+    
     cpx #3
     beq mode_command
+    
     cpx #4
     beq mode_file_save
+    
     cpx #5
     beq mode_file_open
+    
     cpx #6
     beq mode_file_save_overwrite
+    
     cpx #7
     beq mode_file_open_save_before
+    
     cpx #8
     beq mode_exit_save_before
+    
     cpx #9
     beq mode_new_buffer_save_before
+    
     cpx #10
     beq mode_find
+    
     cpx #11
     beq mode_goto_line
+    
+    cpx #12
+    beq mode_replace_0
+    
+    cpx #13
+    beq mode_replace_1
+    
+    cpx #14
+    beq mode_replace_2
 
 mode_default:
     jmp keyboard_mode_default
@@ -91,6 +110,13 @@ mode_find:
 
 mode_goto_line:
     jmp keyboard_mode_goto_line
+
+mode_replace_0:
+    jmp keyboard_mode_replace_0
+mode_replace_1:
+    jmp keyboard_mode_replace_1
+mode_replace_2:
+    jmp keyboard_mode_replace_2
 
 .endproc
 
@@ -169,6 +195,10 @@ mode_goto_line:
     cmp #$0b
     beq ctrl_k
 
+    ;Ctrl+b
+    cmp #$02
+    beq ctrl_b
+
     ;Ctrl+u
     cmp #$15
     beq ctrl_u
@@ -184,6 +214,10 @@ mode_goto_line:
     ;Ctrl+f
     cmp #$06
     beq ctrl_f
+
+    ;Ctrl+r
+    cmp #$12
+    beq ctrl_r
 
     ;Ctrl+n
     cmp #$0e
@@ -268,6 +302,9 @@ ctrl_v:
 ctrl_k:
     jmp cmd_cut
 
+ctrl_b:
+    jmp cmd_copy
+
 ctrl_u:
     jmp cmd_paste
 
@@ -279,6 +316,10 @@ ctrl_l:
 
 ctrl_f:
     jmp cmd_find
+
+ctrl_r:
+    lda #0
+    jmp cmd_replace
 
 ctrl_n:
     jmp cmd_new_buffer
@@ -859,7 +900,59 @@ abort:
 search:
     jsr prompt_close
     stz APP_MOD
-    jmp cmd_do_find
+
+    jsr cursor_disable
+
+    ldx #<prompt_input
+    ldy #>prompt_input
+    lda prompt_len
+    jsr cmd_do_find
+    bcs notfound
+    
+    jsr screen_refresh
+    jsr screen_println
+    jmp cursor_activate
+
+notfound:
+    ldx #<msg
+    ldy #>msg
+    jsr screen_print_status
+    lda #2
+    sta APP_MOD
+    jmp cursor_activate
+
+abort:
+    jsr prompt_close
+    stz APP_MOD
+    rts
+
+msg:
+    .byt "string not found",0
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_replace_0
+;Purpose.............: Handle keypress
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_replace_0
+    ;Enter key
+    cmp #13
+    beq search
+
+    ;ESC key
+    cmp #$03
+    beq abort
+
+    jmp prompt_keypress
+
+search:
+    jsr prompt_close
+    stz APP_MOD
+
+    lda #1
+    jmp cmd_replace
 
 abort:
     jsr prompt_close
@@ -868,6 +961,74 @@ abort:
 
 .endproc
 
+;******************************************************************************
+;Function name.......: keyboard_mode_replace_1
+;Purpose.............: Handle keypress
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_replace_1
+    ;Enter key
+    cmp #13
+    beq search
+
+    ;ESC key
+    cmp #$03
+    beq abort
+
+    jmp prompt_keypress
+
+search:
+    jsr prompt_close
+    stz APP_MOD
+
+    lda #2
+    jmp cmd_replace
+
+abort:
+    jsr prompt_close
+    stz APP_MOD
+    rts
+
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_replace_2
+;Purpose.............: Handle keypress
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_replace_2
+    ;Y
+    cmp #121
+    beq yes
+
+    ;A
+    cmp #97
+    beq all
+
+    ;ESC
+    cmp #$03
+    beq abort
+
+    ;Ignore all other input
+    rts
+
+yes:
+    ldx #0
+    lda #3
+    jmp cmd_replace
+
+all:
+    ldx #1
+    lda #3
+    jmp cmd_replace
+
+abort:
+    stz APP_MOD
+    jmp screen_clear_status
+.endproc
+    
 ;******************************************************************************
 ;Function name.......: keyboard_esc_key
 ;Purpose.............: Handles keypress
@@ -897,23 +1058,9 @@ msg:
 .proc keyboard_enter_key
     ;Insert linefeed char
     lda #LF
-    jsr mem_insert
+    jsr cmd_insert
 
-    ;Move line, column index
-    jsr mem_cur_col_ret
-    jsr mem_cur_line_inc
-
-    ;Move cursor to first column of next row
-    jsr cursor_move_crlf
-    bcc :+          
-    
-    ;C=1: We're at bottom of screen, need to scroll
-    jsr mem_scr_move_down
-
-:   jsr mem_set_lnv_to_crs        ;Set first visible char of line to cursor position, i.e. start of line
-    jsr screen_refresh
-
-    rts
+    jmp screen_refresh
 .endproc
 
 ;******************************************************************************
@@ -923,80 +1070,20 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_delete_key
-    ;Delete one char from memory
-    jsr mem_delete
-    bcs exit                ;C=1: We're at start of file, nothing was deleted
+    jsr cmd_delete
 
-    ;Check if we deleted a line break (indicated by X=1), a special case to handle
-    cpx #1
-    beq linebreak_deleted
-
-    ;We did not delete a line break, decrease column index, move cursor one column left and print line
-    jsr mem_cur_col_dec
-    jsr cursor_move_left
-    bcc :+
-    jsr mem_lnv_step_left
-:   jsr screen_println
+    bcs exit            ;C=1, at start of file
     
-exit:
-    rts
-
-linebreak_deleted:
-    ;Move cursor the beginning of line above the current line
-    stz CRS_X
-    jsr cursor_move_up
-    bcc :+
-    
-    ;Carry set, we're at top of screen and need to scroll
-    jsr mem_scr_move_up
-
-
-:   ;Move to line start, and save the number of chars moved over
-    jsr mem_crs_move_to_line_start
-    stx counter
-    sty counter+1
-
-    ;Set first visible char of that line to start of line (cursor position)
-    jsr mem_set_lnv_to_crs
+    cpx #0
+    beq update_line     ;X=0, we didn't delete a LF, no need to refresh all of screen
 
     jsr screen_refresh
 
-    ;Set line and column index
-    jsr mem_cur_col_ret
-    jsr mem_cur_line_dec
-
-;Loop to move the cursor back to the column we came from
-loop:
-    lda counter
-    bne :+
-    lda counter+1
-    beq exit
-
-:   jsr mem_crs_step_right
-    jsr mem_cur_col_inc
-    jsr cursor_move_right
-    bcc continue
-
-    ;C=1: We need to scroll
-    jsr mem_lnv_step_right
-
-continue:
-    ;Decrease column counter and exist loop if it's 0
-    dec counter
-    lda counter
-    cmp #$ff
-    bne loop
-    lda counter+1
-    beq linebreak_deleted_exit
-    dec counter+1
-    jmp loop
-    
-linebreak_deleted_exit:
+update_line:
     jsr screen_println
-    rts
 
-counter:
-    .byt 0,0
+exit:
+    rts
 .endproc
 
 ;******************************************************************************

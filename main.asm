@@ -40,6 +40,7 @@
     jsr screen_init
     jsr cursor_init
     jsr irq_init
+    jsr clipboard_init
     
     ;Wait for the program to terminate    
 :   lda APP_QUIT
@@ -103,4 +104,5 @@ testtext:
 .include "cursor.inc"
 .include "file.inc"
 .include "util.inc"
+.include "clipboard.inc"
 .include "mem.inc"

@@ -26,7 +26,11 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_insert
-    ;Insert char into memory
+    ;Is linefeed char?
+    cmp #LF
+    beq linefeed
+    
+    ;Store char in mem
     jsr mem_insert
 
     ;Increase current columm index
@@ -41,6 +45,114 @@
 
 exit:
     rts
+
+linefeed:
+    ;Store char in mem
+    jsr mem_insert
+    
+    ;Set line and column index
+    jsr mem_cur_col_ret
+    jsr mem_cur_line_inc
+
+    ;Move cursor to first column of next row
+    jsr cursor_move_crlf
+    bcc :+          
+    
+    ;C=1: We're at bottom of screen, need to scroll
+    jsr mem_scr_move_down
+
+:   jsr mem_set_lnv_to_crs        ;Set first visible char of line to cursor position, i.e. start of line
+
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_delete
+;Purpose.............: Moves the cursor one step left and deletes that char
+;                      Does not refresh screen; users of this procedure are 
+;                      responsible to do screen refresh when done
+;Input...............: Nothing
+;Returns.............: C=1 if at start of file, else C=0
+;                      X=1 if a line feed was deleted, else X=0
+;Error returns.......: None
+.proc cmd_delete
+    ;Delete one char from memory
+    jsr mem_delete
+    bcc char_deleted                ;C=1: We're at start of file, nothing was deleted
+    
+    ldx #0
+    rts
+
+    ;Check if we deleted a line break (indicated by X=1), a special case to handle
+char_deleted:
+    cpx #1
+    beq linebreak_deleted
+
+    ;We did not delete a line break, decrease column index, move cursor one column left and print line
+    jsr mem_cur_col_dec
+    jsr cursor_move_left
+    bcc exit
+    jsr mem_lnv_step_left
+    
+exit:
+    clc
+    ldx #0
+    rts
+
+linebreak_deleted:
+    ;Move cursor the beginning of line above the current line
+    stz CRS_X
+    jsr cursor_move_up
+    bcc :+
+    
+    ;Carry set, we're at top of screen and need to scroll
+    jsr mem_scr_move_up
+
+:   ;Move to line start, and save the number of chars moved over
+    jsr mem_crs_move_to_line_start
+    stx counter
+    sty counter+1
+
+    ;Set first visible char of that line to start of line (cursor position)
+    jsr mem_set_lnv_to_crs
+
+    ;Set line and column index
+    jsr mem_cur_col_ret
+    jsr mem_cur_line_dec
+
+;Loop to move the cursor back to the column we came from
+loop:
+    lda counter
+    bne :+
+    lda counter+1
+    beq linebreak_deleted_exit
+
+:   jsr mem_crs_step_right
+    bcs linebreak_deleted_exit
+    
+    jsr mem_cur_col_inc
+    jsr cursor_move_right
+    bcc continue
+
+    ;C=1: We need to scroll
+    jsr mem_lnv_step_right
+
+continue:
+    ;Decrease column counter
+    dec counter
+    lda counter
+    cmp #$ff
+    bne loop
+    dec counter+1
+    jmp loop
+    
+linebreak_deleted_exit:
+    clc
+    ldx #1
+    rts
+
+counter:
+    .byt 0,0
 .endproc
 
 ;******************************************************************************
@@ -605,16 +717,46 @@ msg2:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_cut
-    lda #2
-    sta APP_MOD         ;mode_statusmessage
+    jsr clipboard_cut
+    bcs mem_full
+    jmp screen_refresh
 
+mem_full:
+    lda #2
+    sta APP_MOD
+    
     ldx #<msg
     ldy #>msg
     jsr screen_print_status
     rts
 
 msg:
-    .byt "cut line not yet implemented", 0
+    .byt "clipboard full, could not copy line", 0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_copy
+;Purpose.............: Command: Copy line of text to clipboard
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_copy
+    jsr clipboard_copy
+    bcs mem_full
+    jmp screen_refresh
+
+mem_full:
+    lda #2
+    sta APP_MOD
+    
+    ldx #<msg
+    ldy #>msg
+    jsr screen_print_status
+    rts
+
+msg:
+    .byt "clipboard full, could not copy line", 0
 .endproc
 
 ;******************************************************************************
@@ -625,16 +767,27 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_paste
-    lda #2 
-    sta APP_MOD         ;mode_statusmessage
+    ;Check if clipboard is empty
+    lda clipboard_pointer+1
+    bne not_empty
+    lda clipboard_pointer
+    cmp #>clipboard_mem
+    bne not_empty
 
+    lda #2
+    sta APP_MOD
     ldx #<msg
     ldy #>msg
-    jsr screen_print_status
-    rts
+    jmp screen_print_status
+    
+not_empty:
+    jsr cursor_disable
+    jsr clipboard_paste
+    jsr screen_refresh
+    jmp cursor_activate
 
 msg:
-    .byt "uncut not yet implemented", 0
+    .byt "clipboard empty", 0
 .endproc
 
 ;******************************************************************************
@@ -740,17 +893,22 @@ index:
     jmp prompt_init
 
 msg:
-    .byt "search:", 0
+    .byt "search for:", 0
 .endproc
 
 ;******************************************************************************
 ;Function name.......: cmd_do_find
 ;Purpose.............: Execute string search
 ;Preparatory routines: None
-;Input...............: Nothing
-;Returns.............: Nothing
+;Input...............: Pointer to search string, X=AddressL, Y=AddressH
+;                      A=string len
+;Returns.............: C=1 if not found, else C=0
 ;Error returns.......: None
 .proc cmd_do_find
+    sta string_len
+    stx TMP2_ADR
+    sty TMP2_ADR+1
+
     ;Init & backup pointers if they need to be restored
     stz match
 
@@ -783,15 +941,14 @@ msg:
     sta cursor_backup+1
 
 ;Now search for that string
-    jsr cursor_disable
 
 search_loop:
     ldy CRS_IDX
     lda #5
     sta CRS_ADR
     lda (CRS_ADR),y
-    ldx match
-    cmp prompt_input,x
+    ldy match
+    cmp (TMP2_ADR),y
     beq char_match
 
     ;No match, restore match counter
@@ -801,7 +958,7 @@ search_loop:
 char_match:
     inc match
     lda match
-    cmp prompt_len
+    cmp string_len
     beq goto_match
 
 next_char:
@@ -819,9 +976,8 @@ goto_match:
     jsr cmd_go_left
     jmp :-
 
-:   jsr cursor_activate
-    jsr screen_refresh
-    jmp screen_println
+:   clc
+    rts
 
 eof:
     ;Restore pointers
@@ -849,14 +1005,12 @@ eof:
     ldx cursor_backup
     ldy cursor_backup+1
     jsr cursor_move
-    jsr cursor_activate
+    
+    sec
+    rts
 
-    ;Display not found message
-    lda #2
-    sta APP_MOD
-    ldx #<msg
-    ldy #>msg
-    jmp screen_print_status
+string_len:
+    .byt 0
 
 match:
     .byt 0
@@ -873,8 +1027,210 @@ scr_backup:
 cursor_backup:
     .byt 0,0
 
-msg:
-    .byt "string not found", 0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_replace
+;Purpose.............: Replace string
+;Input...............: A=0: Prompt for string to search for
+;                      A=1: Save string to search for, and prompt for string
+;                           to replace with; pointer to string to search for
+;                           in X (AddressL) and Y (AddressH)
+;                      A=2: Search for string and prompt user to confirm;
+;                      pointer to string to replace with in X (AddressL) 
+;                      and Y (AddressH)
+;                      A=3: Execute replace command; X=0 replace this
+;                      instance, X=1 replace all subsequent instances
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_replace
+    ;A=0? Prompt for string to search for
+    cmp #0
+    bne prompt_replace
+    
+    lda #12
+    sta APP_MOD
+
+    ldx #<msg1
+    ldy #>msg1
+    lda #20
+    jmp prompt_init
+
+prompt_replace:
+    cmp #1
+    bne search
+
+    ldy #0
+    
+:   cpy prompt_len
+    bcs :+
+    lda prompt_input,y
+    sta searchfor,y
+    iny
+    jmp :-
+
+:   lda #0
+    sta searchfor,y
+    lda prompt_len
+    sta searchfor_len
+
+    lda #13
+    sta APP_MOD
+    ldx #<msg2
+    ldy #>msg2
+    lda #20
+    jmp prompt_init
+
+search:
+    cmp #2
+    bne execute
+    
+    ;Search for string to replace
+    ldx #<searchfor
+    ldy #>searchfor
+    lda searchfor_len
+    jsr cmd_do_find
+    bcs notfound
+    jsr screen_println
+
+    lda #14
+    sta APP_MOD
+    ldx #<msg3
+    ldy #>msg3
+    jmp screen_print_status
+
+notfound:
+    ldx #<msg_notfound
+    ldy #>msg_notfound
+    jsr screen_print_status
+    lda #2
+    sta APP_MOD
+    rts
+
+execute:
+    cmp #3
+    beq :+
+    
+    rts
+
+:   stx replace_all
+    stz APP_MOD
+    jsr cursor_disable
+    
+    stz replaced_count
+    stz replaced_count+1
+    stz replaced_count+2
+
+execute_loop:
+    lda searchfor_len
+    sta counter
+
+:   lda counter
+    beq :+
+    dec counter
+    jsr cmd_go_right
+    jmp :-
+
+:   lda searchfor_len
+    sta counter
+
+:   lda counter
+    beq :+
+    dec counter
+    jsr cmd_delete
+    jmp :-
+
+:   ldx #0
+    stx counter
+
+:   ldx counter
+    cpx prompt_len
+    beq execute_done
+    lda prompt_input,x
+    jsr cmd_insert
+    inc counter
+    jmp :-
+
+execute_done:
+    inc replaced_count
+
+    lda replace_all
+    beq :+
+
+    ldx #<searchfor
+    ldy #>searchfor
+    lda searchfor_len
+    jsr cmd_do_find
+    bcc execute_loop
+
+:   jsr cursor_activate
+    jsr screen_clear_status
+    jsr screen_refresh
+    jsr screen_println
+
+    lda replace_all
+    beq exit
+
+    ldx replaced_count
+    ldy replaced_count+1
+    lda replaced_count+2
+    jsr util_bin_to_bcd
+    jsr util_bcd_to_str
+
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    ldy #0
+:   lda (TMP1_ADR),y
+    beq :+
+    sta msg4_0+9,y
+    iny
+    jmp :-
+
+:   ldx #0
+:   lda msg4_1,x
+    sta msg4_0+9,y
+    cmp #0
+    beq :+
+    iny
+    inx
+    jmp :-
+
+:   ldx #<msg4_0
+    ldy #>msg4_0
+    jsr screen_print_status
+    lda #2
+    sta APP_MOD
+
+exit:    
+    rts
+
+msg1:
+    .byt "search to replace:", 0
+
+msg2:
+    .byt "replace with:", 0
+
+msg3:
+    .byt "replace this instance? y=yes, a=all or press esc to abort",0
+
+msg4_0:
+    .byt "replaced 00000000 occurence(s)",0
+msg4_1:
+    .byt " occurence(s)",0
+
+searchfor:
+    .res 21,0
+searchfor_len:
+    .byt 0
+counter:
+    .byt 0
+replace_all:
+    .byt 0
+replaced_count:
+    .byt 0,0,0
+msg_notfound:
+    .byt "string not found",0
+
 .endproc
 
 ;******************************************************************************
