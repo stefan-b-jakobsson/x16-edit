@@ -83,45 +83,6 @@ exit:
 .endproc
 
 ;******************************************************************************
-;Function name.......: clipboard_get
-;Purpose.............: Gets a char from clipboard mem
-;Input...............: Nothing
-;Returns.............: A=char
-;Error returns.......: C=1 if at end of clipboard mem
-.proc clipboard_get
-    ;Check if at end of clipboard mem
-    sec
-    lda clipboard_end
-    sbc clipboard_pointer
-    bne not_empty
-    
-    sec
-    lda clipboard_end+1
-    sbc clipboard_pointer+1
-    bne not_empty
-
-    sec
-    rts
-
-not_empty:
-    ;Set zero page vector
-    lda #<clipboard_mem
-    sta TMP1_ADR
-    lda clipboard_pointer
-    sta TMP1_ADR+1
-    ldy clipboard_pointer
-
-    lda (TMP1_ADR),y
-
-    inc clipboard_pointer+1
-    bne :+
-    inc clipboard_pointer
-
-:   clc    
-    rts
-.endproc
-
-;******************************************************************************
 ;Function name.......: clipboard_copy
 ;Purpose.............: Copies current line to clipboard. The cursor will be
 ;                      moved to end of line. Users of this function are
@@ -131,9 +92,20 @@ not_empty:
 ;Returns.............: Number of chars copied, 24 bit value, X=low, Y=mid, A=high
 ;Error returns.......: C=1: Clipboard mem full
 .proc clipboard_copy
+    ;Clear copied char counter
     stz count
     stz count+1
     stz count+2
+
+    ;Backup clipboard pointer, should we need to restore on mem full
+    lda clipboard_pointer
+    sta backup
+    lda clipboard_pointer+1
+    sta backup+1
+    lda clipboard_end
+    sta backup+2
+    lda clipboard_end+1
+    sta backup+3
 
     ;Move cursor to start of line
     jsr cmd_go_home
@@ -195,11 +167,26 @@ exit:
     rts
 
 mem_full:
+    ;Restore pointers
+    lda backup
+    sta clipboard_pointer
+    lda backup+1
+    sta clipboard_pointer+1
+
+    lda backup+2
+    sta clipboard_end
+    lda backup+3
+    sta clipboard_end+1
+
+    ;Exit with C=1 to indicate mem full
     sec
     rts
 
 count:
     .byt 0,0,0
+
+backup:
+    .byt 0,0,0,0
 .endproc
 
 ;******************************************************************************

@@ -717,11 +717,66 @@ msg2:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_cut
+    ;Backup pointers, should we need to restore on mem full
+    lda CRS_BNK
+    sta crs_backup
+    lda CRS_ADR+1
+    sta crs_backup+1
+    lda CRS_IDX
+    sta crs_backup+2
+
+    lda SCR_BNK
+    sta scr_backup
+    lda SCR_ADR+1
+    sta scr_backup+1
+    lda SCR_IDX
+    sta scr_backup+2
+
+    lda LNV_BNK
+    sta lnv_backup
+    lda LNV_ADR+1
+    sta lnv_backup+1
+    lda LNV_IDX
+    sta lnv_backup+2
+
+    lda CRS_X
+    sta cursor
+    lda CRS_Y
+    sta cursor+1
+
+    ;Cut line
     jsr clipboard_cut
     bcs mem_full
     jmp screen_refresh
 
 mem_full:
+    ;Restore pointers
+    lda crs_backup
+    sta CRS_BNK
+    lda crs_backup+1
+    sta CRS_ADR+1
+    lda crs_backup+2
+    sta CRS_IDX
+    
+    lda scr_backup
+    sta SCR_BNK
+    lda scr_backup+1
+    sta SCR_ADR+1
+    lda scr_backup+2
+    sta SCR_IDX
+
+    lda lnv_backup
+    sta LNV_BNK
+    lda lnv_backup+1
+    sta LNV_ADR+1
+    lda lnv_backup+2
+    sta LNV_IDX
+
+    ldx cursor
+    ldy cursor+1
+    jsr cursor_move
+
+    ;Display message
     lda #2
     sta APP_MOD
     
@@ -732,6 +787,15 @@ mem_full:
 
 msg:
     .byt "clipboard full, could not copy line", 0
+
+crs_backup:
+    .byt 0,0,0
+scr_backup:
+    .byt 0,0,0
+lnv_backup:
+    .byt 0,0,0
+cursor:
+    .byt 0,0
 .endproc
 
 ;******************************************************************************
@@ -742,11 +806,66 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_copy
+    ;Backup pointers, should we need to restore on mem full
+    lda CRS_BNK
+    sta crs_backup
+    lda CRS_ADR+1
+    sta crs_backup+1
+    lda CRS_IDX
+    sta crs_backup+2
+
+    lda SCR_BNK
+    sta scr_backup
+    lda SCR_ADR+1
+    sta scr_backup+1
+    lda SCR_IDX
+    sta scr_backup+2
+
+    lda LNV_BNK
+    sta lnv_backup
+    lda LNV_ADR+1
+    sta lnv_backup+1
+    lda LNV_IDX
+    sta lnv_backup+2
+
+    lda CRS_X
+    sta cursor
+    lda CRS_Y
+    sta cursor+1
+
+    ;Copy
     jsr clipboard_copy
     bcs mem_full
     jmp screen_refresh
 
 mem_full:
+    ;Restore pointers
+    lda crs_backup
+    sta CRS_BNK
+    lda crs_backup+1
+    sta CRS_ADR+1
+    lda crs_backup+2
+    sta CRS_IDX
+    
+    lda scr_backup
+    sta SCR_BNK
+    lda scr_backup+1
+    sta SCR_ADR+1
+    lda scr_backup+2
+    sta SCR_IDX
+
+    lda lnv_backup
+    sta LNV_BNK
+    lda lnv_backup+1
+    sta LNV_ADR+1
+    lda lnv_backup+2
+    sta LNV_IDX
+
+    ldx cursor
+    ldy cursor+1
+    jsr cursor_move
+
+    ;Display message
     lda #2
     sta APP_MOD
     
@@ -757,6 +876,15 @@ mem_full:
 
 msg:
     .byt "clipboard full, could not copy line", 0
+
+crs_backup:
+    .byt 0,0,0
+scr_backup:
+    .byt 0,0,0
+lnv_backup:
+    .byt 0,0,0
+cursor:
+    .byt 0,0
 .endproc
 
 ;******************************************************************************
