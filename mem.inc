@@ -702,7 +702,7 @@ last_char:
 ;Description.........: Inserts a char at cursor location
 ;Input...............: A=char to insert
 ;Returns.............: Nothing
-;Error returns.......: Nothing
+;Error returns.......: C=1 if mem is full
 .proc mem_insert
     ;Save char on stack
     pha
@@ -829,6 +829,8 @@ pushforward:
 
 alloc:
     jsr mem_alloc
+    cpx #0          ;Mem full?
+    beq mem_full
     sty BNK_SEL
     stx TMP1_ADR+1
     stz TMP1_ADR
@@ -856,7 +858,15 @@ insert:
     lda #1
     sta mem_modified
 
-    jmp mem_crs_step_right
+    clc
+    rts
+
+mem_full:
+    pla     ;Clean stack
+    pla
+
+    sec
+    rts
 .endproc
 
 ;**********************************************************
@@ -979,7 +989,7 @@ at_lf:
 ;Input...............: Nothing
 ;Returns.............: .C=1 if eof else .C=0
 ;                      .X=1 if LF else .X=0
-;Error returns.......: Nothing
+;Error returns.......: C=1 if mem is full
 .proc mem_crs_step_right
     ;Is cursor at LF?
     stz at_lf
@@ -1045,11 +1055,19 @@ goto_eof:
     bne default
 
     jsr mem_alloc
+    cpx #0              ;Mem full?
+    beq mem_full
+
     sty CRS_BNK
     stx CRS_ADR+1
     stz CRS_IDX
     clc
     ldx at_lf
+    rts
+
+mem_full:
+    ldx #0
+    sec
     rts
 
 default:

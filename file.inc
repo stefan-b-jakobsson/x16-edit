@@ -191,6 +191,8 @@ alloc_new_page:
     stz CRS_ADR
 
     jsr mem_alloc   ;Y=bank, X=page
+    cpx #0          ;Mem full?
+    beq mem_full
     sty newpage
     stx newpage+1
 
@@ -255,6 +257,14 @@ close:
     
     rts
 
+mem_full:
+    pla             ;Clean stack
+
+    jsr eof
+
+    lda #10         ;Set memory full error
+    jmp io_err      
+
 first_char:
     .byt 0
 
@@ -263,6 +273,9 @@ curpage_len:
 
 newpage:
     .byt 0,0
+
+msg:
+    .byt "memory full",0
 
 .endproc
 
@@ -392,9 +405,9 @@ file_disk_status:
 file_io_err:
     .byt 0
 file_ioerr_L:
-    .byt <file_ioerr_1, <file_ioerr_2, <file_ioerr_3, <file_ioerr_4, <file_ioerr_5, <file_ioerr_6, <file_ioerr_7, <file_ioerr_8, <file_ioerr_9 
+    .byt <file_ioerr_1, <file_ioerr_2, <file_ioerr_3, <file_ioerr_4, <file_ioerr_5, <file_ioerr_6, <file_ioerr_7, <file_ioerr_8, <file_ioerr_9 , <file_ioerr_10
 file_ioerr_H:
-    .byt >file_ioerr_1, >file_ioerr_2, >file_ioerr_3, >file_ioerr_4, >file_ioerr_5, >file_ioerr_6, >file_ioerr_7, >file_ioerr_8, >file_ioerr_9
+    .byt >file_ioerr_1, >file_ioerr_2, >file_ioerr_3, >file_ioerr_4, >file_ioerr_5, >file_ioerr_6, >file_ioerr_7, >file_ioerr_8, >file_ioerr_9, >file_ioerr_10
 file_ioerr_1:
     .byt "i/o error: too many open files", 0
 file_ioerr_2:
@@ -413,6 +426,8 @@ file_ioerr_8:
     .byt "i/o error: file name is missing", 0
 file_ioerr_9:
     .byt "i/o error: illegal device number", 0
+file_ioerr_10:
+    .byt "memory full error", 0
 
 ;Current file name
 file_cur_filename:

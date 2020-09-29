@@ -32,6 +32,11 @@
     
     ;Store char in mem
     jsr mem_insert
+    bcs mem_full
+
+    ;Move mem pointer one step right
+    jsr mem_crs_step_right
+    bcs mem_full
 
     ;Increase current columm index
     jsr mem_cur_col_inc
@@ -49,6 +54,11 @@ exit:
 linefeed:
     ;Store char in mem
     jsr mem_insert
+    bcs mem_full
+
+    ;Move mem pointer one step right
+    jsr mem_crs_step_right
+    bcs mem_full
     
     ;Set line and column index
     jsr mem_cur_col_ret
@@ -64,6 +74,16 @@ linefeed:
 :   jsr mem_set_lnv_to_crs        ;Set first visible char of line to cursor position, i.e. start of line
 
     rts
+
+mem_full:
+    ldx #<msg
+    ldy #>msg
+    lda #2
+    sta APP_MOD
+    jmp screen_print_status
+
+msg:
+    .byt "memory full error", 0
 .endproc
 
 ;******************************************************************************
