@@ -1144,7 +1144,8 @@ at_tab_stop:
     dec counter
     bne :-
 
-    rts
+    ;Exit and refresh line
+    jmp screen_println
 
 counter:
     .byt 0,0,0
