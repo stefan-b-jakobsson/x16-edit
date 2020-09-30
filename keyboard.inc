@@ -439,6 +439,10 @@ exit_help:
     cmp #$03
     beq abort_command_mode
 
+    ;a
+    cmp #$61
+    beq auto_indent
+
     ;g
     cmp #$67
     beq show_help
@@ -491,6 +495,9 @@ exit_help:
 
     ;Uknown command, ignore
     rts
+
+auto_indent:
+    jmp cmd_auto_indent
 
 show_help:
     stz APP_MOD
@@ -1057,10 +1064,18 @@ msg:
 ;Error returns.......: None
 .proc keyboard_enter_key
     ;Insert linefeed char
-    lda #LF
+    lda cmd_auto_indent
+    beq :+
+    jsr cursor_disable
+
+:   lda #LF
     jsr cmd_insert
 
-    jmp screen_refresh
+    lda cmd_auto_indent
+    beq :+
+    jsr cursor_activate
+
+:   jmp screen_refresh
 .endproc
 
 ;******************************************************************************

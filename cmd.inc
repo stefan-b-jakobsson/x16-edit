@@ -36,7 +36,8 @@
 
     ;Move mem pointer one step right
     jsr mem_crs_step_right
-    bcs mem_full
+    cpx #2
+    beq mem_full
 
     ;Increase current columm index
     jsr mem_cur_col_inc
@@ -51,8 +52,72 @@
 exit:
     rts
 
+mem_full:
+    ldx #<msg
+    ldy #>msg
+    lda #2
+    sta APP_MOD
+    jmp screen_print_status
+
 linefeed:
+    ;Is auto indent on?
+    lda cmd_auto_indent_status
+    beq linefeed_store
+
+    ;Backup mem pointer
+    lda CRS_BNK
+    sta crs_backup
+    lda CRS_ADR+1
+    sta crs_backup+1
+    lda CRS_IDX
+    sta crs_backup+2
+
+    ;Goto line start
+    jsr mem_crs_move_to_line_start
+    stx counter1
+    sty counter1+1
+
+    stz counter2
+    stz counter2+1
+
+    ;Count blank spaces
+auto_indent_loop:
+    lda counter1+1
+    cmp counter2+1
+    bne :+
+    lda counter1
+    cmp counter2
+    beq auto_indent_stop
+
+:   lda CRS_BNK
+    sta BNK_SEL
+    lda #5
+    sta CRS_ADR
+    ldy CRS_IDX
+    lda (CRS_ADR),y
+    stz CRS_ADR
+    cmp #32
+    bne auto_indent_stop
+
+    jsr mem_crs_step_right
+
+    inc counter2
+    bne auto_indent_loop
+    inc counter2+1
+    jmp auto_indent_loop
+
+auto_indent_stop:
+    ;Restore mem pointer
+    lda crs_backup
+    sta CRS_BNK
+    lda crs_backup+1
+    sta CRS_ADR+1
+    lda crs_backup+2
+    sta CRS_IDX
+
     ;Store char in mem
+linefeed_store:
+    lda #LF
     jsr mem_insert
     bcs mem_full
 
@@ -73,17 +138,38 @@ linefeed:
 
 :   jsr mem_set_lnv_to_crs        ;Set first visible char of line to cursor position, i.e. start of line
 
-    rts
+    ;If auto indent on, insert blank spaces
+    lda cmd_auto_indent_status
+    beq linefeed_exit
 
-mem_full:
-    ldx #<msg
-    ldy #>msg
-    lda #2
-    sta APP_MOD
-    jmp screen_print_status
+auto_indent_insert_blanks:
+    lda counter2
+    bne :+
+    lda counter2+1
+    beq linefeed_exit
+
+:   lda #32
+    jsr cmd_insert
+
+    dec counter2
+    lda counter2
+    cmp #$ff
+    bne auto_indent_insert_blanks
+    dec counter2+1
+    jmp auto_indent_insert_blanks
+
+linefeed_exit:
+    rts
 
 msg:
     .byt "memory full error", 0
+
+crs_backup:
+    .byt 0,0,0
+counter1:
+    .byt 0,0
+counter2:
+    .byt 0,0
 .endproc
 
 ;******************************************************************************
@@ -214,16 +300,16 @@ at_linebreak:
     ;Also set first visible char to start of line
     jsr mem_set_lnv_to_crs
 
+    ;Set line and column index
+    jsr mem_cur_col_ret
+    jsr mem_cur_line_dec
+
     ;Move cursor up one row to start of that row
     stz CRS_X
     jsr cursor_move_up
     bcc :+
     ;C=1, we're at top of screen, need to scroll
     jsr mem_scr_move_up
-
-    ;Set line and column index
-    jsr mem_cur_col_ret
-    jsr mem_cur_line_dec
 
     ;Use existing function to go to end of line
 :   jsr keyboard_end_key
@@ -1613,3 +1699,42 @@ line:
 msg:
     .byt "invalid line number",0
 .endproc
+
+;******************************************************************************
+;Function name.......: cmd_auto_indent
+;Purpose.............: Enable or disable auto indent feature
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_auto_indent
+    lda cmd_auto_indent_status
+    beq :+
+    
+    stz cmd_auto_indent_status
+    
+    jsr screen_clear_status
+    ldx #<msg_off
+    ldy #>msg_off
+    lda #2
+    sta APP_MOD
+    jmp screen_print_status
+    
+:   lda #1
+    sta cmd_auto_indent_status
+
+    jsr screen_clear_status
+    ldx #<msg_on
+    ldy #>msg_on
+    lda #2
+    sta APP_MOD
+    jmp screen_print_status 
+
+msg_on:
+    .byt "auto indent on", 0
+msg_off:
+    .byt "auto indent off",0
+.endproc
+
+cmd_auto_indent_status:
+    .byt 0

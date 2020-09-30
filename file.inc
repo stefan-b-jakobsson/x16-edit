@@ -146,9 +146,10 @@ page_len:
     jsr KERNAL_SETLFS
 
     jsr KERNAL_OPEN
-    bcs io_err
+    bcc :+
+    jmp io_err
 
-    ldx #1
+:   ldx #1
     jsr KERNAL_CHKIN
     bcs io_err
 
@@ -196,6 +197,9 @@ alloc_new_page:
     sty newpage
     stx newpage+1
 
+    lda CRS_BNK
+    sta BNK_SEL
+
     tya
     ldy #2
     sta (CRS_ADR),y ;Next bank
@@ -223,8 +227,8 @@ alloc_new_page:
     pla             ;Insert the char that was read from memory
     sta (CRS_ADR),y
     
-    lda #1          ;Set page len = 1
-    sta curpage_len
+    ldy #1          ;Set page len = 1
+    sty curpage_len
 
     jmp read_loop
 

@@ -989,7 +989,7 @@ at_lf:
 ;Input...............: Nothing
 ;Returns.............: .C=1 if eof else .C=0
 ;                      .X=1 if LF else .X=0
-;Error returns.......: C=1 if mem is full
+;Error returns.......: X=2 if memory full error
 .proc mem_crs_step_right
     ;Is cursor at LF?
     stz at_lf
@@ -1066,7 +1066,7 @@ goto_eof:
     rts
 
 mem_full:
-    ldx #0
+    ldx #2
     sec
     rts
 
