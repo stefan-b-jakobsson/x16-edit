@@ -853,12 +853,18 @@ insert:
     ldy CRS_IDX
     sta (CRS_ADR),y
 
-    stz CRS_ADR
+    stz CRS_ADR  
 
     lda #1
     sta mem_modified
 
-    clc
+    jsr mem_crs_step_right
+    cpx #2
+    bne :+
+    sec
+    rts
+    
+:   clc
     rts
 
 mem_full:

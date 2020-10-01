@@ -34,11 +34,6 @@
     jsr mem_insert
     bcs mem_full
 
-    ;Move mem pointer one step right
-    jsr mem_crs_step_right
-    cpx #2
-    beq mem_full
-
     ;Increase current columm index
     jsr mem_cur_col_inc
 
@@ -119,10 +114,6 @@ auto_indent_stop:
 linefeed_store:
     lda #LF
     jsr mem_insert
-    bcs mem_full
-
-    ;Move mem pointer one step right
-    jsr mem_crs_step_right
     bcs mem_full
     
     ;Set line and column index
