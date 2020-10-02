@@ -26,31 +26,94 @@
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_init
-    ;Set reserved memory banks
-    lda #1
-    sta mem_reserved_banks
+    ;Get mem top
+    sec
+    jsr KERNAL_MEMTOP
+    sec
+    sbc #1
+    sta mem_top
 
-    ;Clear memory memory map, mark all mem pages as free
-    ldy #0
-    lda #0
-
-:   sta mem_map,y
-    sta mem_map+256,y
-    sta mem_map+512,y
-    sta mem_map+768,y
-    iny
+    ;Mark pages in banks 0-63
+    ;Mark bank 0 as used (by Kernal)
+    ;Bank 1 page $a0 as used (head of text)
+    ;All other pages marked as free
+    
+    ldx #0
+:   lda #0
+    sta mem_map,x
+    inx
     bne :-
 
-    ;Mark all mem pages in bank 0 as used, these may be used by the Kernal
     lda #255
     sta mem_map
     sta mem_map+1
     sta mem_map+2
     sta mem_map+3
 
-    ;Mark the initial memory page (bank 1, page $a0) as used
     lda #1
     sta mem_map+4
+
+    ;If mem_top >=127, mark pages in banks 64-127 as free, else mark as used
+    ldx #0
+
+    lda mem_top
+    cmp #127
+    bcc :+
+    lda #0
+    jmp :++
+:   lda #255
+
+:   ldx #0
+:   sta mem_map+256,x
+    inx
+    bne :-
+
+    ;If mem_top >=191, mark pages in banks 128-191 as free, else mark as used
+    ldx #0
+
+    lda mem_top
+    cmp #191
+    bcc :+
+    lda #0
+    jmp :++
+:   lda #255
+
+:   ldx #0
+:   sta mem_map+512,x
+    inx
+    bne :-
+
+    ;If mem_top=255, mark pages in banks 192-255 as free, else mark as used
+    ldx #0
+
+    lda mem_top
+    cmp #255
+    bne :+
+    lda #0
+    jmp :++
+:   lda #255
+
+:   ldx #0
+:   sta mem_map+768,x
+    inx
+    bne :-
+
+    ;Set mem blocks free counter
+    lda mem_top
+    sta mem_blocks_free+1
+    ldx #3
+:   lsr mem_blocks_free+1
+    ror mem_blocks_free
+    dex
+    bne :-
+
+    sec
+    lda mem_blocks_free
+    sbc #1
+    sta mem_blocks_free
+    lda mem_blocks_free+1
+    sbc #0
+    sta mem_blocks_free+1
 
     ;Setup zero page vectors
 
@@ -99,12 +162,6 @@
     ;Set memory not modified
     stz mem_modified
 
-    ;Set mem blocks free counter
-    lda #223
-    sta mem_blocks_free
-    lda #31
-    sta mem_blocks_free+1
-
     ;Set current line=1 and column=1
     lda #1
     sta mem_cur_line
@@ -139,43 +196,6 @@
 :   clc
     rts
 
-.endproc
-
-;**********************************************************
-;Procedure name......: mem_is_reserved
-;Description.........: Find out if a bank is available to
-;                      the program or reserved for other
-;                      purposes
-;Input...............: Y    Bank
-;Returns.............: C = 1    Bank is reserved
-;                      C = 0    Bank is not reserved
-;Error returns.......: None
-.proc mem_is_reserved
-    tya
-    tax
-    lsr
-    lsr
-    lsr
-    tay
-
-    txa
-    and #7
-    tax
-
-    lda bitmask,x
-    and mem_reserved_banks,y
-    bne bank_reserved
-
-bank_not_reserved:
-    clc
-    rts
-
-bank_reserved:
-    sec
-    rts
-
-bitmask:
-    .byt 1,2,4,8,16,32,64,128
 .endproc
 
 ;**********************************************************
@@ -466,9 +486,22 @@ nextpage:
     stx page
     
     ;Check if bank is reserved, exit without deallocating if true
-    jsr mem_is_reserved
-    bcc :+
-    rts         ;Is reserved, exit
+    lda bank
+    cmp #0
+    beq is_reserved
+    
+    cmp mem_top
+    bcs is_reserved
+
+    cmp #1
+    bne :+
+    lda page
+    cmp #$a0
+    bne :+
+
+is_reserved:
+    sec
+    rts
 
     ;Check if page is head of buffer, exit without deallocating if true
 :   ldy bank
@@ -1547,8 +1580,8 @@ mem_modified:
 mem_blocks_free:
     .byt 0,0
 
-mem_reserved_banks:
-    .res 32,0
+mem_top:
+    .byt 0
 
 mem_cur_line:
     .byt 1,0,0

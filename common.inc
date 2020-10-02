@@ -33,6 +33,7 @@
 .define KERNAL_CHROUT $ffd2
 .define KERNAL_CHRIN $ffcf
 .define KERNAL_READST $ffb7
+.define KERNAL_MEMTOP $ff99
 
 ;Keyboard
 .define KERNAL_SCREEN_SET_CHARSET $ff62

@@ -583,6 +583,8 @@ loop_2:
     jsr mem_crs_step_right
     bcs exit            ;At end of file, exit
 
+    jsr mem_cur_col_inc
+
     jsr cursor_move_right
     bcc loop_3
     ;At rightmost position of screen, need to scroll
