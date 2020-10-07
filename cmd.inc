@@ -1728,6 +1728,83 @@ msg_on:
 msg_off:
     .byt "auto indent off",0
 .endproc
-
 cmd_auto_indent_status:
     .byt 0
+
+;******************************************************************************
+;Function name.......: cmd_change_encoding
+;Purpose.............: Changes the current encoding (charset) used by the
+;                      program, i.e. ISO, PETSCII upper case or PETSCII
+;                      lower case
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_change_encoding
+    inc screen_mode
+
+    lda screen_mode
+    beq iso
+    cmp #1
+    beq petscii_uc
+    cmp #2
+    beq petscii_lc
+
+    stz screen_mode
+
+iso:
+    lda #$0f
+    jsr KERNAL_CHROUT
+    jmp refreshall
+
+petscii_uc:
+    lda #$8f
+    jsr KERNAL_CHROUT
+    lda #2
+    jsr KERNAL_SCREEN_SET_CHARSET
+    lda #147
+    jsr KERNAL_CHROUT
+    jmp refreshall
+
+petscii_lc:
+    lda #3
+    jsr KERNAL_SCREEN_SET_CHARSET
+    lda #147
+    jsr KERNAL_CHROUT
+
+refreshall:
+    jsr screen_print_header
+    jsr screen_print_footer
+    jsr screen_refresh
+    jsr screen_println
+
+    lda #2
+    sta APP_MOD
+
+    lda screen_mode
+    beq disp_iso
+    cmp #1
+    beq disp_puc
+    cmp #2
+    beq disp_plc
+
+disp_iso:
+    ldx #<msg_iso
+    ldy #>msg_iso
+    jmp screen_print_status
+disp_puc:
+    ldx #<msg_puc
+    ldy #>msg_puc
+    jmp screen_print_status
+disp_plc:
+    ldx #<msg_plc
+    ldy #>msg_plc
+    jmp screen_print_status
+
+msg_iso:
+    .byt "iso charset selected",0
+msg_puc:
+    .byt "petscii upper case/graphics selected",0
+msg_plc:
+    .byt "petscii upper/lower case selected", 0
+.endproc

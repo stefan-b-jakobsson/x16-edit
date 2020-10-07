@@ -45,11 +45,44 @@
     sty TMP1_ADR+1
     ldy #0
 
-:   lda (TMP1_ADR),y
-    beq set_bgcolor
+    lda screen_mode
+    beq loop_iso
+    cmp #1
+    beq loop_petscii_uc
+    jmp loop_petscii_lc
+
+loop_iso:
+    lda (TMP1_ADR),y
+    beq loop_iso_exit
     sta VERA_D0
     iny
-    jmp :-
+    jmp loop_iso
+
+loop_iso_exit:
+    jmp set_bgcolor
+
+loop_petscii_uc:
+    lda (TMP1_ADR),y
+    beq loop_petscii_uc_exit
+    .scope
+        charset_ascii_to_petscii_ucase
+    .endscope
+    sta VERA_D0
+    iny
+    jmp loop_petscii_uc
+
+loop_petscii_uc_exit:
+    jmp set_bgcolor
+
+loop_petscii_lc:
+    lda (TMP1_ADR),y
+    beq set_bgcolor
+    .scope
+        charset_ascii_to_petscii_lcase
+    .endscope
+    sta VERA_D0
+    iny
+    jmp loop_petscii_lc
     
 set_bgcolor:
     iny
@@ -136,15 +169,55 @@ index:
     ldy prompt_fvc
     ldx prompt_start
 
-:   cpy prompt_len
-    bcs clear_line
+    lda screen_mode
+    beq loop_iso
+    cmp #1
+    beq loop_petscii_uc
+    jmp loop_petscii_lc
+
+loop_iso:
+    cpy prompt_len
+    bcs loop_iso_exit
     lda prompt_input,y
     sta VERA_D0
     iny
     inx
     cpx #SCREEN_WIDTH
-    bne :-
+    bne loop_iso
+    rts
 
+loop_iso_exit:
+    jmp clear_line
+
+loop_petscii_uc:
+    cpy prompt_len
+    bcs loop_petscii_uc_exit
+    lda prompt_input,y
+    .scope
+        charset_ascii_to_petscii_ucase
+    .endscope
+    sta VERA_D0
+    iny
+    inx
+    cpx #SCREEN_WIDTH
+    bne loop_petscii_uc
+    rts
+
+loop_petscii_uc_exit:
+    jmp clear_line
+
+loop_petscii_lc:
+    cpy prompt_len
+    bcs clear_line
+    lda prompt_input,y
+    .scope
+        charset_petscii_to_scrcode
+    .endscope
+    sta VERA_D0
+    iny
+    inx
+    cpx #SCREEN_WIDTH
+    bne loop_petscii_lc
     rts
 
 clear_line:

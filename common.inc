@@ -35,7 +35,7 @@
 .define KERNAL_READST $ffb7
 .define KERNAL_MEMTOP $ff99
 
-;Keyboard
+;Other
 .define KERNAL_SCREEN_SET_CHARSET $ff62
 .define KERNAL_GETIN $ffe4
 
@@ -53,6 +53,11 @@
 .define VERA_CTRL $9f25
 .define VERA_VIDEO $9f29
 
+.define VERA_L0_CONFIG $9f2d
+.define VERA_L0_TILEBASE $9f2f
+
+.define VERA_L1_CONFIG $9f34
+.define VERA_L1_TILEBASE $9f36
 
 ;*****************************************************************************
 ;ZERO PAGE VECTORS

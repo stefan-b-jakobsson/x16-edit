@@ -26,19 +26,96 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_init
-    ;Set screen mode text 80x60
+    
+    ;jsr charset_detect
+    jsr screen_charset_detect
+    sta screen_mode
+    bcc :+
+
+    ;Unknown charset, set default, ISO charset
     lda #$0f
     jsr KERNAL_CHROUT
+    stz screen_mode
 
-    ;Set ISO charset
-    lda #1
-    jsr KERNAL_SCREEN_SET_CHARSET
+:   lda #147
+    jsr KERNAL_CHROUT
 
     ;Initial screen setup
     jsr screen_print_header
     jmp screen_print_footer
 
     rts
+.endproc
+
+;******************************************************************************
+;Function name.......: screen_charset_detect
+;Purpose.............: Detects current char set
+;Input...............: None
+;Returns.............: A=0: ISO
+;                      A=1: PETSCII upper case
+;                      A=2: PETSCII lower case
+;Error returns.......: C=1: Unknown charset
+.proc screen_charset_detect
+    ;Layer 0 or 1 active?
+    lda VERA_VIDEO
+    and #%00010000
+    bne layer0
+    lda VERA_VIDEO
+    and #%00100000
+    bne layer1
+
+    ;Both layers inactive, return error
+    sec
+    rts
+
+layer0:
+    ;Get VERA tile base for layer 0
+    lda VERA_L0_TILEBASE
+    jmp detect
+
+layer1:
+    ;Get VERA tile base for layer 1
+    lda VERA_L1_TILEBASE
+
+detect:
+    ;Set VERA mid
+    and #%11111100
+    asl
+    sta VERA_M
+
+    ;Set VERA low and high
+    lda #8      ;8 => second char, as first char is the same in petscii uc and lc
+    sta VERA_L  
+    stz VERA_H
+
+    ;Read and analyze char data
+    lda VERA_D0
+    cmp #$18
+    beq petscii_uc
+    cmp #$00
+    beq petscii_lc
+    cmp #$ff
+    beq iso
+
+    ;Unknown charset, return error
+    sec
+    rts
+
+petscii_uc:
+    clc
+    lda #1
+    rts
+
+petscii_lc:
+    clc
+    lda #2
+    rts
+
+iso:
+    clc
+    lda #0
+    rts
+
 .endproc
 
 ;******************************************************************************
@@ -74,13 +151,29 @@
     sta VERA_H
 
     ldx #0
-:   lda program_name,x
-    beq :+
-    sta VERA_D0
-    inx
-    jmp :-
+name_loop:
+    lda program_name,x
+    bne :+
+    jmp name_done
+:   ldy screen_mode
+    cpy #1
+    bne :+
+    .scope
+        charset_ascii_to_petscii_ucase
+    .endscope
+    jmp :++
+:   cpy #2
+    bne :+
+    .scope
+        charset_ascii_to_petscii_lcase
+    .endscope
 
-:   jsr screen_print_mod_status
+:   sta VERA_D0
+    inx
+    jmp name_loop
+
+name_done:
+    jsr screen_print_mod_status
 
     ;Print current file name (centered)
     lda file_cur_filename_len
@@ -105,12 +198,25 @@
     sta VERA_H
 
     ldy #0
-:   lda file_cur_filename,y
+    lda screen_mode
+    bne fname_petscii
+fname_iso:
+    lda file_cur_filename,y
     sta VERA_D0
     iny
     cpy filename_len
-    bne :-
+    bne fname_iso
+    rts
 
+fname_petscii:
+    lda file_cur_filename,y
+    .scope
+        charset_petscii_to_scrcode
+    .endscope
+    sta VERA_D0
+    iny
+    cpy filename_len
+    bne fname_petscii
     rts
 
 new_buffer:
@@ -121,12 +227,41 @@ new_buffer:
     sta VERA_H
 
     ldy #0
-:   lda new_buffer_msg,y
+
+    lda screen_mode
+    beq loop_iso
+    cmp #1
+    beq loop_petscii_uc
+    jmp loop_petscii_lc
+
+loop_iso:
+    lda new_buffer_msg,y
     sta VERA_D0
     iny
     cpy #10
-    bne :-
+    bne loop_iso
+    rts
 
+loop_petscii_uc:
+    lda new_buffer_msg,y
+    .scope
+        charset_ascii_to_petscii_ucase
+    .endscope
+    sta VERA_D0
+    iny
+    cpy #10
+    bne loop_petscii_uc
+    rts
+
+loop_petscii_lc:
+    lda new_buffer_msg,y
+    .scope
+        charset_ascii_to_petscii_lcase
+    .endscope
+    sta VERA_D0
+    iny
+    cpy #10
+    bne loop_petscii_lc
     rts
 
 program_name:
@@ -140,6 +275,13 @@ filename_len:
 
 .endproc
 
+;******************************************************************************
+;Function name.......: screen_print_mod_status
+;Purpose.............: Refresh file modified status
+;Preparatory routines: None
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
 .proc screen_print_mod_status
     ;Print modified status
     lda #77*2
@@ -151,11 +293,25 @@ filename_len:
     lda mem_modified
     beq :+
 
+    lda screen_mode
+    cmp #1
+    beq petscii_uc
+
+default:
     lda #'m'
     sta VERA_D0
     lda #'o'
     sta VERA_D0
     lda #'d'
+    sta VERA_D0
+    rts
+
+petscii_uc:
+    lda #'m'-64
+    sta VERA_D0
+    lda #'o'-64
+    sta VERA_D0
+    lda #'d'-64
     sta VERA_D0
     rts
 
@@ -186,11 +342,43 @@ filename_len:
 
     ;Printing row 58
     ldx #0
-:   lda row1,x
-    beq nextrow
+    
+    lda screen_mode
+    beq loop_iso1
+    cmp #1
+    beq loop_petscii_uc1
+    jmp loop_petscii_lc1
+
+loop_iso1:
+    lda row1,x
+    beq loop_iso1_exit
     sta VERA_D0
     inx
-    jmp :-
+    jmp loop_iso1
+loop_iso1_exit:
+    jmp nextrow
+
+loop_petscii_uc1:
+    lda row1,x
+    beq loop_petscii_uc1_exit
+    .scope
+        charset_ascii_to_petscii_ucase
+    .endscope
+    sta VERA_D0
+    inx
+    jmp loop_petscii_uc1
+loop_petscii_uc1_exit:
+    jmp nextrow
+
+loop_petscii_lc1:
+    lda row1,x
+    beq nextrow
+    .scope
+        charset_ascii_to_petscii_lcase
+    .endscope
+    sta VERA_D0
+    inx
+    jmp loop_petscii_lc1
 
 nextrow:
     ;Prepare printing row 59
@@ -201,11 +389,43 @@ nextrow:
 
     ;Printing row 59
     ldx #0
-:   lda row2,x
-    beq bg_color
+
+    lda screen_mode
+    beq loop_iso2
+    cmp #1
+    beq loop_petscii_uc2
+    jmp loop_petscii_lc2
+
+loop_iso2:
+    lda row2,x
+    beq loop_iso2_exit
     sta VERA_D0
     inx
-    jmp :-
+    jmp loop_iso2
+loop_iso2_exit:
+    jmp bg_color
+
+loop_petscii_uc2:
+    lda row2,x
+    beq loop_petscii_uc2_exit
+    .scope
+        charset_ascii_to_petscii_ucase
+    .endscope
+    sta VERA_D0
+    inx
+    jmp loop_petscii_uc2
+loop_petscii_uc2_exit:
+    jmp bg_color
+
+loop_petscii_lc2:
+    lda row2,x
+    beq bg_color
+    .scope
+        charset_ascii_to_petscii_lcase
+    .endscope
+    sta VERA_D0
+    inx
+    jmp loop_petscii_lc2
 
 bg_color:
     ;Prepare setting bg color for row 58
@@ -277,15 +497,21 @@ loop:
     beq exit
 
     cmp #LF
-    bne :+
+    bne check_mode
 
     stz VERA_L
     inc VERA_M
-    jmp :++
+    jmp step
 
-:   sta VERA_D0
+check_mode:
+    ldx screen_mode
+    bne petscii
 
-:   iny
+print:
+    sta VERA_D0
+
+step:
+    iny
     bne loop
 
     inc TMP1_ADR+1
@@ -293,6 +519,20 @@ loop:
 
 exit:
     rts
+
+petscii:
+    cpx #2
+    beq mod_pet_lc
+    .scope
+        charset_ascii_to_petscii_ucase
+    .endscope
+    jmp print
+
+mod_pet_lc:
+    .scope
+        charset_ascii_to_petscii_lcase
+    .endscope
+    jmp print
 
 msg:
 .byt 72, 69, 76, 80, 10, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
@@ -402,6 +642,27 @@ loop:
     cpy len
     bcs next_mem_page
 
+    ;ISO or PETSCII
+    lda screen_mode
+    bne petscii
+
+    ;Get char to print
+    lda (TMP1_ADR),y
+    cmp #LF             ;end of line, prepare for next line
+    bne :+
+    jmp next_line
+
+:   ldx columns         ;If 0 we have printed all visible columns, skip_char
+    beq skip_char
+    
+    sta VERA_D0         ;Otherwise let's print char to screen
+    dec columns
+
+skip_char:
+    iny
+    jmp loop
+
+petscii:
     ;Get char to print
     lda (TMP1_ADR),y
     cmp #LF             ;end of line, prepare for next line
@@ -410,10 +671,10 @@ loop:
     ldx columns         ;If 0 we have printed all visible columns, skip_char
     beq skip_char
     
+    charset_petscii_to_scrcode
     sta VERA_D0         ;Otherwise let's print char to screen
     dec columns
 
-skip_char:
     iny
     jmp loop
 
@@ -558,11 +819,31 @@ print_loop:
     cpy page_len
     bcs next_page
 
+    ;Select ISO or PETSCII mode
+    lda screen_mode
+    bne petscii
+
+    ;Get char to print
+    lda (TMP1_ADR),y
+    cmp #LF                 ;Abort if we get lf
+    bne :+ 
+    jmp clean_line
+
+:   sta VERA_D0             ;Otherwise output char
+
+    dec counter            
+    beq clean_line          ;If counter = 0, we're done
+
+    iny
+    jmp print_loop
+
+petscii:
     ;Get char to print
     lda (TMP1_ADR),y
     cmp #LF                 ;Abort if we get lf
     beq clean_line
 
+    charset_petscii_to_scrcode
     sta VERA_D0             ;Otherwise output char
 
     dec counter            
@@ -697,7 +978,13 @@ continue:
     ldy #0
     ldx #160
 
-loop:
+    lda screen_mode
+    beq loop_iso
+    cmp #1
+    beq loop_petscii_uc
+    jmp loop_petscii_lc
+
+loop_iso:
     lda len
     beq exit
 
@@ -706,10 +993,40 @@ loop:
     stx VERA_D0         ;Color
     iny
     dec len
-    bne loop
+    bne loop_iso
 
 exit:
     rts
+
+loop_petscii_uc:
+    lda len
+    beq exit
+
+    lda (TMP1_ADR),y
+    .scope 
+        charset_ascii_to_petscii_ucase
+    .endscope
+    sta VERA_D0         ;Char
+    stx VERA_D0         ;Color
+    iny
+    dec len
+    bne loop_petscii_uc
+    jmp exit
+
+loop_petscii_lc:
+    lda len
+    beq exit
+
+    lda (TMP1_ADR),y
+    .scope
+        charset_ascii_to_petscii_lcase
+    .endscope
+    sta VERA_D0         ;Char
+    stx VERA_D0         ;Color
+    iny
+    dec len
+    bne loop_petscii_lc
+    jmp exit
 
 len:
     .byt 0
@@ -743,3 +1060,6 @@ start_at:
     bne :-
     rts
 .endproc
+
+screen_mode:
+    .byt 0

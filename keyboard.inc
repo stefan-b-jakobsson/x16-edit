@@ -129,22 +129,26 @@ mode_replace_2:
 .proc keyboard_mode_default
     ;ESC key
     cmp #$03
-    beq esc
+    bne :+
+    jmp esc
 
     ;Enter key
-    cmp #13
-    beq enter
+:   cmp #13
+    bne :+
+    jmp enter
     
     ;Delete key
-    cmp #$14
-    beq delete
+:   cmp #$14
+    bne :+
+    jmp delete
 
     ;Tab key
-    cmp #$09
-    beq tab_key
+:   cmp #$09
+    bne :+
+    jmp tab_key
 
     ;Left arrow key
-    cmp #$9d
+:   cmp #$9d
     beq left_arrow
 
     ;Right arrow key
@@ -222,6 +226,10 @@ mode_replace_2:
     ;Ctrl+n
     cmp #$0e
     beq ctrl_n
+
+    ;Ctrl+e
+    cmp #$05
+    beq ctrl_e
 
     ;Function keys
     cmp #$85
@@ -324,6 +332,9 @@ ctrl_r:
 ctrl_n:
     jmp cmd_new_buffer
 
+ctrl_e:
+    jmp cmd_change_encoding
+
 f1:
     jmp cmd_show_help
 
@@ -361,9 +372,13 @@ f8:
     ;Y key pressed
     cmp #$79
     beq save
+    cmp #$59
+    beq save
 
     ;N key pressed
     cmp #$6e
+    beq discard
+    cmp #$4e
     beq discard
 
     ;ESC key pressed
@@ -437,55 +452,85 @@ exit_help:
 .proc keyboard_mode_command
     ;ESC key
     cmp #$03
-    beq abort_command_mode
+    bne :+
+    jmp abort_command_mode
 
     ;a
-    cmp #$61
+:   cmp #$61
+    beq auto_indent
+    cmp #$41
     beq auto_indent
 
     ;g
     cmp #$67
     beq show_help
+    cmp #$47
+    beq show_help
 
     ;x
     cmp #$78
+    beq exit
+    cmp #$58
     beq exit
 
     ;w
     cmp #$77
     beq save
+    cmp #$57
 
     ;o
     cmp #$6f
+    beq open
+    cmp #$4f
     beq open
 
     ;y
     cmp #$79
     beq pgup
+    cmp #$59
+    beq pgup
 
     ;v
     cmp #$76
+    beq pgdown
+    cmp #$56
     beq pgdown
 
     ;k
     cmp #$6b
     beq cut
+    cmp #$4b
+    beq cut
 
     ;m
     cmp #$6d
+    beq mem_usage
+    cmp #$4d
     beq mem_usage
 
     ;u
     cmp #$75
     beq paste
+    cmp #$55
+    beq paste
 
     ;p
     cmp #$70
+    beq curpos
+    cmp #$50
     beq curpos
 
     ;f
     cmp #$66
     beq find
+    cmp #$46
+    beq find
+
+    ;e
+    cmp #$65
+    beq change_encoding
+    cmp #$45
+    beq change_encoding
 
     ;1..9
     cmp #$31
@@ -533,6 +578,9 @@ curpos:
 
 find:
     jmp cmd_find
+
+change_encoding:
+    jmp cmd_change_encoding
 
 tab_width:
     pha
@@ -646,9 +694,13 @@ overwrite_msg:
     ;Y key pressed
     cmp #$79
     beq write_file
+    cmp #$59
+    beq write_file
 
     ;N key
     cmp #$6e
+    beq abort
+    cmp #$4e
     beq abort
 
     ;ESC key
@@ -818,9 +870,13 @@ exit:
     ;Y key pressed
     cmp #$79
     beq save
+    cmp #$59
+    beq save
 
     ;N key pressed
     cmp #$6e
+    beq discard
+    cmp #$4e
     beq discard
 
     ;ESC key
@@ -859,9 +915,13 @@ abort:
     ;Y key pressed
     cmp #$79
     beq save
+    cmp #$59
+    beq save
 
     ;N key pressed
     cmp #$6e
+    beq discard
+    cmp #$4e
     beq discard
 
     ;ESC key
@@ -1009,9 +1069,13 @@ abort:
     ;Y
     cmp #121
     beq yes
+    cmp #121-32
+    beq yes
 
     ;A
     cmp #97
+    beq all
+    cmp #97-32
     beq all
 
     ;ESC

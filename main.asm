@@ -19,6 +19,7 @@
 
 ;Include global defines
 .include "common.inc"
+.include "charset.inc"
 
 ;******************************************************************************
 ;Function name.......: main
