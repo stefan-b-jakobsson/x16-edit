@@ -17,6 +17,13 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
+;******************************************************************************
+;Function name.......: file_init
+;Purpose.............: Initializes the file functions, and clears the current 
+;                      file name
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
 .proc file_init
     stz file_cur_filename_len
     rts
@@ -82,7 +89,7 @@ get_next_page:
     ;Reset to get page metadata
     stz TMP1_ADR
 
-    ;Next bank
+    ;Next bank, temp stored in X
     ldy #2
     lda (TMP1_ADR),y
     tax
@@ -101,7 +108,7 @@ get_next_page:
     lda (TMP1_ADR),y
     sta page_len
 
-    ;Offset to skip page metadata
+    ;Set offset to skip page metadata again
     lda #5
     sta TMP1_ADR
 

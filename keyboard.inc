@@ -75,6 +75,9 @@ gotachar:
     cpx #14
     beq mode_replace_2
 
+    cpx #15
+    beq mode_word_wrap_prompt
+
 mode_default:
     jmp keyboard_mode_default
 
@@ -118,6 +121,9 @@ mode_replace_1:
 mode_replace_2:
     jmp keyboard_mode_replace_2
 
+mode_word_wrap_prompt:
+    jmp keyboard_mode_word_wrap_prompt
+
 .endproc
 
 ;******************************************************************************
@@ -149,46 +155,56 @@ mode_replace_2:
 
     ;Left arrow key
 :   cmp #$9d
-    beq left_arrow
+    bne :+
+    jmp left_arrow
 
     ;Right arrow key
-    cmp #$1d
-    beq right_arrow
+:   cmp #$1d
+    bne :+
+    jmp right_arrow
 
     ;Up arrow key
-    cmp #$91
-    beq up_arrow
+:   cmp #$91
+    bne :+
+    jmp up_arrow
 
     ;Down arrow key
-    cmp #$11
-    beq down_arrow
+:   cmp #$11
+    bne :+
+    jmp down_arrow
 
     ;Home key
-    cmp #$13
-    beq home
+:   cmp #$13
+    bne :+
+    jmp home
 
     ;Shift+Home = End key
-    cmp #$93
-    beq end
+:   cmp #$93
+    bne :+
+    jmp end
 
     ;Ctrl+G
-    cmp #$07
-    beq ctrl_g
+:   cmp #$07
+    bne :+
+    jmp ctrl_g
 
     ;Ctrl+x
-    cmp #$18
-    beq ctrl_x
+:   cmp #$18
+    bne :+
+    jmp ctrl_x
 
     ;Ctrl+Y
-    cmp #$19
-    beq ctrl_y
+:   cmp #$19
+    bne :+
+    jmp ctrl_y
 
     ;Ctrl+V
-    cmp #$16
-    beq ctrl_v
+:   cmp #$16
+    bne :+
+    jmp ctrl_v
 
     ;Ctrl+W
-    cmp #$17
+:   cmp #$17
     beq ctrl_w
 
     ;Ctrl+O
@@ -230,6 +246,14 @@ mode_replace_2:
     ;Ctrl+e
     cmp #$05
     beq ctrl_e
+
+    ;Ctrl+a
+    cmp #$01
+    beq ctrl_a
+
+    ;Ctrl+z
+    cmp #$1a
+    beq ctrl_z
 
     ;Function keys
     cmp #$85
@@ -335,6 +359,12 @@ ctrl_n:
 ctrl_e:
     jmp cmd_change_encoding
 
+ctrl_a:
+    jmp cmd_auto_indent
+
+ctrl_z:
+    jmp cmd_set_word_wrap
+
 f1:
     jmp cmd_show_help
 
@@ -428,7 +458,7 @@ exit_help:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_statusmessage
-;Purpose.............: Select key press actions for when a status message has
+;Purpose.............: Select key press actions when a status message has
 ;                      been displayed
 ;Input...............: Nothing
 ;Returns.............: Nothing
@@ -531,6 +561,12 @@ exit_help:
     beq change_encoding
     cmp #$45
     beq change_encoding
+    
+    ;z
+    cmp #$5a
+    beq set_word_wrap
+    cmp #$7a
+    beq set_word_wrap
 
     ;1..9
     cmp #$31
@@ -542,6 +578,8 @@ exit_help:
     rts
 
 auto_indent:
+    stz APP_MOD
+    jsr screen_clear_status
     jmp cmd_auto_indent
 
 show_help:
@@ -581,6 +619,11 @@ find:
 
 change_encoding:
     jmp cmd_change_encoding
+
+set_word_wrap:
+    stz APP_MOD
+    jsr screen_clear_status
+    jmp cmd_set_word_wrap
 
 tab_width:
     pha
@@ -1099,6 +1142,33 @@ abort:
     stz APP_MOD
     jmp screen_clear_status
 .endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_word_wrap_prompt
+;Purpose.............: Handle keypress
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_word_wrap_prompt
+    ;ESC
+    cmp #$03
+    beq abort
+
+    ;ENTER
+    cmp #13
+    beq enter
+
+    ;Default
+    jmp prompt_keypress
+
+enter:
+    jmp cmd_set_word_wrap
+
+abort:
+    stz APP_MOD
+    jmp prompt_close
+
+.endproc
     
 ;******************************************************************************
 ;Function name.......: keyboard_esc_key
@@ -1128,14 +1198,14 @@ msg:
 ;Error returns.......: None
 .proc keyboard_enter_key
     ;Insert linefeed char
-    lda cmd_auto_indent
+    lda cmd_auto_indent_status
     beq :+
     jsr cursor_disable
 
 :   lda #LF
     jsr cmd_insert
 
-    lda cmd_auto_indent
+    lda cmd_auto_indent_status
     beq :+
     jsr cursor_activate
 
@@ -1389,7 +1459,14 @@ abort:
 ;Error returns.......: None
 .proc keyboard_default_keyhandler
     jsr cmd_insert
+    bcs refresh_screen
+
     jmp screen_println
+
+refresh_screen:
+    jsr screen_refresh
+    jmp screen_println
+
 .endproc
 
 ;GLOBAL VARIABLES

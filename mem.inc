@@ -1249,6 +1249,108 @@ count:
 .endproc
 
 ;**********************************************************
+;Procedure name......: mem_crs_move_to_prev_blankspace
+;Description.........: Moves the pointer to memory location
+;                      at previous blank space, it will
+;                      however stop at LF or BOF if no blank
+;                      space was found before
+;Input...............: Nothing
+;Returns.............: Number of steps the cursor was moved,
+;                      LSB in X and MSB in Y
+;Error returns.......: C=1 if LF found before a blank space
+.proc mem_crs_move_to_prev_blankspace
+    ;Reset counter
+    stz counter
+    stz counter+1
+
+    ;Get page len
+    lda CRS_BNK
+    sta BNK_SEL
+
+    ldy #4
+    lda (CRS_ADR),y
+    sta pagelen
+
+    ;Skip page metadata
+    lda #5
+    sta CRS_ADR
+
+    ;CRS_IDX >= pagelen? If so, move one step left
+    ldy CRS_IDX
+    cpy pagelen
+    bcc loop
+    dey
+    bne loop
+    jmp prevpage
+
+loop:
+    ldy CRS_IDX
+    lda (CRS_ADR),y
+    cmp #32
+    beq found
+    cmp #LF
+    beq notfound
+
+    inc counter
+    bne :+
+    inc counter+1
+
+:   lda CRS_IDX
+    beq prevpage
+    dec CRS_IDX
+    jmp loop
+
+prevpage:
+    stz CRS_ADR
+    
+    ;Get prev page
+    ldy #0
+    lda (CRS_ADR),y
+    tax
+    ldy #1
+    lda (CRS_ADR),y
+    beq notfound
+    stx BNK_SEL
+    sta CRS_ADR+1
+
+    ;Get prev page len
+    ldy #4
+    lda (CRS_ADR),y
+    sta pagelen
+    beq prevpage
+    
+    tay
+    dey
+    sty CRS_IDX
+
+    lda #5
+    sta CRS_ADR
+    jmp loop
+
+
+notfound:
+    sec
+    stz CRS_ADR
+    ldx counter
+    ldy counter+1
+    rts
+
+found:
+    stz CRS_ADR
+    jsr mem_crs_step_right
+    
+    clc
+    ldx counter
+    ldy counter+1
+    rts
+
+pagelen:
+    .byt 0
+counter:
+    .byt 0,0
+.endproc
+
+;**********************************************************
 ;Procedure name......: mem_crs_move_to_line_end
 ;Description.........: Moves the pointer to memory location
 ;                      at end of line

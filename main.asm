@@ -42,59 +42,14 @@
     jsr cursor_init
     jsr irq_init
     jsr clipboard_init
+    jsr cmd_init
     
     ;Wait for the program to terminate    
-:   lda APP_QUIT
+:   lda APP_QUIT        ;0=running, 1=closing down, 2=ready to close
     cmp #2
     bne :-
     
     rts
-
-count:
-    .byt 32
-.endproc
-
-;A routine to feed test characters to the editor 
-;for debugging purposes
-.proc feed_test
-    lda #<testtext
-    sta $40
-    lda #>testtext
-    sta $41
-    stz index
-
-:   ldy index
-    lda ($40),y
-    beq eof
-    jsr keyboard_mode_default
-    inc index
-    bne :-
-    inc $41
-    jmp :-
-    
-eof:
-    jsr screen_refresh
-    rts
-
-index:
-    .byt 0
-
-testtext:
-    .res 59, 65
-    .byt 13
-
-    .res 59, 66
-    .byt 13
-
-    .res 59, 67
-    .byt 13
-
-    .res 59, 68
-    .byt 13
-
-    .res 11, 69
-    .byt 0
-
 .endproc
 
 .include "screen.inc"

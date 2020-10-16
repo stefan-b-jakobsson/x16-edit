@@ -18,33 +18,122 @@
 ;******************************************************************************
 
 ;******************************************************************************
+;Function name.......: cmd_init
+;Purpose.............: Init commands
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_init
+    ;Set auto indent = off
+    stz cmd_auto_indent_status
+
+    ;Set word wrap = off
+    stz cmd_wordwrap_mode
+    lda #80
+    sta cmd_wordwrap_pos
+    rts
+.endproc
+
+;******************************************************************************
 ;Function name.......: cmd_insert
 ;Purpose.............: Inserts one char at cursor position and moves the cursor
 ;                      one step right. Does not refresh screen; users of this 
 ;                      procedure are responsible to do screen refresh when done
 ;Input...............: A = Char to insert
 ;Returns.............: Nothing
-;Error returns.......: None
+;Error returns.......: C=1 if a line feed char was inserted, either directly
+;                      or by the word wrap function
 .proc cmd_insert
     ;Is linefeed char?
     cmp #LF
-    beq linefeed
+    bne :+ 
+    jmp linefeed
     
-    ;Store char in mem
-    jsr mem_insert
-    bcs mem_full
+    ;No, store char in mem
+:   jsr mem_insert
+    bcc :+
+    jmp mem_full
 
     ;Increase current columm index
-    jsr mem_cur_col_inc
+:   jsr mem_cur_col_inc
 
     ;Move cursor
     jsr cursor_move_right
-    bcc exit
+    bcs :+
+    jmp wordwrap
 
     ;Carry set, cursor at rightmost position, need to scroll
-    jsr mem_lnv_step_right
+:   jsr mem_lnv_step_right
+
+    ;Word wrap
+wordwrap:
+    lda cmd_wordwrap_mode
+    beq exit                ;Word wrap mode off, we're done
+
+    lda mem_cur_col+1
+    bne exit
+    lda mem_cur_col+2
+    bne exit
+    lda mem_cur_col
+    cmp cmd_wordwrap_pos
+    beq wrap
+    jmp exit
+
+wrap:
+    lda CRS_BNK
+    sta crs_backup
+    lda CRS_ADR+1
+    sta crs_backup+1
+    lda CRS_IDX
+    sta crs_backup+2
+
+    jsr mem_crs_move_to_prev_blankspace
+    bcs bs_not_found
+
+    ;Blankspace found
+    stx prevblank
+    sty prevblank+1
+
+    lda #LF
+    jsr cmd_insert
+
+wrap_step_back:
+    lda prevblank
+    bne :+
+    lda prevblank+1
+    bne :+
+    jmp wrap_done
+
+:   jsr cmd_go_right
+    
+    dec prevblank
+    lda prevblank
+    cmp #$ff
+    bne wrap_step_back
+    dec prevblank+1
+    jmp wrap_step_back
+
+wrap_done:
+    sec
+    rts
+
+    ;Blankspace not found
+bs_not_found:
+    ;Restore pointers
+    lda crs_backup
+    sta CRS_BNK
+    lda crs_backup+1
+    sta CRS_ADR+1
+    lda crs_backup+2
+    sta CRS_IDX
+
+    lda #LF
+    jsr cmd_insert
+    sec
+    rts
 
 exit:
+    clc
     rts
 
 mem_full:
@@ -52,7 +141,9 @@ mem_full:
     ldy #>msg
     lda #2
     sta APP_MOD
-    jmp screen_print_status
+    jsr screen_print_status
+    clc
+    rts
 
 linefeed:
     ;Is auto indent on?
@@ -150,6 +241,7 @@ auto_indent_insert_blanks:
     jmp auto_indent_insert_blanks
 
 linefeed_exit:
+    sec
     rts
 
 msg:
@@ -160,6 +252,8 @@ crs_backup:
 counter1:
     .byt 0,0
 counter2:
+    .byt 0,0
+prevblank:
     .byt 0,0
 .endproc
 
@@ -838,6 +932,20 @@ msg2:
     lda LNV_IDX
     sta lnv_backup+2
 
+    lda mem_cur_col
+    sta col_backup
+    lda mem_cur_col+1
+    sta col_backup+1
+    lda mem_cur_col+2
+    sta col_backup+2
+
+    lda mem_cur_line
+    sta line_backup
+    lda mem_cur_line+1
+    sta line_backup+1
+    lda mem_cur_line+2
+    sta line_backup+2
+
     lda CRS_X
     sta cursor
     lda CRS_Y
@@ -871,6 +979,20 @@ mem_full:
     lda lnv_backup+2
     sta LNV_IDX
 
+    lda col_backup
+    sta mem_cur_col
+    lda col_backup+1
+    sta mem_cur_col+1
+    lda col_backup+2
+    sta mem_cur_col+2
+
+    lda line_backup
+    sta mem_cur_line
+    lda line_backup+1
+    sta mem_cur_line+1
+    lda line_backup+2
+    sta mem_cur_line+2
+
     ldx cursor
     ldy cursor+1
     jsr cursor_move
@@ -892,6 +1014,10 @@ crs_backup:
 scr_backup:
     .byt 0,0,0
 lnv_backup:
+    .byt 0,0,0
+line_backup:
+    .byt 0,0,0
+col_backup:
     .byt 0,0,0
 cursor:
     .byt 0,0
@@ -927,6 +1053,20 @@ cursor:
     lda LNV_IDX
     sta lnv_backup+2
 
+    lda mem_cur_col
+    sta col_backup
+    lda mem_cur_col+1
+    sta col_backup+1
+    lda mem_cur_col+2
+    sta col_backup+2
+
+    lda mem_cur_line
+    sta line_backup
+    lda mem_cur_line+1
+    sta line_backup+1
+    lda mem_cur_line+2
+    sta line_backup+2
+
     lda CRS_X
     sta cursor
     lda CRS_Y
@@ -960,6 +1100,20 @@ mem_full:
     lda lnv_backup+2
     sta LNV_IDX
 
+    lda col_backup
+    sta mem_cur_col
+    lda col_backup+1
+    sta mem_cur_col+1
+    lda col_backup+2
+    sta mem_cur_col+2
+
+    lda line_backup
+    sta mem_cur_line
+    lda line_backup+1
+    sta mem_cur_line+1
+    lda line_backup+2
+    sta mem_cur_line+2
+
     ldx cursor
     ldy cursor+1
     jsr cursor_move
@@ -981,6 +1135,10 @@ crs_backup:
 scr_backup:
     .byt 0,0,0
 lnv_backup:
+    .byt 0,0,0
+line_backup:
+    .byt 0,0,0
+col_backup:
     .byt 0,0,0
 cursor:
     .byt 0,0
@@ -1162,6 +1320,20 @@ msg:
     lda SCR_IDX
     sta scr_backup+2
 
+    lda mem_cur_col
+    sta col_backup
+    lda mem_cur_col+1
+    sta col_backup+1
+    lda mem_cur_col+2
+    sta col_backup+2
+
+    lda mem_cur_line
+    sta line_backup
+    lda mem_cur_line+1
+    sta line_backup+1
+    lda mem_cur_line+2
+    sta line_backup+2
+
     lda CRS_X
     sta cursor_backup
     lda CRS_Y
@@ -1229,6 +1401,20 @@ eof:
     lda scr_backup+2
     sta SCR_IDX
 
+    lda col_backup
+    sta mem_cur_col
+    lda col_backup+1
+    sta mem_cur_col+1
+    lda col_backup+2
+    sta mem_cur_col+2
+
+    lda line_backup
+    sta mem_cur_line
+    lda line_backup+1
+    sta mem_cur_line+1
+    lda line_backup+2
+    sta mem_cur_line+2
+
     ldx cursor_backup
     ldy cursor_backup+1
     jsr cursor_move
@@ -1253,6 +1439,12 @@ scr_backup:
 
 cursor_backup:
     .byt 0,0
+
+col_backup:
+    .byt 0,0,0
+
+line_backup:
+    .byt 0,0,0
 
 .endproc
 
@@ -1728,8 +1920,6 @@ msg_on:
 msg_off:
     .byt "auto indent off",0
 .endproc
-cmd_auto_indent_status:
-    .byt 0
 
 ;******************************************************************************
 ;Function name.......: cmd_change_encoding
@@ -1807,4 +1997,116 @@ msg_puc:
     .byt "petscii upper case/graphics selected",0
 msg_plc:
     .byt "petscii upper/lower case selected", 0
+
 .endproc
+
+;******************************************************************************
+;Function name.......: cmd_set_word_wrap
+;Purpose.............: Turns word wrap on or off
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_set_word_wrap
+    lda cmd_wordwrap_mode
+    bne off
+
+on:
+    lda APP_MOD
+    beq prompt
+
+set:
+    ldx #0
+:   lda prompt_input,x
+    sta col,x
+    inx
+    cpx prompt_len
+    bne :-
+    stz col,x
+
+    ldx #<col
+    ldy #>col
+    jsr util_str_to_bcd
+    bcs illegal_value
+    jsr util_bcd_to_bin
+
+    cpy #0
+    bne illegal_value
+    cpx #10
+    bcc illegal_value
+    cpx #251
+    bcs illegal_value
+
+    stx cmd_wordwrap_pos
+    lda #1
+    sta cmd_wordwrap_mode
+    
+    stz APP_MOD
+    jmp prompt_close
+    
+illegal_value:
+    jsr prompt_close
+    lda #2
+    sta APP_MOD
+    ldx #<msg_illegal
+    ldy #>msg_illegal
+    jmp screen_print_status
+
+prompt:
+    ldx #<msg_prompt
+    ldy #>msg_prompt
+    lda #3
+    jsr prompt_init
+
+    ldx cmd_wordwrap_pos
+    ldy #0
+    lda #0
+    jsr util_bin_to_bcd
+    jsr util_bcd_to_str
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    
+    ldy #0
+:   lda (TMP1_ADR),y
+    beq :+
+    iny
+    jmp :-
+
+:   tya
+    ldx TMP1_ADR
+    ldy TMP1_ADR+1
+    jsr prompt_default_input
+
+    lda #15
+    sta APP_MOD
+    rts
+
+off:
+    stz cmd_wordwrap_mode
+    lda #2
+    sta APP_MOD
+    ldx #<msg_off
+    ldy #>msg_off
+    jmp screen_print_status
+
+col:
+    .byt 0,0,0,0
+
+msg_prompt:
+    .byt "set word wrap at column:", 0
+
+msg_off:
+    .byt "word wrap off", 0
+
+msg_illegal:
+    .byt "illegal value, column must be in range 10..250",0
+
+.endproc
+
+cmd_auto_indent_status:
+    .byt 0
+
+cmd_wordwrap_mode:
+    .byt 0
+
+cmd_wordwrap_pos:
+    .byt 80

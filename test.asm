@@ -19,6 +19,7 @@
 
 
 .include "common.inc"
+.include "charset.inc"
 
 cld
 
@@ -38,9 +39,90 @@ cld
 ;jsr test_mem_free
 ;jsr test_decimal
 ;jsr test_mem_step
-jsr test_util_bin
+;jsr test_util_bin
+jsr test_close_normally
 
 rts
+
+.proc test_close_properly
+    stz index
+
+    lda #8
+    ldx #<fn
+    ldy #>fn
+    jsr KERNAL_SETNAM
+
+    lda #1
+    ldx #8
+    ldy #1
+    jsr KERNAL_SETLFS
+
+    jsr KERNAL_OPEN
+
+    ldx #1
+    jsr KERNAL_CHKOUT
+
+loop:
+    ldx index
+    lda msg,x
+    beq close
+    jsr KERNAL_CHROUT
+    inc index
+    jmp loop
+
+close:
+    jsr KERNAL_CLRCHN
+    lda #1
+    jsr KERNAL_CLOSE
+    rts
+
+fn:
+    .byt "text.txt"
+msg:
+    .byt "testing 123",0
+index:
+    .byt 0
+.endproc
+
+.proc test_close_normally
+    stz index
+
+    lda #8
+    ldx #<fn
+    ldy #>fn
+    jsr KERNAL_SETNAM
+
+    lda #1
+    ldx #8
+    ldy #1
+    jsr KERNAL_SETLFS
+
+    jsr KERNAL_OPEN
+
+    ldx #1
+    jsr KERNAL_CHKOUT
+
+loop:
+    ldx index
+    lda msg,x
+    beq close
+    jsr KERNAL_CHROUT
+    inc index
+    jmp loop
+
+close:
+    lda #1
+    jsr KERNAL_CLOSE
+    jsr KERNAL_CLRCHN
+    rts
+
+fn:
+    .byt "tes1.txt"
+msg:
+    .byt "testing 123",0
+index:
+    .byt 0
+.endproc
 
 .proc test_util_bin
     ldx #<test_val
@@ -687,7 +769,7 @@ counter:
     ldx #5
     ldy #100
     lda #100
-    jsr util_bin_to_dec
+    jsr util_bin_to_bcd
 
     stx TMP1_ADR
     sty TMP1_ADR+1
@@ -709,4 +791,5 @@ exit:
 .include "cursor.inc"
 .include "file.inc"
 .include "util.inc"
+.include "clipboard.inc"
 .include "mem.inc"
