@@ -23,8 +23,10 @@
 ;Input...............: 24 bit binary value, X=low, Y=mid, A=high
 ;Returns.............: Pointer to 32 bit BCD value, X=addressL, Y=addressH
 ;Error returns.......: None
-;Credits.............: This routine is based on Andrew Jacobs code as published
-;                      on http://www.6502.org/source/integers/hex2dec-more.htm
+;Credits.............: This routine is based on Andrew Jacobs code published
+;                      here: http://www.6502.org/source/integers/hex2dec-more.htm
+;                      The function basically switches to decimal mode and then
+;                      adds the bits together
 .proc util_bin_to_bcd
     ;Store 24 bit input
     stx input
@@ -44,10 +46,12 @@
     sed
 
 loop:
+    ;Rotate input, leftmost bit -> C
     asl input
     rol input+1
     rol input+2
     
+    ;32 bit addition. Value of C from previous operation is the actual input. Therefore C is not cleared.
     lda output
     adc output
     sta output
@@ -64,13 +68,14 @@ loop:
     adc output+3
     sta output+3
 
+    ;Decrease bit counter, continue if >0
     dex
     bne loop
 
-    ;Finished, set binary mode
+    ;Go back to binary mode
     cld
 
-    ;Return pointer to output
+    ;Set pointer to output, and we're done
     ldx #<output
     ldy #>output
  
@@ -90,12 +95,19 @@ output:
 ;Returns.............: 24 bit binary value, X=low, Y=mid, A=high
 ;Error returns.......: None
 ;Credits.............: This routine is based on an article by Marvin L. De Jong
-;                      as published here: https://www.atarimagazines.com/compute/issue17/221_1_A_GENERAL_PURPOSE_BCD-TO-BINARY_ROUTINE.php
-;                      Mr. De Jong was in his turn inspired by the book 
+;                      published here: 
+;                      https://www.atarimagazines.com/compute/issue17/221_1_A_GENERAL_PURPOSE_BCD-TO-BINARY_ROUTINE.php
+;                      De Jong was in his turn inspired by the book 
 ;                      Microcomputer-Based Design, by John B. Peatman, 
 ;                      McGraw Hill, New York, 1977, p 400.
+;
+;                      The technique is based on continuous dividing the input by two and
+;                      storing the remainders as answer. The trick is to adjust the 
+;                      answer by subtracting 3 from each nibble if the highest 
+;                      bit is set. Why does this work?  I guess you have to read 
+;                      those publications.
 .proc util_bcd_to_bin
-    ;Copy input
+    ;Copy input to local memory
     stx TMP1_ADR
     sty TMP1_ADR+1
     ldy #0
@@ -103,24 +115,28 @@ output:
 :   lda (TMP1_ADR),y
     sta bcd_val,y
     iny
-    cpy #5
+    cpy #5          ;The input is 32 bits = 4 bytes. Thus we've copied all when Y=5
     bne :-
-
-    lda bcd_val
     
-    ;Prepare
-    ldy #32         ;Bit count
-    ldx #3          ;Byte index
+    ;Prepare loop
+    ldy #32         ;Output bit count, internally 32 bits, bit the function only returns the lowest 24 bits. The highest 8 bits are discarded!
+    ldx #3          ;Byte index (corresponds to 32 bit input, bytes 0 to 3)
 
-    clc             ;Clear carry and push to stack, 
+    clc             ;Clear carry and push processor status including carry flag to stack
     php
 
 loop:
+    ;Get processor status from stack. We're really only interested in carry flag
     plp
+
+    ;Divide by 2, remainder in carry flag
     ror bcd_val,x
+
+    ;Save processor status including carry flag on stack again
     php
 
-    ;Adjust high nibble: If bit 7=1 subtract $30
+    ;Adjust high nibble: If bit 7=1 subtract $30; This is the essential "trick" in De Jong's and Peatman's
+    ;above mentioned publications. 
     bit bcd_val,x
     bpl :+
     sec
@@ -128,7 +144,7 @@ loop:
     sbc #$30
     sta bcd_val,x
 
-    ;Adjust low nibble: If bit 3=1 subtract $3
+    ;Adjust low nibble: If bit 3=1 subtract $3; The same "trick" but for the low nibble
 :   lda bcd_val,x
     and #8
     beq next_byte
@@ -152,11 +168,11 @@ next_byte:
     ror bin_val+1
     ror bin_val
     
-    ;Prepare stack for next loop
+    ;Prepare stack for next loop, carry not set when we start the loop
     clc
     php
     
-    dey
+    dey             ;If Y=0 we're done with all 32 bits
     bne loop
 
     ;Clean stack
@@ -182,7 +198,7 @@ next_byte:
 ;Returns.............: Pointer to string, X=AddressL, Y=AddressH
 ;Error returns.......: None
 .proc util_bcd_to_str
-    ;Copy input
+    ;Copy input to local memory
     stx TMP1_ADR
     sty TMP1_ADR+1
     ldy #0
@@ -192,13 +208,13 @@ next_byte:
     iny
     cpy #5
     bne :-
-    
 
-    ldx #4
-    ldy #0
+    ldx #4      ;Byte index, start with rightmost byte (MSB)
+    ldy #0      ;Char index, start from left
 
 build_str:
-    lda input-1,x
+    ;Get value from high nibble
+    lda input-1,x       ;"input-1" is needed because X starts from 4 (i.e. last index+1); this makes the exit test simpler - maybe I'm optimizing too much?
     lsr
     lsr
     lsr
@@ -208,6 +224,7 @@ build_str:
     sta output,y
     iny
 
+    ;Get value from low nibble
     lda input-1,x
     and #15
     clc
@@ -215,20 +232,22 @@ build_str:
     sta output,y
     iny
 
+    ;Decrease input byte index, if = 0 we're done
     dex
     bne build_str
 
 strip_leading_zeros:
+    ;Look for first non "0" value, and set the start of the output string to that position
     ldx #0
 :   lda output,x
     cmp #48
     bne exit
     inx
-    cpx #7
+    cpx #7          ;We must break this search at position 7. Otherwise 0 would be an empty string.
     bcc :-
 
 exit:
-    txa
+    txa     ;Start of string from search for non 0 value above; added to the output pointer
     clc
     adc #<output
     tax
@@ -247,21 +266,22 @@ output:
 ;******************************************************************************
 ;Function name.......: util_str_to_bcd
 ;Purpose.............: Converts string to bcd value
-;Preparatory routines: Nothing
 ;Input...............: Pointer to null terminated string, X=AddressL, Y=AddressH
 ;                      Input beyond 8 digits will be ignored
 ;Returns.............: Pointer to 32 bit BCD value, X=AddressL, Y=AddressH
 ;Error returns.......: C=1 if invalid input, else C=0
 .proc util_str_to_bcd
+    ;Setup zero page vectors
     stx TMP1_ADR
     sty TMP1_ADR+1
 
+    ;Clear output
     stz bcd_val
     stz bcd_val+1
     stz bcd_val+2
     stz bcd_val+3
 
-;Goto end of string
+;Going arabic. We need to parse from right to left, therefore go to end of string
     ldy #0
 :   lda (TMP1_ADR),y
     beq prepare
@@ -269,28 +289,33 @@ output:
     jmp :-
 
 prepare:
-    dey
+    dey         ;Decrease Y to step back to the last digit. Y was at null char before this.
     ldx #0
 
 loop:
+    ;Get input char and subtract 48
     lda (TMP1_ADR),y
     sec
     sbc #48
-    bcc invalid
+    bcc invalid         ;Char was less than 48, exit with error
     cmp #10
-    bcs invalid
+    bcs invalid         ;Char was greater than 57, exit with error
     sta bcd_val,x
     
+    ;Move index to next char, if Y=ff we're done
     dey
     cpy #$ff
     beq end
 
+    ;Get input char and subtract 48 as above
     lda (TMP1_ADR),y
     sec
     sbc #48
     bcc invalid
     cmp #10
     bcs invalid
+
+    ;Multiply by 16, to store every other input char in the outout high nibble
     asl
     asl
     asl
@@ -298,18 +323,21 @@ loop:
     ora bcd_val,x
     sta bcd_val,x
     
+    ;Increase output index and decrease input index. Exit if input index=ff, i.e. 0 before we decreased it
     inx
     dey
     cpy #$ff
     bne loop
 
 end:
+    ;Default exit
     clc
     ldx #<bcd_val
     ldy #>bcd_val
     rts
 
 invalid:
+    ;Exit if input value invalid (not only digits in string)
     sec
     ldx #<bcd_val
     ldy #>bcd_val

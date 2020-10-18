@@ -29,6 +29,9 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main
+    ;Ensure we are in binary mode
+    cld
+
     ;Set program mode to default
     stz APP_MOD
 
