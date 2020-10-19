@@ -42,8 +42,6 @@
     ;Initial screen setup
     jsr screen_print_header
     jmp screen_print_footer
-    
-    rts
 .endproc
 
 ;******************************************************************************
@@ -96,11 +94,11 @@ detect:
     cmp #$ff
     beq iso
 
-    ;Unknown charset, return error. This would happen, for example, if the user have
-    ;redefined the character definitions. The user could of coarse also change
-    ;the definitions in a way that tricks this routine. The consequences would
-    ;not be fatal for the program. The user may manually select what charset
-    ;to use after starting the program.
+    ;Unknown charset, return error. This would happen, for example, if the user has
+    ;redefined the characters. The user could of coarse also change
+    ;the definitions in a way that tricks this routine. The consequences would, 
+    ;however not be fatal for the program. The user may manually select what 
+    ;charset to use after starting the program.
     sec
     rts
 

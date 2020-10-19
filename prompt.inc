@@ -25,16 +25,16 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_init
-    ;Set max len
+    ;Set prompt max input len
     sta prompt_maxlen
 
-    ;Backup cursor pos
+    ;Backup cursor position. We need to go back where we came from when done
     lda CRS_X
     sta prompt_cursor_backup
     lda CRS_Y
     sta prompt_cursor_backup+1
     
-    ;Print message
+    ;Print prompt message at row 57
     stz VERA_L
     lda #57
     sta VERA_M
@@ -85,6 +85,7 @@ loop_petscii_lc:
     jmp loop_petscii_lc
     
 set_bgcolor:
+    ;Before we set background color, set column where user input starts (prompt message len+1)
     iny
     sty prompt_start
 
@@ -92,8 +93,8 @@ set_bgcolor:
     lda #1
     sta VERA_L
     
-    ldx #80
-    lda #160
+    ldx #80     ;Column count
+    lda #160    ;Color
 
 :   sta VERA_D0
     dex
@@ -119,15 +120,17 @@ set_bgcolor:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_default_input
+    ;Setup zero page vector to input string
     stx TMP1_ADR
     sty TMP1_ADR+1
     sta len
 
     ldy #0
     sty index
-    
-:   ldy index
 
+loop:
+    ;This loop copies default input string to prompt input
+    ldy index
     cpy len
     beq exit
     cpy prompt_maxlen
@@ -139,7 +142,7 @@ set_bgcolor:
     jsr prompt_go_right
     
     inc index
-    jmp :-
+    jmp loop
 
 exit:
     jmp prompt_refresh
@@ -157,7 +160,7 @@ index:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_refresh
-    ;Prepare to print
+    ;Set VERA address to start of user input
     lda prompt_start
     asl
     sta VERA_L
@@ -166,9 +169,11 @@ index:
     lda #(2<<4)
     sta VERA_H
 
+    ;Set indexes
     ldy prompt_fvc
     ldx prompt_start
 
+    ;Select printing routine for active charset
     lda screen_mode
     beq loop_iso
     cmp #1
@@ -176,13 +181,13 @@ index:
     jmp loop_petscii_lc
 
 loop_iso:
-    cpy prompt_len
+    cpy prompt_len              ;Exit if we are at end of user input
     bcs loop_iso_exit
     lda prompt_input,y
     sta VERA_D0
     iny
     inx
-    cpx #SCREEN_WIDTH
+    cpx #SCREEN_WIDTH           ;Also exit if we are at right border, rest of user input not visible
     bne loop_iso
     rts
 
@@ -221,6 +226,7 @@ loop_petscii_lc:
     rts
 
 clear_line:
+    ;Clears end of the prompt line
     lda #32
 :   sta VERA_D0
     inx
@@ -232,7 +238,7 @@ clear_line:
 
 ;******************************************************************************
 ;Function name.......: prompt_close
-;Purpose.............: Close and clean up prompt when done
+;Purpose.............: Closes and cleans up prompt when done
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -275,10 +281,11 @@ clear_line:
     cmp #$93
     beq end
 
-    ;Other
+    ;Ignore other control chars
     cmp #$20
     bcc exit
 
+    ;Default insert
     jsr prompt_insert
     jsr prompt_go_right
     jmp prompt_refresh
@@ -297,9 +304,11 @@ right_arrow:
     jmp prompt_refresh
 
 home:
+    ;Not yet implemented
     rts
 
 end:
+    ;Not yet implemented
     rts
 
 exit:
@@ -313,25 +322,28 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_insert
+    ;Check if there is room for another char, exit if not
     ldx prompt_len
     cpx prompt_maxlen
     bcs exit
 
+    ;Store char on stack
     pha
 
+    ;Move all chars from cursor to end of input one step to the right, making room for the new char
     ldy #254
-
 :   lda prompt_input,y
     sta prompt_input+1,y
     cpy prompt_curpos
-    beq next
+    beq insert
     dey
     jmp :-
 
-next:
+insert:
     pla
     sta prompt_input,y
     inc prompt_len
+
 exit:
     rts
 .endproc
@@ -343,9 +355,11 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_delete
+    ;Exit if we are at start of user input, nothing to delete
     ldy prompt_curpos
     beq exit
 
+    ;Move all chars from the cursor to end of user input one step left => deleting the char under cursor
 :   lda prompt_input,y
     sta prompt_input-1,y
     iny
@@ -364,12 +378,15 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_go_right
+    ;Exit if cursor is at end of user input
     lda prompt_curpos
     cmp prompt_len
     bcs exit
 
+    ;Move cursor
     inc prompt_curpos
     
+    ;Check if we need to scroll user input horizontally
     lda CRS_X
     cmp #SCREEN_WIDTH-1
     beq scroll
@@ -392,14 +409,17 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_go_left
+    ;Exit if cursor at start of user input
     lda prompt_curpos
     beq exit
 
+    ;Move cursor
     dec prompt_curpos
 
+    ;Check if we need to scroll horizontally
     lda prompt_fvc
     beq :+
-    dec prompt_fvc
+    dec prompt_fvc      ;Scroll
     rts
 
 :   ldx CRS_X
