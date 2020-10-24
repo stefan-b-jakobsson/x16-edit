@@ -40,9 +40,17 @@ cld
 ;jsr test_decimal
 ;jsr test_mem_step
 ;jsr test_util_bin
-jsr test_close_normally
+;jsr test_close_normally
+jsr test_defrag
 
 rts
+
+.proc test_defrag
+    ldy #1
+    ldx #$a0
+    jsr mem_defrag
+    rts
+.endproc
 
 .proc test_close_properly
     stz index

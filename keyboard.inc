@@ -27,6 +27,9 @@
     ;Get char from keyboard queue. If A=0, the queue is empty.
     jsr KERNAL_GETIN
     bne gotachar
+    
+    ;No input, run defrag instead
+    jmp mem_run_defrag
     rts
     
 gotachar:

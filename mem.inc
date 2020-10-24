@@ -32,15 +32,15 @@
     sec
     sbc #1
     sta mem_top
+    sta $6000
 
     ;Mark pages in banks 0-63
     ;Mark bank 0 as used (by Kernal)
     ;Bank 1 page $a0 as used (head of text)
     ;All other pages marked as free
-    
     ldx #0
-:   lda #0
-    sta mem_map,x
+    lda #0
+:   sta mem_map,x
     inx
     bne :-
 
@@ -98,15 +98,18 @@
     inx
     bne :-
 
-    ;Set mem blocks free counter
+    ;Set mem blocks free counter = mem_top * 32
+    stz mem_blocks_free
     lda mem_top
     sta mem_blocks_free+1
+
     ldx #3
 :   lsr mem_blocks_free+1
     ror mem_blocks_free
     dex
     bne :-
 
+    ;Decrease mem blocks free counter with 1 to account for first page that is allocated by this function
     sec
     lda mem_blocks_free
     sbc #1
@@ -140,7 +143,7 @@
     stz LNV_IDX     ;Line first visible char
     stz SCR_IDX     ;Screen first visible char
 
-    ;Setup initial memory page metadata (bank 1, page $a0)
+    ;Setup initial memory page metadata (bank 1, page $a0), bank selected above already
     lda #0
     
     ldy #0
@@ -156,11 +159,13 @@
     sta (CRS_ADR),y     ;Next page = 0, i.e. null
 
     ldy #4
-    lda #0
-    sta (CRS_ADR),y     ;Len = 1
+    sta (CRS_ADR),y     ;Len = 0
 
-    ;Set memory not modified
-    stz mem_modified
+    ;Set initial memory page for defrag runner
+    lda #1
+    sta mem_run_defrag_page
+    lda #$a0
+    sta mem_run_defrag_page+1
 
     ;Set current line=1 and column=1
     lda #1
@@ -173,12 +178,16 @@
     stz mem_cur_col+1
     stz mem_cur_col+2
 
+    ;Set memory not modified
+    stz mem_modified
+
     rts
 .endproc
 
 ;**********************************************************
-;Procedure name......: mem_is_head
-;Description.........: Finds out if page is head of buffer
+;Function name.......: mem_is_head
+;Description.........: Is page head of buffer, i.e.
+;                      bank 1, page $a0
 ;Input...............: Y    Bank
 ;                      X    Page
 ;Returns.............: C = 1    Is head
@@ -199,22 +208,24 @@
 .endproc
 
 ;**********************************************************
-;Procedure name......: mem_at_bof
-;Description.........: Returns if current position is
-;                      beginning of file, i.e. first char
-;                      of the file
+;Function name.......: mem_at_bof
+;Description.........: Is cursor at beginning of file, 
+;                      i.e. first char, not necessarily
+;                      the same as head of buffer
 ;Input...............: Nothing
 ;Returns.............: C = 1    Cursor at beginning of file
 ;                      C = 0    Not at beginning of file
 ;Error returns.......: Nothing
 .proc mem_at_bof
+    ;Get cursor index
     lda CRS_IDX
     beq :+
 
-    ;If CRS_IDX > 0 we are not at bof
+    ;If cursor index > 0 we are not at bof
     clc
     rts
 
+    ;Search for bof, return if we find a char before that
 :   lda CRS_BNK
     sta BNK_SEL
 
@@ -223,18 +234,18 @@
     stz TMP1_ADR
 
 :   ldy #1
-    lda (TMP1_ADR),y
+    lda (TMP1_ADR),y        ;Prev page
     beq at_bof
 
     tax
     ldy #0
-    lda (TMP1_ADR),y
+    lda (TMP1_ADR),y        ;Bank
     sta BNK_SEL
     stx TMP1_ADR+1
     
     ldy #4
-    lda (TMP1_ADR),y
-    beq :-
+    lda (TMP1_ADR),y        ;Page len
+    beq :-                  ;Loop until we find non zero len page
 
 not_bof:
     clc
@@ -246,42 +257,48 @@ at_bof:
 .endproc
 
 ;**********************************************************
-;Procedure name......: mem_at_eof
-;Description.........: Returns if current position is
-;                      end of file, at last char or 
-;                      beyond
+;Function name.......: mem_at_eof
+;Description.........: Returns if cursor is at end of file.
+;                      When inserting text at the end of the
+;                      text buffer, the cursor will be
+;                      one step right of the last char.
+;                      This function returns true both
+;                      when the cursor is at the last
+;                      char and one step right of that.
 ;Input...............: Nothing
 ;Returns.............: C = 1    Cursor at end of file
 ;                      C = 0    Not at end of file
 ;Error returns.......: Nothing
 .proc mem_at_eof
+    ;Setup temp vector
     lda CRS_BNK
     sta BNK_SEL
     lda CRS_ADR+1
     sta TMP1_ADR+1
     stz TMP1_ADR
 
-    ldy #4
+    ;Is cursor index + 1 < page len, we're not at end of file
     lda CRS_IDX
     clc
     adc #1
+    ldy #4
     cmp (TMP1_ADR),y
     bcc not_eof
 
 :   ldy #3
-    lda (TMP1_ADR),y
+    lda (TMP1_ADR),y        ;Next page
     tax
-    beq at_eof
+    beq at_eof              ;Next page=0 => there is no next page, i.e. eof
 
     tax
     ldy #2
-    lda (TMP1_ADR),y
+    lda (TMP1_ADR),y        ;Next bank
     sta BNK_SEL
     stx TMP1_ADR+1
 
     ldy #4
-    lda (TMP1_ADR),y
-    beq :-
+    lda (TMP1_ADR),y        ;Next page len
+    beq :-                  ;Loop until we find a non zero len page
 
 not_eof:
     clc
@@ -294,7 +311,7 @@ at_eof:
 .endproc
 
 ;**********************************************************
-;Procedure name......: mem_alloc
+;Funcion name........: mem_alloc
 ;Description.........: Allocates a page in banked RAM. The
 ;                      newly allocated page will be linked
 ;                      in after the page pointed to by the
@@ -304,7 +321,7 @@ at_eof:
 ;                      X=page (address MSB)
 ;Error returns.......: X=0 if memory full
 .proc mem_alloc
-    ;Get vector to memory map
+    ;Set vector to memory map
     lda #<mem_map
     sta TMP1_ADR
     lda #>mem_map
@@ -312,7 +329,7 @@ at_eof:
 
     ldy #0
 loop:
-    ;Loop through memory map searching for free memory, search for entries != $ff
+    ;Search memory map for free pages: search for entries != $ff
     lda (TMP1_ADR),y
     cmp #$ff
     bne free_mem_found
@@ -387,7 +404,7 @@ mark_page_allocated:
     adc #$a0
     sta newpage
 
-    ;Setup mem pages
+    ;Update mem page metadata; we need to change the current page, the new page, and the page following that
     lda CRS_BNK
     sta BNK_SEL
     
@@ -459,13 +476,10 @@ newbank:
     .byt 0
 newpage:
     .byt 0
-
 value:
     .byt 0
-
 bitmask:
     .byt 1, 2, 4, 8, 16, 32, 64, 128
-
 nextbank:
     .byt 0
 nextpage:
@@ -474,7 +488,7 @@ nextpage:
 .endproc
 
 ;**********************************************************
-;Procedure name......: mem_free
+;Function name.......: mem_free
 ;Description.........: Frees a page in banked RAM
 ;Input...............: Y    Bank
 ;                      X    Page
@@ -488,12 +502,12 @@ nextpage:
     ;Check if bank is reserved, exit without deallocating if true
     lda bank
     cmp #0
-    beq is_reserved
+    beq is_reserved     ;All of bank 0 is reserved by Kernal
     
     cmp mem_top
-    bcs is_reserved
+    bcs is_reserved     ;Don't touch unpopulated memory
 
-    cmp #1
+    cmp #1              ;And don't touch head of buffer - bank 1, page $a0
     bne :+
     lda page
     cmp #$a0
@@ -503,14 +517,7 @@ is_reserved:
     sec
     rts
 
-    ;Check if page is head of buffer, exit without deallocating if true
-:   ldy bank
-    ldx page
-    jsr mem_is_head
-    bcc :+
-    rts         ;Is head of buffer, exit
-
-    ;Page not reserved or head of buffer ...
+    ;Continue freeing that mem page...
     ;Find out position in mem_map corresponding to specified bank/page
 :   lda bank
     lsr
@@ -538,15 +545,15 @@ is_reserved:
     lsr
     lsr
     lsr
-    tay                 ;Set offset, Y = page/8
+    tay                 ;Offset, Y = page/8
 
     lda page
     and #7
-    tax                 ;Set X to bitmask position
+    tax                 ;X is now bitmask index corresponding to the page
 
     lda bitmask,x
     and (TMP1_ADR),y
-    beq exit            ;Page already free, exit
+    beq exit2           ;Page already free, exit
     
     lda bitmask,x
     eor #255
@@ -576,7 +583,7 @@ is_reserved:
 
     ;Set prev page pointer
     lda prev+1
-    beq next_page_link      ;Prev page null, shouldn't happen ...
+    beq next_page_link      ;Prev page null, shouldn't happen as we don't allow freeing the head of the buffer
    
     sta TMP1_ADR+1
     lda prev
@@ -610,10 +617,11 @@ exit:
 
     ;Increase mem block free counter
     inc mem_blocks_free
-    bne :+
+    bne exit2
     inc mem_blocks_free+1
 
-:   rts
+exit2:
+    rts
 
 bank:
     .byt 0
@@ -632,13 +640,254 @@ bitmask:
 .endproc
 
 ;**********************************************************
-;Function name.......: mem_defrag
-;Description.........: Defragments one mem page per invocation
+;Function name.......: mem_run_defrag
+;Description.........: This function is meant to be invoked
+;                      once every interrupt if the program
+;                      has nothing else to do. It will run 
+;                      the defrag routine on one mem page 
+;                      per invokation.
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
-.proc mem_defrag
+.proc mem_run_defrag
+    ;Prepare zero page vector
+    ;mem_run_defrag_page (2 bytes) refer to the next bank/page that we will try to defrag
+    lda mem_run_defrag_page
+    sta BNK_SEL
+    lda mem_run_defrag_page+1
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+
+    ;Exit if next page contains the first visible char of the screen - otherwise we might lose the pointer to that char
+    ldy #2
+    lda (TMP1_ADR),y
+    cmp SCR_BNK
+    bne :+
+    ldy #3
+    lda (TMP1_ADR),y
+    cmp SCR_ADR+1
+    bne :+
+    jmp exit
+
+    ;Exit if next page contains the first visible char of the line - otherwise we might lose the pointer to that char
+:   ldy #2
+    lda (TMP1_ADR),y
+    cmp LNV_BNK
+    bne :+
+    ldy #3
+    lda (TMP1_ADR),y
+    cmp LNV_ADR+1
+    bne :+
+    jmp exit
+
+    ;Exit if the cursor is at the next page - otherwise we might lose the pointer to the char at the cursor
+    ldy #2
+    lda (TMP1_ADR),y
+    cmp CRS_BNK
+    bne :+
+    ldy #3
+    lda (TMP1_ADR),y
+    cmp CRS_ADR+1
+    bne :+
+    jmp exit
+
+    ;Do not defrag the page where the cursor is - that's not effective as we are typing here, and it could also cause display errors
+:   lda mem_run_defrag_page
+    cmp CRS_BNK
+    bne :+
+    lda mem_run_defrag_page+1
+    cmp CRS_ADR+1
+    bne :+
+    jmp exit
+
+    ;Do not defrag the page before the page where the cursor is - that's not effective as we are typing here, and it could also cause display errors
+:   lda CRS_BNK
+    sta BNK_SEL
+    ldy #0
+    lda (CRS_ADR),y
+    cmp mem_run_defrag_page
+    bne :+
+    ldy #1
+    lda (CRS_ADR),y
+    cmp mem_run_defrag_page+1
+    bne :+
+    jmp exit
+
+    ;Dot not defrag the page after the page where the cursor is - that's not effective as we are typing here, and it could also cause display errors
+:   ldy #2
+    lda (CRS_ADR),y
+    cmp mem_run_defrag_page
+    bne :+
+    ldy #3
+    lda (CRS_ADR),y
+    cmp mem_run_defrag_page+1
+    bne :+
+    jmp exit
+
+    ;We passed all checks, go on and run the defrag function
+:   ldy mem_run_defrag_page
+    ldx mem_run_defrag_page+1
+    jsr mem_defrag
+
+exit:
+    ;Select next page to defrag when calling this function next time
+    lda mem_run_defrag_page
+    sta BNK_SEL
+    
+    lda mem_run_defrag_page+1
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+    ldy #3
+    lda (TMP1_ADR),y
+    beq eof
+    sta mem_run_defrag_page+1
+    ldy #2
+    lda (TMP1_ADR),y
+    sta mem_run_defrag_page
     rts
+
+eof:
+    ;We were at the last page, start over from the head of the buffer
+    lda #1
+    sta mem_run_defrag_page
+    lda #$a0
+    sta mem_run_defrag_page+1
+    rts
+
+.endproc
+mem_run_defrag_page:
+    .byt 0,0
+
+;**********************************************************
+;Function name.......: mem_defrag
+;Description.........: Defragments a memory page. This
+;                      function will copy text from the
+;                      next page filling up the selected
+;                      page. If the next page len is 0
+;                      before or after this it will be 
+;                      marked as free.
+;Input...............: Y = bank, X = page
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc mem_defrag
+    ;Set temp vector
+    sty BNK_SEL
+    sty TMP1_BNK
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+
+    ;Get page len
+    ldy #4
+    lda (TMP1_ADR),y
+    sta page_len
+
+    ;Get next page
+    ldy #3
+    lda (TMP1_ADR),y
+    bne :+            ;EOF, just exit
+    jmp exit
+
+:   sta TMP2_ADR+1
+    stz TMP2_ADR
+    ldy #2
+    lda (TMP1_ADR),y
+    sta TMP2_BNK
+    sta BNK_SEL
+    
+    ;Next page len
+    ldy #4
+    lda (TMP2_ADR),y
+    sta nextpage_len
+
+    ;Prepare copying
+    stz nextpage_index
+
+    lda #5
+    sta TMP1_ADR
+    sta TMP2_ADR
+    
+copy_loop:
+    ldy page_len
+    cpy #251
+    bcs copy_done
+
+    ldy nextpage_index
+    cpy nextpage_len
+    bcs copy_done
+
+    lda TMP2_BNK
+    sta BNK_SEL
+    ldy nextpage_index
+    lda (TMP2_ADR),y
+
+    ldy TMP1_BNK
+    sty BNK_SEL
+    ldy page_len
+    sta (TMP1_ADR),y
+
+    inc page_len
+    inc nextpage_index
+    jmp copy_loop
+
+copy_done:
+    ;Reset
+    stz TMP1_ADR
+    stz TMP2_ADR
+
+    ;Set page len
+    lda TMP1_BNK
+    sta BNK_SEL
+    ldy #4
+    lda page_len
+    sta (TMP1_ADR),y
+
+    ;Set next page len
+    sec
+    lda nextpage_len
+    sbc nextpage_index
+    ldy TMP2_BNK
+    sty BNK_SEL
+    ldy #4
+    sta (TMP2_ADR),y
+    sta nextpage_len
+
+    ;Move text in next mem page to start of page
+    clc
+    lda nextpage_index
+    adc #5
+    sta TMP2_ADR
+
+    lda TMP2_ADR+1
+    sta TMP1_ADR+1
+    lda #5
+    sta TMP1_ADR
+
+    ldy #0
+:   cpy nextpage_len
+    bcs free
+
+    lda (TMP2_ADR),y
+    sta (TMP1_ADR),y
+    iny
+    jmp :-
+
+free:
+    lda nextpage_len
+    bne exit
+
+    ldy TMP2_BNK
+    ldx TMP2_ADR+1
+    jsr mem_free
+
+exit:
+    rts
+
+page_len:
+    .byt 0
+nextpage_len:
+    .byt 0
+nextpage_index:
+    .byt 0
 .endproc
 
 ;**********************************************************
@@ -930,6 +1179,7 @@ mem_full:
 :   lda CRS_IDX
     bne default
 
+    ;Yes, it was at beginning of page: decrease len of the previous page without moving the cursor pointer
     lda CRS_BNK
     sta BNK_SEL
     lda CRS_ADR+1
@@ -966,10 +1216,11 @@ mem_full:
 
     rts
 
+    ;We are not at beginning of the page: Move the cursor pointer one step left, decrease page len, and copy text from the cursor to end of page one step left
 default:
     jsr mem_crs_step_left
 
-    lda CRS_BNK
+    lda CRS_BNK             ;Check if we deleted a line feed
     sta BNK_SEL
     lda #5
     sta CRS_ADR
@@ -979,7 +1230,7 @@ default:
     bne :+
     inc at_lf
 
-:   stz CRS_ADR
+:   stz CRS_ADR             ;Decrease page len
     ldy #4
     lda (CRS_ADR),y
     sec
@@ -991,7 +1242,7 @@ default:
     ldy CRS_IDX  
     iny
 
-:   lda (CRS_ADR),y
+:   lda (CRS_ADR),y         ;Copy text from cursor to page end one step left
     dey
     sta (CRS_ADR),y
     iny
@@ -999,13 +1250,13 @@ default:
     cpy #251
     bne :-
 
-    stz CRS_ADR
+    stz CRS_ADR             ;Restore vector
 
     ldy #4
     lda (CRS_ADR),y
-    bne :+
+    bne :+                  ;Mem page len > 0, exit
 
-    jsr mem_at_eof
+    jsr mem_at_eof          ;Mem page len = 0, check if we are at EOF, if not need to take one step left, otherwise the cursor would be at an undefined position
     bcs :+
     jsr mem_crs_step_left
 
@@ -1263,6 +1514,9 @@ count:
     stz counter
     stz counter+1
 
+    ;First take one step left before we begin searching
+    jsr mem_crs_step_left
+
     ;Get page len
     lda CRS_BNK
     sta BNK_SEL
@@ -1271,17 +1525,19 @@ count:
     lda (CRS_ADR),y
     sta pagelen
 
-    ;Skip page metadata
+check_first_char:
+    lda CRS_BNK
+    sta BNK_SEL
+    
     lda #5
     sta CRS_ADR
-
-    ;CRS_IDX >= pagelen? If so, move one step left
     ldy CRS_IDX
-    cpy pagelen
-    bcc loop
-    dey
+    lda (CRS_ADR),y
+    cmp #32
     bne loop
-    jmp prevpage
+    
+    inc counter
+    jmp found
 
 loop:
     ldy CRS_IDX
@@ -1610,6 +1866,12 @@ backup:
     rts
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_cur_col_inc
+;Description.........: Increases column index counter
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
 .proc mem_cur_col_inc
     inc mem_cur_col
     bne exit
@@ -1621,6 +1883,12 @@ exit:
     rts
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_cur_col_dec
+;Description.........: Decreases column index counter
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
 .proc mem_cur_col_dec
     dec mem_cur_col
     lda mem_cur_col
@@ -1638,6 +1906,12 @@ exit:
     rts
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_cur_col_ret
+;Description.........: Set column index to 1
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
 .proc mem_cur_col_ret
     lda #1
     sta mem_cur_col
@@ -1646,6 +1920,12 @@ exit:
     rts
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_cur_line_inc
+;Description.........: Increases line index counter
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
 .proc mem_cur_line_inc
     inc mem_cur_line
     bne exit
@@ -1657,6 +1937,12 @@ exit:
     rts
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_cur_col_dec
+;Description.........: Decreases line index counter
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
 .proc mem_cur_line_dec
     dec mem_cur_line
     lda mem_cur_line
