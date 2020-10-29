@@ -24,12 +24,28 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_read
+    ;Check
+    lda APP_MOD
+    cmp #16
+    beq charset_changed
+
     ;Get char from keyboard queue. If A=0, the queue is empty.
     jsr KERNAL_GETIN
     bne gotachar
     
     ;No input, run defrag instead
     jmp mem_run_defrag
+    rts
+
+charset_changed:
+    jsr screen_clearall
+    jsr screen_print_header
+    jsr screen_print_footer
+    jsr screen_refresh
+    jsr screen_println
+    
+    lda #2
+    sta APP_MOD
     rts
     
 gotachar:
@@ -323,10 +339,10 @@ ctrl_x:
     jmp cmd_exit
 
 ctrl_w:
-    jmp cmd_file_save
+    jmp cmd_file_save_prompt
 
 ctrl_o:
-    jmp cmd_file_open
+    jmp cmd_file_open_prompt
 
 ctrl_y:
     jmp keyboard_cmd_pageup
@@ -375,10 +391,10 @@ f2:
     jmp cmd_exit
 
 f3:
-    jmp cmd_file_save
+    jmp cmd_file_save_prompt
 
 f4:
-    jmp cmd_file_open
+    jmp cmd_file_open_prompt
 
 f5:
     jmp cmd_cut
@@ -423,7 +439,7 @@ f8:
 
 save:
     jsr screen_clear_status
-    jmp cmd_file_save
+    jmp cmd_file_save_prompt
 
 discard:
     ;Set app quit signal
@@ -490,142 +506,238 @@ exit_help:
 
     ;a
 :   cmp #$61
-    beq auto_indent
-    cmp #$41
-    beq auto_indent
+    bne :+
+    jmp auto_indent
+:   cmp #$41
+    bne :+
+    jmp auto_indent
 
     ;g
-    cmp #$67
-    beq show_help
-    cmp #$47
-    beq show_help
+:   cmp #$67
+    bne :+
+    jmp show_help
+:   cmp #$47
+    bne :+
+    jmp show_help
 
     ;x
-    cmp #$78
-    beq exit
-    cmp #$58
-    beq exit
+:   cmp #$78
+    bne :+
+    jmp exit
+:   cmp #$58
+    bne :+
+    jmp exit
 
     ;w
-    cmp #$77
-    beq save
-    cmp #$57
+:   cmp #$77
+    bne :+
+    jmp save
+:   cmp #$57
+    bne :+
+    jmp save
 
     ;o
-    cmp #$6f
-    beq open
-    cmp #$4f
-    beq open
+:   cmp #$6f
+    bne :+
+    jmp open
+:   cmp #$4f
+    bne :+
+    jmp open
+
+    ;n
+:   cmp #$6e
+    bne :+
+    jmp newbuffer
+:   cmp #$4e
+    bne :+
+    jmp newbuffer
 
     ;y
-    cmp #$79
-    beq pgup
-    cmp #$59
-    beq pgup
+:   cmp #$79
+    bne :+
+    jmp pgup
+:   cmp #$59
+    bne :+
+    jmp pgup
 
     ;v
-    cmp #$76
-    beq pgdown
-    cmp #$56
-    beq pgdown
+:   cmp #$76
+    bne :+
+    jmp pgdown
+:   cmp #$56
+    bne :+
+    jmp pgdown
 
     ;k
-    cmp #$6b
-    beq cut
-    cmp #$4b
-    beq cut
+:   cmp #$6b
+    bne :+
+    jmp cut
+:   cmp #$4b
+    bne :+
+    jmp cut
+
+    ;b
+:   cmp #$86
+    bne :+
+    jmp copy
+:   cmp #$66
+    bne :+
+    jmp copy
 
     ;m
-    cmp #$6d
-    beq mem_usage
-    cmp #$4d
-    beq mem_usage
+:   cmp #$6d
+    bne :+
+    jmp mem_usage
+:   cmp #$4d
+    bne :+
+    jmp mem_usage
 
     ;u
-    cmp #$75
-    beq paste
-    cmp #$55
-    beq paste
+:   cmp #$75
+    bne :+
+    jmp paste
+:   cmp #$55
+    bne :+
+    jmp paste
 
     ;p
-    cmp #$70
-    beq curpos
-    cmp #$50
-    beq curpos
+:   cmp #$70
+    bne :+
+    jmp curpos
+:   cmp #$50
+    bne :+
+    jmp curpos
 
     ;f
-    cmp #$66
-    beq find
-    cmp #$46
-    beq find
+:   cmp #$66
+    bne :+
+    jmp find
+:   cmp #$46
+    bne :+
+    jmp find
+
+    ;r
+:   cmp #$72
+    bne :+
+    jmp replace
+:   cmp #$52
+    bne :+
+    jmp replace
 
     ;e
-    cmp #$65
-    beq change_encoding
-    cmp #$45
-    beq change_encoding
+:   cmp #$65
+    bne :+
+    jmp change_encoding
+:   cmp #$45
+    bne :+
+    jmp change_encoding
     
     ;z
-    cmp #$5a
-    beq set_word_wrap
-    cmp #$7a
-    beq set_word_wrap
+:   cmp #$5a
+    bne :+
+    jmp set_word_wrap
+:   cmp #$7a
+    bne :+
+    jmp set_word_wrap
+
+    ;l
+:   cmp #$6c
+    bne :+
+    jmp gotoline
+:   cmp #$4c
+    bne :+
+    jmp gotoline
 
     ;1..9
-    cmp #$31
-    bcc exit
-    cmp #$3a
-    bcc tab_width
+:   cmp #$31
+    bcs :+
+    jmp unknown
+:   cmp #$3a
+    bcs unknown
+    jmp tab_width
 
     ;Uknown command, ignore
+unknown:
     rts
 
 auto_indent:
     stz APP_MOD
-    jsr screen_clear_status
+    jsr cursor_activate
     jmp cmd_auto_indent
 
 show_help:
     stz APP_MOD
-    jsr screen_clear_status
     jmp cmd_show_help
 
 exit:
+    jsr cursor_activate
     jmp cmd_exit
 
 save:
-    jmp cmd_file_save
+    jsr cursor_activate
+    jmp cmd_file_save_prompt
 
 open:
-    jmp cmd_file_open
+    jsr cursor_activate
+    jmp cmd_file_open_prompt
+
+newbuffer:
+    jsr cursor_activate
+    jsr screen_clear_status
+    jmp cmd_new_buffer
 
 pgup:
+    jsr cursor_activate
+    stz APP_MOD
     jmp keyboard_cmd_pageup
 
 pgdown:
+    jsr cursor_activate
+    stz APP_MOD
     jmp keyboard_cmd_pagedown
 
 cut:
-    jmp cmd_cut
+    jsr cmd_cut
+    jsr cursor_activate
+    stz APP_MOD
+    jmp screen_clear_status
+
+copy:
+    jsr cmd_copy
+    jsr cursor_activate
+    stz APP_MOD
+    jmp screen_clear_status
 
 mem_usage:
+    jsr cursor_activate
     jmp cmd_mem_usage
 
 paste:
-    jmp cmd_paste
+    jsr cmd_paste
+    jsr cursor_activate
+    stz APP_MOD
+    jmp screen_clear_status
 
 curpos:
+    jsr cursor_activate
     jmp cmd_show_curpos
 
 find:
+    jsr cursor_activate
     jmp cmd_find
 
+replace:
+    jsr cursor_activate
+    lda #0
+    jmp cmd_replace
+
 change_encoding:
+    jsr cursor_activate
     jmp cmd_change_encoding
 
 set_word_wrap:
     stz APP_MOD
-    jsr screen_clear_status
+    jsr cursor_activate
     jmp cmd_set_word_wrap
 
 tab_width:
@@ -637,6 +749,10 @@ tab_width:
     sec
     sbc #48
     jmp cmd_set_tab_width
+
+gotoline:
+    jsr cursor_activate
+    jmp cmd_goto_line
 
 abort_command_mode:
     stz APP_MOD
@@ -669,65 +785,7 @@ abort:
     rts
 
 write_file:
-    jsr cursor_disable
-
-    lda prompt_len
-    ldx #<prompt_input
-    ldy #>prompt_input
-    jsr file_write          ;Write file
-
-    jsr prompt_close
-    
-    lda file_io_err         ;Check for Kernal I/O errors
-    bne show_io_err
-    
-    jsr file_read_disk_status
-    beq :+                  ;Do not set current file name if we had a disk error
-    cmp #$63                ;File exists error
-    beq confirm_overwrite
-    jmp :++
-    
-:   stz mem_modified
-    
-    ldx #<prompt_input
-    ldy #>prompt_input
-    lda prompt_len
-    jsr file_set_filename
-    jsr screen_print_header
-
-:   ldx #<file_disk_status
-    ldy #>file_disk_status
-    jsr screen_print_status ;Print disk status message
-
-    jmp exit
-
-show_io_err:
-    ldx file_io_err
-    dex
-    lda file_ioerr_H,x
-    tay
-    lda file_ioerr_L,x
-    tax
-    jsr screen_print_status
-
-exit:
-    jsr cursor_activate
-    jsr screen_refresh
-    lda #2                  ;mode_statusmessage
-    sta APP_MOD
-    rts
-
-confirm_overwrite:
-    lda #6
-    sta APP_MOD
-
-    ldx #<overwrite_msg
-    ldy #>overwrite_msg
-    jmp screen_print_status
-
-overwrite_msg:
-    .byt "file exists. overwrite (y/n)?", 0
-
+    jmp cmd_file_save
 .endproc
 
 ;******************************************************************************
@@ -762,63 +820,7 @@ abort:
     jmp screen_clear_status
 
 write_file:
-    ;Prepend input with @0: to overwrite existing file
-    stz prompt_curpos
-    lda #64
-    jsr prompt_insert
-    inc prompt_curpos
-    lda #'0'
-    jsr prompt_insert
-    inc prompt_curpos
-    lda #':'
-    jsr prompt_insert
-    inc prompt_curpos
-    
-    ;Write file
-    lda prompt_len
-    ldx #<prompt_input
-    ldy #>prompt_input
-    jsr file_write
-
-    jsr screen_clear_status
-    
-    lda file_io_err         ;Check for Kernal I/O errors
-    bne show_io_err
-    
-    jsr file_read_disk_status
-    bne :+                  ;Skip setting current file name if we had a disk error
-    
-    stz mem_modified
-
-    ldx #<(prompt_input+3)
-    ldy #>(prompt_input+3)
-    sec
-    lda prompt_len
-    sbc #3
-    jsr file_set_filename
-    jsr screen_print_header
-
-:   ldx #<file_disk_status
-    ldy #>file_disk_status
-    jsr screen_print_status ;Print disk status message
-
-    jmp exit
-
-show_io_err:
-    ldx file_io_err
-    dex
-    lda file_ioerr_H,x
-    tay
-    lda file_ioerr_L,x
-    tax
-    jsr screen_print_status
-
-exit:
-    jsr cursor_activate
-    jsr screen_refresh
-    lda #2                  ;mode_statusmessage
-    sta APP_MOD
-    rts
+    jmp cmd_file_save_overwrite
 
 .endproc
 
@@ -837,6 +839,7 @@ exit:
     cmp #$03
     beq abort
 
+    ;Default, send key to prompt
     jmp prompt_keypress
 
 abort:
@@ -846,63 +849,7 @@ abort:
     rts
 
 read_file:
-    jsr cursor_disable
-
-    lda prompt_len
-    ldx #<prompt_input
-    ldy #>prompt_input
-    jsr file_read               ;Read file from disk
-
-    jsr prompt_close
-
-    lda file_io_err
-    bne io_error
-
-    jsr file_read_disk_status
-    pha                         ;Save disk error code on stack
-
-    jsr cursor_activate
-
-    ldx #<file_disk_status      ;Display disk status message
-    ldy #>file_disk_status
-    jsr screen_print_status
-
-    pla
-    bne exit                    ;Exit if error code != $00
-
-    ;Read successful
-    ldx #0
-    ldy #2
-    jsr cursor_move
-
-    stz mem_modified
-
-    ldx #<prompt_input
-    ldy #>prompt_input
-    lda prompt_len
-    jsr file_set_filename
-    jsr screen_print_header
-    
-    jmp exit
-    
-io_error:
-    ;Display error message
-    ldx file_io_err
-    dex
-    lda file_ioerr_H,x
-    tay
-    lda file_ioerr_L,x
-    tax
-    jsr screen_print_status
-
-exit:
-    jsr cursor_activate
-    jsr screen_refresh
-
-    lda #2              ;mode_statusmessage
-    sta APP_MOD
-
-    rts
+    jmp cmd_file_open
 
 .endproc
 
@@ -934,12 +881,12 @@ exit:
 
 save:
     jsr screen_clear_status
-    jmp cmd_file_save
+    jmp cmd_file_save_prompt
 
 discard:
     stz mem_modified
     jsr screen_clear_status
-    jsr cmd_file_open
+    jsr cmd_file_open_prompt
     inc mem_modified
     rts
 
@@ -979,7 +926,7 @@ abort:
 
 save:
     jsr screen_clear_status
-    jmp cmd_file_save
+    jmp cmd_file_save_prompt
 
 discard:
     jsr screen_clear_status

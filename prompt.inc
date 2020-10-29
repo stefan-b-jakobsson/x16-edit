@@ -25,8 +25,15 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_init
+    ;Set zero page vector
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    
     ;Set prompt max input len
     sta prompt_maxlen
+
+    ;Clear status line
+    jsr screen_clear_status
 
     ;Backup cursor position. We need to go back where we came from when done
     lda CRS_X
@@ -41,8 +48,6 @@
     lda #(2<<4)
     sta VERA_H
 
-    stx TMP1_ADR
-    sty TMP1_ADR+1
     ldy #0
 
     lda screen_mode

@@ -846,63 +846,6 @@ msg:
 .endproc
 
 ;******************************************************************************
-;Function name.......: cmd_file_save
-;Purpose.............: Command: Write file to disk
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc cmd_file_save
-    lda #4
-    sta APP_MOD     ;mode_file_save
-
-    ldx #<msg
-    ldy #>msg
-    lda #250        ;maxlen
-    jsr prompt_init
-
-    ldx #<file_cur_filename
-    ldy #>file_cur_filename
-    lda file_cur_filename_len
-    jmp prompt_default_input
-
-msg:
-    .byt "write to file name:",0
-.endproc
-
-;******************************************************************************
-;Function name.......: cmd_file_open
-;Purpose.............: Command: Read file from disk
-;Preparatory routines: None
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc cmd_file_open
-    lda mem_modified
-    beq :+
-    
-    lda #7
-    sta APP_MOD
-    
-    ldx #<msg2
-    ldy #>msg2
-    jsr screen_print_status
-
-    rts
-
-:   lda #5
-    sta APP_MOD     ;mode_file_open
-
-    ldx #<msg
-    ldy #>msg
-    lda #250        ;maxlen
-    jmp prompt_init
-msg:
-    .byt "open file name:",0
-msg2:
-    .byt "buffer modified. save before open file? (y/n)",0
-.endproc
-
-;******************************************************************************
 ;Function name.......: cmd_cut
 ;Purpose.............: Command: Cut line of text to clipboard
 ;Preparatory routines: None
@@ -1686,6 +1629,8 @@ msg_notfound:
     
 :   jsr mem_init
     
+    stz APP_MOD
+
     ldx #0
     ldy #2
     jsr cursor_move
@@ -1950,25 +1895,16 @@ iso:
 petscii_uc:
     lda #$8f
     jsr KERNAL_CHROUT
-    lda #2
-    jsr KERNAL_SCREEN_SET_CHARSET
-    lda #147
+    lda #$8e
     jsr KERNAL_CHROUT
     jmp refreshall
 
 petscii_lc:
-    lda #3
-    jsr KERNAL_SCREEN_SET_CHARSET
-    lda #147
+    lda #$0e
     jsr KERNAL_CHROUT
 
 refreshall:
-    jsr screen_print_header
-    jsr screen_print_footer
-    jsr screen_refresh
-    jsr screen_println
-
-    lda #2
+    lda #16
     sta APP_MOD
 
     lda screen_mode
@@ -1990,6 +1926,15 @@ disp_plc:
     ldx #<msg_plc
     ldy #>msg_plc
     jmp screen_print_status
+
+wait:
+    ldx #0
+    ldy #0
+:   inx
+    bne :-
+    iny
+    bne :-
+    rts
 
 msg_iso:
     .byt "iso charset selected",0
@@ -2015,6 +1960,9 @@ on:
     beq prompt
 
 set:
+    lda prompt_len
+    beq illegal_value
+
     ldx #0
 :   lda prompt_input,x
     sta col,x
@@ -2098,7 +2046,7 @@ msg_off:
     .byt "word wrap off", 0
 
 msg_illegal:
-    .byt "illegal value, column must be in range 10..250",0
+    .byt "invalid value, column must be in range 10..250",0
 
 .endproc
 

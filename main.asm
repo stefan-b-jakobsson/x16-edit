@@ -58,6 +58,7 @@
 .include "screen.inc"
 .include "keyboard.inc"
 .include "cmd.inc"
+.include "cmd_file.inc"
 .include "prompt.inc"
 .include "irq.inc"
 .include "cursor.inc"
