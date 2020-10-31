@@ -1129,6 +1129,34 @@ abort:
     jmp prompt_close
 
 .endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_goto_line
+;Purpose.............: Key dispatcher: Prompting the user to enter a line
+;                      number
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_goto_line
+    ;Enter key
+    cmp #13
+    beq goto_line
+
+    ;ESC key
+    cmp #$03
+    beq abort
+
+    ;Default action
+    jmp prompt_keypress
+
+goto_line:
+    jmp cmd_do_goto_line
+
+abort:
+    stz APP_MOD
+    jmp prompt_close
+
+.endproc
     
 ;******************************************************************************
 ;Function name.......: keyboard_esc_key
@@ -1316,34 +1344,6 @@ linecount:
 
 linecount:
     .byt 0
-.endproc
-
-;******************************************************************************
-;Function name.......: keyboard_mode_goto_line
-;Purpose.............: Key dispatcher: Prompting the user to enter a line
-;                      number
-;Input...............: A=char
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_mode_goto_line
-    ;Enter key
-    cmp #13
-    beq goto_line
-
-    ;ESC key
-    cmp #$03
-    beq abort
-
-    ;Default action
-    jmp prompt_keypress
-
-goto_line:
-    jmp cmd_do_goto_line
-
-abort:
-    stz APP_MOD
-    jmp prompt_close
-
 .endproc
 
 ;******************************************************************************
