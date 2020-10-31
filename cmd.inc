@@ -258,6 +258,72 @@ prevblank:
 .endproc
 
 ;******************************************************************************
+;Function name.......: cmd_insert_tab
+;Purpose.............: Inserts blank spaces until we reach next tab stop
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc cmd_insert_tab
+    lda #1
+    sta counter
+    stz counter+1
+    stz counter+2
+    
+loop:
+    lda counter+2
+    cmp mem_cur_col+2
+    bcc :+
+    lda counter+1
+    cmp mem_cur_col+1
+    bcc :+
+    lda counter
+    cmp mem_cur_col
+    beq :+
+    bcs at_tab_stop
+
+:   clc
+    lda counter
+    adc keyboard_tabwidth
+    sta counter
+    
+    lda counter+1
+    adc #0
+    sta counter+1
+
+    lda counter+2
+    adc #0
+    sta counter+2
+    jmp loop
+    
+
+at_tab_stop:
+    ;Calculate difference
+    sec
+    lda counter
+    sbc mem_cur_col
+    sta counter
+    lda counter+1
+    sbc #0
+    sta counter+1
+    lda counter+2
+    sbc #0
+    sta counter+2
+
+    ;Insert that amount of blank spaces
+:   lda #32
+    jsr cmd_insert
+    dec counter
+    bne :-
+
+    ;Exit and refresh line
+    jmp screen_println
+
+counter:
+    .byt 0,0,0
+
+.endproc
+
+;******************************************************************************
 ;Function name.......: cmd_delete
 ;Purpose.............: Moves the cursor one step left and deletes that char
 ;                      Does not refresh screen; users of this procedure are 

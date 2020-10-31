@@ -18,26 +18,30 @@
 ;******************************************************************************
 
 ;******************************************************************************
-;Function name.......: keyboard_read
-;Purpose.............: Reads one character from the keyboard buffer
+;Function name.......: keyboard_read_and_dispatch
+;Purpose.............: Reads one character from the keyboard buffer and
+;                      dispatches that to proper key handler
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc keyboard_read
-    ;Check
+.proc keyboard_read_and_dispatch
+    ;Before reading keyboard, check if mode=16, i.e. charset changed previous interrupt cycle
     lda APP_MOD
     cmp #16
     beq charset_changed
 
-    ;Get char from keyboard queue. If A=0, the queue is empty.
+    ;Get char from keyboard queue
     jsr KERNAL_GETIN
     bne gotachar
     
-    ;No input, run defrag instead
+    ;No input, run memory defrag instead during this interrupt cycle
     jmp mem_run_defrag
     rts
 
 charset_changed:
+    ;The charset was changed during previous interrupt cycle
+    ;The content of the screen may now be updated. 
+    ;If done sooner, there will be errors and artifacts on the screen. A small mystery...
     jsr screen_clearall
     jsr screen_print_header
     jsr screen_print_footer
@@ -147,7 +151,7 @@ mode_word_wrap_prompt:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_default
-;Purpose.............: Select key press actions for default mode
+;Purpose.............: Key dispatcher for the default mode, i.e. text entry
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -312,7 +316,7 @@ delete:
     jmp keyboard_delete_key
 
 tab_key:
-    jmp keyboard_tab_key
+    jmp cmd_insert_tab
 
 left_arrow:
     jmp keyboard_leftarrow_key
@@ -412,8 +416,8 @@ f8:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_exit_save_before
-;Purpose.............: Key handler for prompt the user to save before exit 
-;                      program
+;Purpose.............: Key dispatcher: Prompting the user to save
+;                      current buffer before program exit
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -455,7 +459,7 @@ abort:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_helpscreen
-;Purpose.............: Select key press actions for help screen
+;Purpose.............: Key dispatcher: Showing the built-in help screen
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -477,8 +481,7 @@ exit_help:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_statusmessage
-;Purpose.............: Select key press actions when a status message has
-;                      been displayed
+;Purpose.............: Key dispatcher: Showing a message in the status bar
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -494,7 +497,8 @@ exit_help:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_command
-;Purpose.............: Select command after ESC has been pressed
+;Purpose.............: Key dispatcher: The user has pressed and released ESC
+;                      and the next key is interpreted as a command
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -763,7 +767,8 @@ abort_command_mode:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_file_save
-;Purpose.............: Handle keypress when prompting for file name to save to
+;Purpose.............: Key dispatcher: Prompting the user to enter a file
+;                      name, whereto the buffer is to be saved
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -790,7 +795,8 @@ write_file:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_file_save_overwrite
-;Purpose.............: Handle keypress, confirm overwriting file
+;Purpose.............: Key dispatcher: Prompting the user to confirm overwriting
+;                      an existing file
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -826,7 +832,8 @@ write_file:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_file_open
-;Purpose.............: Handle keypress when prompting for file name to rad from
+;Purpose.............: Key dispatcher: Prompting the user to enter a file name
+;                      to be opened and read into the text buffer
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -855,7 +862,8 @@ read_file:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_file_open_save_before
-;Purpose.............: Handle keypress when asking to save file before open
+;Purpose.............: Key dispatcher: Prompting the user to save the current
+;                      text buffer before opening and reading a file
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -880,12 +888,10 @@ read_file:
     rts
 
 save:
-    jsr screen_clear_status
     jmp cmd_file_save_prompt
 
 discard:
     stz mem_modified
-    jsr screen_clear_status
     jsr cmd_file_open_prompt
     inc mem_modified
     rts
@@ -899,8 +905,8 @@ abort:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_new_buffer_save_before
-;Purpose.............: Handle keypress when asking to save file before create
-;                      new buffer
+;Purpose.............: Key dispatcher: Prompting the user to save the current
+;                      text buffer before creating a new buffer
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -925,7 +931,6 @@ abort:
     rts
 
 save:
-    jsr screen_clear_status
     jmp cmd_file_save_prompt
 
 discard:
@@ -942,7 +947,8 @@ abort:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_find
-;Purpose.............: Handle keypress when entering search param
+;Purpose.............: Key dispatcher: Prompting the user to enter a search
+;                      param
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -992,7 +998,8 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_replace_0
-;Purpose.............: Handle keypress
+;Purpose.............: Key dispatcher: Prompting the user to enter a search
+;                      param
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1023,7 +1030,8 @@ abort:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_replace_1
-;Purpose.............: Handle keypress
+;Purpose.............: Key dispatcher: Prompting the user to enter a string
+;                      that will replace the search param
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1054,7 +1062,8 @@ abort:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_replace_2
-;Purpose.............: Handle keypress
+;Purpose.............: Key dispatcher: Prompting the user to confirm replacing
+;                      one or all occurences
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1095,7 +1104,8 @@ abort:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_word_wrap_prompt
-;Purpose.............: Handle keypress
+;Purpose.............: Key dispatcher: Prompting the user to enter at what
+;                      column to wrap lines
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1122,7 +1132,7 @@ abort:
     
 ;******************************************************************************
 ;Function name.......: keyboard_esc_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Enter command select mode
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1142,7 +1152,7 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: keyboard_enter_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Insert line break
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1164,7 +1174,7 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: keyboard_delete_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Delete
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1186,73 +1196,8 @@ exit:
 .endproc
 
 ;******************************************************************************
-;Function name.......: keyboard_tab_key
-;Purpose.............: Handles keypress
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_tab_key
-    lda #1
-    sta counter
-    stz counter+1
-    stz counter+2
-    
-loop:
-    lda counter+2
-    cmp mem_cur_col+2
-    bcc :+
-    lda counter+1
-    cmp mem_cur_col+1
-    bcc :+
-    lda counter
-    cmp mem_cur_col
-    beq :+
-    bcs at_tab_stop
-
-:   clc
-    lda counter
-    adc keyboard_tabwidth
-    sta counter
-    
-    lda counter+1
-    adc #0
-    sta counter+1
-
-    lda counter+2
-    adc #0
-    sta counter+2
-    jmp loop
-    
-
-at_tab_stop:
-    ;Calculate difference
-    sec
-    lda counter
-    sbc mem_cur_col
-    sta counter
-    lda counter+1
-    sbc #0
-    sta counter+1
-    lda counter+2
-    sbc #0
-    sta counter+2
-
-    ;Insert that amount of blank spaces
-:   lda #32
-    jsr cmd_insert
-    dec counter
-    bne :-
-
-    ;Exit and refresh line
-    jmp screen_println
-
-counter:
-    .byt 0,0,0
-.endproc
-
-;******************************************************************************
 ;Function name.......: keyboard_rightarrow_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Move right
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1269,7 +1214,7 @@ counter:
 
 ;******************************************************************************
 ;Function name.......: keyboard_leftarrow_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Move left
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1286,7 +1231,7 @@ counter:
 
 ;******************************************************************************
 ;Function name.......: keyboard_uparrow_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Move up
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
@@ -1299,7 +1244,7 @@ counter:
 
 ;******************************************************************************
 ;Function name.......: keyboard_downarrow_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Move down
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1311,7 +1256,7 @@ counter:
 
 ;******************************************************************************
 ;Function name.......: keyboard_home_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Move home
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1322,7 +1267,7 @@ counter:
 
 ;******************************************************************************
 ;Function name.......: keyboard_end_key
-;Purpose.............: Handles keypress
+;Purpose.............: Key handler: Move end
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1333,7 +1278,7 @@ counter:
 
 ;******************************************************************************
 ;Function name.......: keyboard_cmd_pageup
-;Purpose.............: Command: PageUp
+;Purpose.............: Key handler: Move PageUp
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1354,7 +1299,7 @@ linecount:
 
 ;******************************************************************************
 ;Function name.......: keyboard_cmd_pagedown
-;Purpose.............: Command: PageDown
+;Purpose.............: Key handler: Move PageDown
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
@@ -1375,7 +1320,8 @@ linecount:
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_goto_line
-;Purpose.............: Handler for goto line function
+;Purpose.............: Key dispatcher: Prompting the user to enter a line
+;                      number
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -1400,10 +1346,10 @@ abort:
 
 .endproc
 
-
 ;******************************************************************************
 ;Function name.......: keyboard_default_keyhandler
-;Purpose.............: Default keyhandler for user input
+;Purpose.............: Key handler: Default operation, inserts character into
+;                      text buffer
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
