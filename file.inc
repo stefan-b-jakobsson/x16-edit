@@ -26,6 +26,8 @@
 ;Error returns.......: Nothing
 .proc file_init
     stz file_cur_filename_len
+    lda #8
+    sta file_cur_device
     rts
 .endproc
 
@@ -47,7 +49,7 @@
     jsr KERNAL_CLOSE
 
     lda #1
-    ldx #8
+    ldx file_cur_device
     ldy #1
     jsr KERNAL_SETLFS
     bcs io_err
@@ -148,7 +150,7 @@ page_len:
     jsr KERNAL_CLOSE
 
     lda #1
-    ldx #8
+    ldx file_cur_device
     ldy #2
     jsr KERNAL_SETLFS
 
@@ -311,7 +313,7 @@ msg:
     jsr KERNAL_CLOSE
 
     lda #15
-    ldx #8
+    ldx file_cur_device
     ldy #15
     jsr KERNAL_SETLFS
     bcs io_error
@@ -440,8 +442,10 @@ file_ioerr_9:
 file_ioerr_10:
     .byt "memory full error", 0
 
-;Current file name
+;Current file name and device number
 file_cur_filename:
     .res 253,0              ;Actual file name
 file_cur_filename_len:      ;Len of file name without counting from file_cur_filename_base
     .byt 0
+file_cur_device:
+    .byt 8

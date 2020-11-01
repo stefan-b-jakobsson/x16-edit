@@ -101,6 +101,9 @@ gotachar:
     cpx #15
     beq mode_word_wrap_prompt
 
+    cpx #17
+    beq mode_set_device
+
 mode_default:
     jmp keyboard_mode_default
 
@@ -146,6 +149,9 @@ mode_replace_2:
 
 mode_word_wrap_prompt:
     jmp keyboard_mode_word_wrap_prompt
+
+mode_set_device:
+    jmp keyboard_mode_set_device
 
 .endproc
 
@@ -278,6 +284,10 @@ mode_word_wrap_prompt:
     cmp #$1a
     beq ctrl_z
 
+    ;Ctrl+d
+    cmp #$04
+    beq ctrl_d
+
     ;Function keys
     cmp #$85
     beq f1
@@ -387,6 +397,9 @@ ctrl_a:
 
 ctrl_z:
     jmp cmd_set_word_wrap
+
+ctrl_d:
+    jmp cmd_file_set_device
 
 f1:
     jmp cmd_show_help
@@ -652,6 +665,14 @@ exit_help:
     bne :+
     jmp gotoline
 
+    ;d
+:   cmp #$64
+    bne :+
+    jmp setdevice
+:   cmp #$44
+    bne :+
+    jmp setdevice
+
     ;1..9
 :   cmp #$31
     bcs :+
@@ -743,6 +764,10 @@ set_word_wrap:
     stz APP_MOD
     jsr cursor_activate
     jmp cmd_set_word_wrap
+
+setdevice:
+    jsr cursor_activate
+    jmp cmd_file_set_device
 
 tab_width:
     pha
@@ -943,6 +968,33 @@ abort:
     stz APP_MOD
     jsr screen_clear_status
     rts
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_set_device
+;Purpose.............: Key dispatcher: Prompting the user to enter device
+;                      number
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_set_device
+    ;ESC key
+    cmp #$03
+    beq abort
+
+    ;Enter
+    cmp #13
+    beq enter
+
+    ;Default
+    jmp prompt_keypress
+
+abort:
+    stz APP_MOD
+    jmp prompt_close
+
+enter:
+    jmp cmd_file_do_set_device
 .endproc
 
 ;******************************************************************************

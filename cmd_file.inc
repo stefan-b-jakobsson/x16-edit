@@ -276,3 +276,79 @@ exit:
     rts
 .endproc
 
+.proc cmd_file_set_device
+    lda #17
+    sta APP_MOD
+    
+    ldx #<msg
+    ldy #>msg
+    lda #2
+    jsr prompt_init
+
+    ldx file_cur_device
+    ldy #0
+    lda #0
+    jsr util_bin_to_bcd
+    jsr util_bcd_to_str
+
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    ldy #0
+:   lda (TMP1_ADR),y
+    beq foundend
+    iny
+    jmp :-
+
+foundend:
+    tya
+    ldx TMP1_ADR
+    ldy TMP1_ADR+1
+    jmp prompt_default_input
+
+msg:
+    .byt "set file storage device number (0-15):",0
+.endproc
+
+.proc cmd_file_do_set_device
+    ;Copy prompt val
+    ldx #0
+:   cpx prompt_len
+    beq copydone
+    lda prompt_input,x
+    sta promptval,x
+    inx
+    jmp :-
+
+copydone:
+    stz promptval,x
+
+    ;Convert to binary val
+    ldx #<promptval
+    ldy #>promptval
+    jsr util_str_to_bcd
+    bcs invalid
+    jsr util_bcd_to_bin
+    cpx #16
+    bcs invalid
+    stx file_cur_device
+
+    stz APP_MOD
+    jmp prompt_close
+
+    rts
+
+invalid:
+    jsr prompt_close
+    ldx #<msg
+    ldy #>msg
+    lda #2
+    sta APP_MOD
+    jmp screen_print_status
+
+promptval:
+    .byt 0,0,0
+
+msg:
+    .byt "invalid device number, must be in range 0 to 15",0
+.endproc
+

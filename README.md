@@ -2,11 +2,13 @@
 
 Text editor for Commander X16
 
-X16 Edit is a simple text editor for the Commander X16 platform inspired by GNU Nano but lacking some of its more advanced functions such as soft line breaks.
+X16 Edit is a simple text editor for the Commander X16 platform inspired by GNU Nano.
 
-Text entered by the user is stored in banked RAM.
+Text entered by the user is stored in banked RAM (512 KB, expandable to 2 MB).
 
-The program is designed to handle large text files with reasonable performance.
+The program is designed to handle large text files with good performance. It
+is not intended to be a word processor, and will support only basic text
+editor functions.
 
 
 # Compiling
@@ -28,7 +30,7 @@ https://www.commanderx16.com/
 
 Run the program with the following command
 
-./x16emu -sdcard sdcard.img -prg x16edit.prg -run
+./x16emu -sdcard sdcard.img -prg x16edit-x.x.x.prg -run
 
 
 Loading and saving files in X16 Edit require that the emulator is started with an attached sdcard.
