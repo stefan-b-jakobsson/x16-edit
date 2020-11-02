@@ -1956,51 +1956,63 @@ msg_off:
 iso:
     lda #$0f
     jsr KERNAL_CHROUT
-    jmp refreshall
+    jmp exit
 
 petscii_uc:
     lda #$8f
     jsr KERNAL_CHROUT
     lda #$8e
     jsr KERNAL_CHROUT
-    jmp refreshall
+    jmp exit
 
 petscii_lc:
     lda #$0e
     jsr KERNAL_CHROUT
 
-refreshall:
+exit:
     lda #16
+    sta APP_MOD
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_refresh_after_encoding_changed
+;Purpose.............: Refresh screen after encoding was changed
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_refresh_after_encoding_changed
+    jsr screen_clearall
+    jsr screen_print_header
+    jsr screen_print_footer
+    jsr screen_refresh
+    jsr screen_println
+    
+    lda #2
     sta APP_MOD
 
     lda screen_mode
-    beq disp_iso
+    beq iso
     cmp #1
-    beq disp_puc
+    beq pet_uc
     cmp #2
-    beq disp_plc
+    beq pet_lc
 
-disp_iso:
+iso:
     ldx #<msg_iso
     ldy #>msg_iso
     jmp screen_print_status
-disp_puc:
+
+pet_uc:
     ldx #<msg_puc
     ldy #>msg_puc
     jmp screen_print_status
-disp_plc:
+
+pet_lc:
     ldx #<msg_plc
     ldy #>msg_plc
     jmp screen_print_status
-
-wait:
-    ldx #0
-    ldy #0
-:   inx
-    bne :-
-    iny
-    bne :-
-    rts
 
 msg_iso:
     .byt "iso charset selected",0
@@ -2008,6 +2020,30 @@ msg_puc:
     .byt "petscii upper case/graphics selected",0
 msg_plc:
     .byt "petscii upper/lower case selected", 0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_rotate_text_color
+;Purpose.............: Steps through the 16 available text colors, one for each
+;                      invocation of this function
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_rotate_text_color
+    stz APP_MOD
+
+    clc
+    lda screen_color
+    adc #1
+    and #15
+    ora #96
+    sta screen_color
+
+    jsr screen_clearall
+    jsr screen_print_header
+    jsr screen_print_footer
+    jsr screen_refresh
+    jmp screen_println
 
 .endproc
 

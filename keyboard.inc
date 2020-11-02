@@ -39,18 +39,8 @@
     rts
 
 charset_changed:
-    ;The charset was changed during previous interrupt cycle
-    ;The content of the screen may now be updated. 
-    ;If done sooner, there will be errors and artifacts on the screen. A small mystery...
-    jsr screen_clearall
-    jsr screen_print_header
-    jsr screen_print_footer
-    jsr screen_refresh
-    jsr screen_println
-    
-    lda #2
-    sta APP_MOD
-    rts
+    ;Run if charset was changed previous interrupt cycle
+    jmp cmd_refresh_after_encoding_changed
     
 gotachar:
     ;Select key handler according to program mode
@@ -673,6 +663,14 @@ exit_help:
     bne :+
     jmp setdevice
 
+    ;c
+:   cmp #$63
+    bne :+
+    jmp rotate_text_color
+:   cmp #$43
+    bne :+
+    jmp rotate_text_color
+
     ;1..9
 :   cmp #$31
     bcs :+
@@ -782,6 +780,10 @@ tab_width:
 gotoline:
     jsr cursor_activate
     jmp cmd_goto_line
+
+rotate_text_color:
+    jsr cursor_activate
+    jmp cmd_rotate_text_color
 
 abort_command_mode:
     stz APP_MOD
