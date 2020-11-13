@@ -406,7 +406,6 @@ exit:
 
 .endproc
 
-
 ;GLOBAL VARIABELS
 
 ;Last disk status saved here

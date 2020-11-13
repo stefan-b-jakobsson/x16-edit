@@ -47,9 +47,9 @@
     ;Is linefeed char?
     cmp #LF
     bne :+ 
-    jmp linefeed
+    jmp cmd_insert_lf
     
-    ;No, store char in mem
+    ;Store char in mem
 :   jsr mem_insert
     bcc :+
     jmp mem_full
@@ -57,29 +57,56 @@
     ;Increase current columm index
 :   jsr mem_cur_col_inc
 
-    ;Move cursor
+    ;Move cursor one step right
     jsr cursor_move_right
     bcs :+
-    jmp wordwrap
+    jmp wrap
 
     ;Carry set, cursor at rightmost position, need to scroll
 :   jsr mem_lnv_step_right
 
-    ;Word wrap
-wordwrap:
+wrap:
+    ;Word wrap enabled?
     lda cmd_wordwrap_mode
     beq exit                ;Word wrap mode off, we're done
+    jmp cmd_word_wrap
 
+exit:
+    clc
+    rts
+
+mem_full:
+    jsr cmd_mem_full_msg
+    clc
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_word_wrap
+;Purpose.............: If cursor is at set right margin, inserts a line break
+;                      to wrap the current line at the previous blank space.
+;                      If no blank space on the line, wraps at the right
+;                      margin.
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: C=1 if a line feed char was inserted, either directly
+;                      or by the word wrap function
+.proc cmd_word_wrap
+    ;Check if we're at the column where to wrap the line
     lda mem_cur_col+1
-    bne exit
+    bne nowrap
     lda mem_cur_col+2
-    bne exit
+    bne nowrap
     lda mem_cur_col
     cmp cmd_wordwrap_pos
     beq wrap
-    jmp exit
+
+nowrap:
+    clc
+    rts
 
 wrap:
+    ;Backup pointers
     lda CRS_BNK
     sta crs_backup
     lda CRS_ADR+1
@@ -87,15 +114,15 @@ wrap:
     lda CRS_IDX
     sta crs_backup+2
 
+    ;Goto prev space
     jsr mem_crs_move_to_prev_blankspace
     bcs bs_not_found
 
-    ;Blankspace found
+bs_found:
     stx prevblank
     sty prevblank+1
 
-    lda #LF
-    jsr cmd_insert
+    jsr cmd_insert_lf
 
 wrap_step_back:
     lda prevblank
@@ -117,9 +144,7 @@ wrap_done:
     sec
     rts
 
-    ;Blankspace not found
 bs_not_found:
-    ;Restore pointers
     lda crs_backup
     sta CRS_BNK
     lda crs_backup+1
@@ -128,27 +153,31 @@ bs_not_found:
     sta CRS_IDX
 
     lda #LF
-    jsr cmd_insert
+    jsr cmd_insert_lf
+
     sec
     rts
 
-exit:
-    clc
-    rts
+crs_backup:
+    .byt 0,0,0
+prevblank:
+    .byt 0,0
+.endproc
 
-mem_full:
-    ldx #<msg
-    ldy #>msg
-    lda #2
-    sta APP_MOD
-    jsr screen_print_status
-    clc
-    rts
-
-linefeed:
+;******************************************************************************
+;Function name.......: cmd_insert_lf
+;Purpose.............: Inserts line break char at cursor position and moves the 
+;                      cursor one step right. Does not refresh screen; users of 
+;                      this procedure are responsible to do screen refresh when 
+;                      done
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: C=1 if a line feed char was inserted, either directly
+;                      or by the word wrap function
+.proc cmd_insert_lf
     ;Is auto indent on?
     lda cmd_auto_indent_status
-    beq linefeed_store
+    beq linefeed_store          ;No, continue storing the line feed in buffer
 
     ;Backup mem pointer
     lda CRS_BNK
@@ -166,8 +195,8 @@ linefeed:
     stz counter2
     stz counter2+1
 
-    ;Count blank spaces
 auto_indent_loop:
+    ;Count leading blank spaces on the line
     lda counter1+1
     cmp counter2+1
     bne :+
@@ -201,8 +230,8 @@ auto_indent_stop:
     lda crs_backup+2
     sta CRS_IDX
 
-    ;Store char in mem
 linefeed_store:
+    ;Store char in mem
     lda #LF
     jsr mem_insert
     bcs mem_full
@@ -244,8 +273,10 @@ linefeed_exit:
     sec
     rts
 
-msg:
-    .byt "memory full error", 0
+mem_full:
+    jsr cmd_mem_full_msg
+    clc
+    rts
 
 crs_backup:
     .byt 0,0,0
@@ -253,8 +284,24 @@ counter1:
     .byt 0,0
 counter2:
     .byt 0,0
-prevblank:
-    .byt 0,0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_mem_full_msg
+;Purpose.............: Shows memory full status message
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc cmd_mem_full_msg
+    ldx #<msg
+    ldy #>msg
+    lda #2
+    sta APP_MOD
+    jsr screen_print_status
+    rts
+
+msg:
+    .byt "memory full", 0
 .endproc
 
 ;******************************************************************************
@@ -264,6 +311,7 @@ prevblank:
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc cmd_insert_tab
+    ;Find next tab stop by adding the tab width until we pass the current column index
     lda #1
     sta counter
     stz counter+1
@@ -293,23 +341,27 @@ loop:
     lda counter+2
     adc #0
     sta counter+2
+
     jmp loop
     
 
 at_tab_stop:
     ;Calculate difference
     sec
+    
     lda counter
     sbc mem_cur_col
     sta counter
+    
     lda counter+1
     sbc #0
     sta counter+1
+    
     lda counter+2
     sbc #0
     sta counter+2
 
-    ;Insert that amount of blank spaces
+    ;Insert blank spaces
 :   lda #32
     jsr cmd_insert
     dec counter
@@ -362,7 +414,7 @@ linebreak_deleted:
     jsr cursor_move_up
     bcc :+
     
-    ;Carry set, we're at top of screen and need to scroll
+    ;Carry set, we're at top of screen and need to scroll vertically
     jsr mem_scr_move_up
 
 :   ;Move to line start, and save the number of chars moved over
@@ -391,7 +443,7 @@ loop:
     jsr cursor_move_right
     bcc continue
 
-    ;C=1: We need to scroll
+    ;C=1: We need to scroll horizontally
     jsr mem_lnv_step_right
 
 continue:
@@ -501,9 +553,6 @@ at_filestart:
     rts
 
 at_rightmost:
-    ;Increase current column index
-    jsr mem_cur_col_inc
-
     ;Cursor at rightmost position but not end of line, need to scroll
     jsr mem_lnv_step_right
 
@@ -2032,11 +2081,14 @@ msg_plc:
 .proc cmd_rotate_text_color
     stz APP_MOD
 
-    clc
     lda screen_color
-    adc #1
+    and #240
+    sta bgcolor
+
+    lda screen_color
+    ina
     and #15
-    ora #96
+    ora bgcolor
     sta screen_color
 
     jsr screen_clearall
@@ -2045,6 +2097,39 @@ msg_plc:
     jsr screen_refresh
     jmp screen_println
 
+bgcolor:
+    .byt 0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_rotate_background_color
+;Purpose.............: Steps through the 16 available text colors, one for each
+;                      invocation of this function
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_rotate_background_color
+    stz APP_MOD
+
+    lda screen_color
+    and #15
+    sta fgcolor
+
+    clc
+    lda screen_color
+    adc #16
+    and #240
+    ora fgcolor
+    sta screen_color
+
+    jsr screen_clearall
+    jsr screen_print_header
+    jsr screen_print_footer
+    jsr screen_refresh
+    jmp screen_println
+
+fgcolor:
+    .byt 0
 .endproc
 
 ;******************************************************************************

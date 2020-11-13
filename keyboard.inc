@@ -25,124 +25,76 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_read_and_dispatch
-    ;Before reading keyboard, check if mode=16, i.e. charset changed previous interrupt cycle
+    ;Get char from keyboard queue. Don't read if APP_MOD=16
     lda APP_MOD
     cmp #16
-    beq charset_changed
-
-    ;Get char from keyboard queue
+    beq gotachar
+    
     jsr KERNAL_GETIN
     bne gotachar
     
     ;No input, run memory defrag instead during this interrupt cycle
     jmp mem_run_defrag
-    rts
-
-charset_changed:
-    ;Run if charset was changed previous interrupt cycle
-    jmp cmd_refresh_after_encoding_changed
     
 gotachar:
+    ;Store char in Y temporarily
+    tay
+
     ;Select key handler according to program mode
     ldx APP_MOD
-
-    cpx #1
-    beq mode_helpscreen
+    lda jmptbl_L,x
+    sta eventhandler
+    lda jmptbl_H,x
+    sta eventhandler+1
     
-    cpx #2
-    beq mode_statusmessage
-    
-    cpx #3
-    beq mode_command
-    
-    cpx #4
-    beq mode_file_save
-    
-    cpx #5
-    beq mode_file_open
-    
-    cpx #6
-    beq mode_file_save_overwrite
-    
-    cpx #7
-    beq mode_file_open_save_before
-    
-    cpx #8
-    beq mode_exit_save_before
-    
-    cpx #9
-    beq mode_new_buffer_save_before
-    
-    cpx #10
-    beq mode_find
-    
-    cpx #11
-    beq mode_goto_line
-    
-    cpx #12
-    beq mode_replace_0
-    
-    cpx #13
-    beq mode_replace_1
-    
-    cpx #14
-    beq mode_replace_2
+    ;Restore char in A
+    tya
 
-    cpx #15
-    beq mode_word_wrap_prompt
+    ;Jump to event handler
+    jmp (eventhandler)
 
-    cpx #17
-    beq mode_set_device
+eventhandler:
+    .byt 0,0
 
-mode_default:
-    jmp keyboard_mode_default
+jmptbl_L:
+    .byt <keyboard_mode_default
+    .byt <keyboard_mode_helpscreen
+    .byt <keyboard_mode_statusmessage
+    .byt <keyboard_mode_command
+    .byt <keyboard_mode_file_save
+    .byt <keyboard_mode_file_open
+    .byt <keyboard_mode_file_save_overwrite
+    .byt <keyboard_mode_file_open_save_before
+    .byt <keyboard_mode_exit_save_before
+    .byt <keyboard_mode_new_buffer_save_before
+    .byt <keyboard_mode_find
+    .byt <keyboard_mode_goto_line
+    .byt <keyboard_mode_replace_0
+    .byt <keyboard_mode_replace_1
+    .byt <keyboard_mode_replace_2
+    .byt <keyboard_mode_word_wrap_prompt
+    .byt <cmd_refresh_after_encoding_changed
+    .byt <keyboard_mode_set_device
 
-mode_helpscreen:
-    jmp keyboard_mode_helpscreen
-
-mode_statusmessage:
-    jmp keyboard_mode_statusmessage
-
-mode_command:
-    jmp keyboard_mode_command
-
-mode_file_save:
-    jmp keyboard_mode_file_save
-
-mode_file_open:
-    jmp keyboard_mode_file_open
-
-mode_file_save_overwrite:
-    jmp keyboard_mode_file_save_overwrite
-
-mode_file_open_save_before:
-    jmp keyboard_mode_file_open_save_before
-
-mode_exit_save_before:
-    jmp keyboard_mode_exit_save_before
-
-mode_new_buffer_save_before:
-    jmp keyboard_mode_new_buffer_save_before
-
-mode_find:
-    jmp keyboard_mode_find
-
-mode_goto_line:
-    jmp keyboard_mode_goto_line
-
-mode_replace_0:
-    jmp keyboard_mode_replace_0
-mode_replace_1:
-    jmp keyboard_mode_replace_1
-mode_replace_2:
-    jmp keyboard_mode_replace_2
-
-mode_word_wrap_prompt:
-    jmp keyboard_mode_word_wrap_prompt
-
-mode_set_device:
-    jmp keyboard_mode_set_device
-
+jmptbl_H:
+    .byt >keyboard_mode_default
+    .byt >keyboard_mode_helpscreen
+    .byt >keyboard_mode_statusmessage
+    .byt >keyboard_mode_command
+    .byt >keyboard_mode_file_save
+    .byt >keyboard_mode_file_open
+    .byt >keyboard_mode_file_save_overwrite
+    .byt >keyboard_mode_file_open_save_before
+    .byt >keyboard_mode_exit_save_before
+    .byt >keyboard_mode_new_buffer_save_before
+    .byt >keyboard_mode_find
+    .byt >keyboard_mode_goto_line
+    .byt >keyboard_mode_replace_0
+    .byt >keyboard_mode_replace_1
+    .byt >keyboard_mode_replace_2
+    .byt >keyboard_mode_word_wrap_prompt
+    .byt >cmd_refresh_after_encoding_changed
+    .byt >keyboard_mode_set_device
 .endproc
 
 ;******************************************************************************
@@ -155,266 +107,399 @@ mode_set_device:
     ;ESC key
     cmp #$03
     bne :+
-    jmp esc
+    jmp keyboard_esc_key
 
     ;Enter key
 :   cmp #13
     bne :+
-    jmp enter
+    jmp keyboard_enter_key
     
     ;Delete key
 :   cmp #$14
     bne :+
-    jmp delete
+    jmp keyboard_delete_key
 
     ;Tab key
 :   cmp #$09
     bne :+
-    jmp tab_key
+    jmp cmd_insert_tab
 
     ;Left arrow key
 :   cmp #$9d
     bne :+
-    jmp left_arrow
+    jmp keyboard_leftarrow_key
 
     ;Right arrow key
 :   cmp #$1d
     bne :+
-    jmp right_arrow
+    jmp keyboard_rightarrow_key
 
     ;Up arrow key
 :   cmp #$91
     bne :+
-    jmp up_arrow
+    jmp keyboard_uparrow_key
 
     ;Down arrow key
 :   cmp #$11
     bne :+
-    jmp down_arrow
+    jmp keyboard_downarrow_key
 
     ;Home key
 :   cmp #$13
     bne :+
-    jmp home
+    jmp keyboard_home_key
 
     ;Shift+Home = End key
 :   cmp #$93
     bne :+
-    jmp end
+    jmp keyboard_end_key
 
     ;Ctrl+G
 :   cmp #$07
     bne :+
-    jmp ctrl_g
+    jmp cmd_show_help
 
     ;Ctrl+x
 :   cmp #$18
     bne :+
-    jmp ctrl_x
+    jmp cmd_exit
 
     ;Ctrl+Y
 :   cmp #$19
     bne :+
-    jmp ctrl_y
+    jmp keyboard_cmd_pageup
 
     ;Ctrl+V
 :   cmp #$16
     bne :+
-    jmp ctrl_v
+    jmp keyboard_cmd_pagedown
 
     ;Ctrl+W
 :   cmp #$17
-    beq ctrl_w
-
-    ;Ctrl+O
-    cmp #$0f
-    beq ctrl_o
-
-    ;Ctrl+k
-    cmp #$0b
-    beq ctrl_k
-
-    ;Ctrl+b
-    cmp #$02
-    beq ctrl_b
-
-    ;Ctrl+u
-    cmp #$15
-    beq ctrl_u
-
-    ;Ctrl+p
-    cmp #$10
-    beq ctrl_p
-
-    ;Ctrl+l
-    cmp #$0c
-    beq ctrl_l
-
-    ;Ctrl+f
-    cmp #$06
-    beq ctrl_f
-
-    ;Ctrl+r
-    cmp #$12
-    beq ctrl_r
-
-    ;Ctrl+n
-    cmp #$0e
-    beq ctrl_n
-
-    ;Ctrl+e
-    cmp #$05
-    beq ctrl_e
-
-    ;Ctrl+a
-    cmp #$01
-    beq ctrl_a
-
-    ;Ctrl+z
-    cmp #$1a
-    beq ctrl_z
-
-    ;Ctrl+d
-    cmp #$04
-    beq ctrl_d
-
-    ;Function keys
-    cmp #$85
-    beq f1
-
-    cmp #$89
-    beq f2
-
-    cmp #$86
-    beq f3
-
-    cmp #$8a
-    beq f4
-
-    cmp #$87
-    beq f5
-
-    cmp #$8b
-    beq f6
-
-    cmp #$88
-    beq f7
-
-    cmp #$8c
-    beq f8
-
-    ;If no other match, goto default handler
-    jmp keyboard_default_keyhandler
-
-esc:
-    jmp keyboard_esc_key
-
-enter:
-    jmp keyboard_enter_key
-
-delete:
-    jmp keyboard_delete_key
-
-tab_key:
-    jmp cmd_insert_tab
-
-left_arrow:
-    jmp keyboard_leftarrow_key
-
-right_arrow:
-    jmp keyboard_rightarrow_key
-
-up_arrow:
-    jmp keyboard_uparrow_key
-
-down_arrow:
-    jmp keyboard_downarrow_key
-
-home:
-    jmp keyboard_home_key
-
-end:
-    jmp keyboard_end_key
-
-ctrl_g:
-    jmp cmd_show_help
-
-ctrl_x:
-    jmp cmd_exit
-
-ctrl_w:
+    bne :+
     jmp cmd_file_save_prompt
 
-ctrl_o:
+    ;Ctrl+O
+:   cmp #$0f
+    bne :+
     jmp cmd_file_open_prompt
 
-ctrl_y:
-    jmp keyboard_cmd_pageup
-
-ctrl_v:
-    jmp keyboard_cmd_pagedown
-
-ctrl_k:
+    ;Ctrl+k
+:   cmp #$0b
+    bne :+
     jmp cmd_cut
 
-ctrl_b:
+    ;Ctrl+b
+:   cmp #$02
+    bne :+
     jmp cmd_copy
 
-ctrl_u:
+    ;Ctrl+u
+:   cmp #$15
+    bne :+
     jmp cmd_paste
 
-ctrl_p:
+    ;Ctrl+p
+:   cmp #$10
+    bne :+
     jmp cmd_show_curpos
 
-ctrl_l:
+    ;Ctrl+l
+:   cmp #$0c
+    bne :+
     jmp cmd_goto_line
 
-ctrl_f:
+    ;Ctrl+f
+:   cmp #$06
+    bne :+
     jmp cmd_find
 
-ctrl_r:
+    ;Ctrl+r
+:   cmp #$12
+    bne :+
     lda #0
     jmp cmd_replace
 
-ctrl_n:
+    ;Ctrl+n
+:   cmp #$0e
+    bne :+
     jmp cmd_new_buffer
 
-ctrl_e:
+    ;Ctrl+e
+:   cmp #$05
+    bne :+
     jmp cmd_change_encoding
 
-ctrl_a:
+    ;Ctrl+a
+:   cmp #$01
+    bne :+
     jmp cmd_auto_indent
 
-ctrl_z:
+    ;Ctrl+z
+:   cmp #$1a
+    bne :+
     jmp cmd_set_word_wrap
 
-ctrl_d:
+    ;Ctrl+d
+:   cmp #$04
+    bne :+
     jmp cmd_file_set_device
 
-f1:
+    ;F1
+:   cmp #$85
+    bne :+
     jmp cmd_show_help
 
-f2:
+    ;F2
+:   cmp #$89
+    bne :+
     jmp cmd_exit
 
-f3:
+    ;F3
+:   cmp #$86
+    bne :+
     jmp cmd_file_save_prompt
 
-f4:
+    ;F4
+:   cmp #$8a
+    bne :+
     jmp cmd_file_open_prompt
 
-f5:
+    ;F5
+:   cmp #$87
+    bne :+
     jmp cmd_cut
 
-f6:
+    ;F6
+:   cmp #$8b
+    bne :+
     jmp cmd_paste
 
-f7:
+    ;F7
+:   cmp #$88
+    bne :+
     jmp cmd_show_curpos
 
-f8:
+    ;F8
+:   cmp #$8c
+    bne :+
     jmp cmd_find
 
+    ;Default key handler
+:   jsr cmd_insert
+    bcs :+
+    jmp screen_println
+:   jsr screen_refresh
+    jmp screen_println
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_command
+;Purpose.............: Key dispatcher: The user has pressed and released ESC
+;                      and the next key is interpreted as a command
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_command
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+
+    ;ESC key
+    cmp #$03
+    bne :+
+    stz APP_MOD
+    jsr cursor_activate
+    jmp screen_clear_status
+
+    ;a
+:   cmp #$41
+    bne :+
+    stz APP_MOD
+    jsr cursor_activate
+    jmp cmd_auto_indent
+    
+    ;g
+:   cmp #$47
+    bne :+
+    stz APP_MOD
+    jmp cmd_show_help
+
+    ;x
+:   cmp #$58
+    bne :+
+    jsr cursor_activate
+    jmp cmd_exit
+
+    ;w
+:   cmp #$57
+    bne :+
+    jsr cursor_activate
+    jmp cmd_file_save_prompt
+
+    ;o
+:   cmp #$4f
+    bne :+
+    jsr cursor_activate
+    jmp cmd_file_open_prompt
+
+    ;n
+:   cmp #$4e
+    bne :+
+    jsr cursor_activate
+    jsr screen_clear_status
+    jmp cmd_new_buffer
+
+    ;y
+:   cmp #$59
+    bne :+
+    jsr cursor_activate
+    stz APP_MOD
+    jmp keyboard_cmd_pageup
+
+    ;v
+:   cmp #$56
+    bne :+
+    jsr cursor_activate
+    stz APP_MOD
+    jmp keyboard_cmd_pagedown
+
+    ;k
+:   cmp #$4b
+    bne :+
+    jsr cursor_activate
+    stz APP_MOD
+    jsr cmd_cut
+    jmp screen_clear_status
+
+    ;b
+:   cmp #$66
+    bne :+
+    stz APP_MOD
+    jsr screen_clear_status
+    jsr cursor_activate
+    jmp cmd_copy
+
+    ;m
+:   cmp #$4d
+    bne :+
+    jsr cursor_activate
+    jmp cmd_mem_usage
+
+    ;u
+:   cmp #$55
+    bne :+
+    stz APP_MOD
+    jmp screen_clear_status
+    jsr cursor_activate
+    jmp cmd_paste
+
+    ;p
+:   cmp #$50
+    bne :+
+    jsr cursor_activate
+    jmp cmd_show_curpos
+
+    ;f
+:   cmp #$46
+    bne :+
+    jsr cursor_activate
+    jmp cmd_find
+
+    ;r
+:   cmp #$52
+    bne :+
+    jsr cursor_activate
+    lda #0
+    jmp cmd_replace
+
+    ;e
+:   cmp #$45
+    bne :+
+    jsr cursor_activate
+    jmp cmd_change_encoding
+    
+    ;z
+:   cmp #$7a
+    bne :+
+    stz APP_MOD
+    jsr cursor_activate
+    jmp cmd_set_word_wrap
+
+    ;l
+:   cmp #$4c
+    bne :+
+    jsr cursor_activate
+    jmp cmd_goto_line
+
+    ;d
+:   cmp #$44
+    bne :+
+    jsr cursor_activate
+    jmp cmd_file_set_device
+
+    ;c
+:   cmp #$43
+    bne :+
+    jsr cursor_activate
+    jmp cmd_rotate_text_color
+
+    ;s
+:   cmp #$53
+    bne :+
+    jsr cursor_activate
+    jmp cmd_rotate_background_color
+
+    ;1..9
+:   cmp #$31
+    bcs :+
+    jmp unknown
+:   cmp #$3a
+    bcs unknown
+    pha
+    stz APP_MOD
+    jsr screen_clear_status
+    jsr cursor_activate
+    pla
+    sec
+    sbc #48
+    jmp cmd_set_tab_width
+
+    ;Uknown command, ignore
+unknown:
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_statusmessage
+;Purpose.............: Key dispatcher: Showing a message in the status bar
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_statusmessage
+    ;Any key press will close the status message. 
+    ;Set program to default mode (0) and clear status message
+    stz APP_MOD
+    jsr screen_clear_status
+    jmp cursor_activate
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_helpscreen
+;Purpose.............: Key dispatcher: Showing the built-in help screen
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_helpscreen
+    ;Exit help screen if ESC was pressed, ignore all other input
+    cmp #03
+    beq exit_help
+    rts
+
+exit_help:
+    stz APP_MOD
+    jsr screen_refresh
+    jsr screen_clear_status
+    jmp cursor_activate
 .endproc
 
 ;******************************************************************************
@@ -425,15 +510,14 @@ f8:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_exit_save_before
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+    
     ;Y key pressed
-    cmp #$79
-    beq save
     cmp #$59
     beq save
 
     ;N key pressed
-    cmp #$6e
-    beq discard
     cmp #$4e
     beq discard
 
@@ -456,340 +540,7 @@ discard:
 
 abort:
     stz APP_MOD
-    jsr screen_clear_status
-    rts
-.endproc
-
-;******************************************************************************
-;Function name.......: keyboard_mode_helpscreen
-;Purpose.............: Key dispatcher: Showing the built-in help screen
-;Input...............: A=char
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_mode_helpscreen
-    ;Exit help screen if ESC was pressed, ignore all other input
-    cmp #03
-    beq exit_help
-    rts
-
-exit_help:
-    stz APP_MOD
-    jsr screen_refresh
-    jsr screen_clear_status
-
-    jsr cursor_activate
-
-    rts
-.endproc
-
-;******************************************************************************
-;Function name.......: keyboard_mode_statusmessage
-;Purpose.............: Key dispatcher: Showing a message in the status bar
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_mode_statusmessage
-    ;Any key press will close the status message. 
-    ;Set program to default mode (0) and clear status message
-    stz APP_MOD
-    jsr screen_clear_status
-    jsr cursor_activate
-
-    rts
-.endproc
-
-;******************************************************************************
-;Function name.......: keyboard_mode_command
-;Purpose.............: Key dispatcher: The user has pressed and released ESC
-;                      and the next key is interpreted as a command
-;Input...............: A=char
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_mode_command
-    ;ESC key
-    cmp #$03
-    bne :+
-    jmp abort_command_mode
-
-    ;a
-:   cmp #$61
-    bne :+
-    jmp auto_indent
-:   cmp #$41
-    bne :+
-    jmp auto_indent
-
-    ;g
-:   cmp #$67
-    bne :+
-    jmp show_help
-:   cmp #$47
-    bne :+
-    jmp show_help
-
-    ;x
-:   cmp #$78
-    bne :+
-    jmp exit
-:   cmp #$58
-    bne :+
-    jmp exit
-
-    ;w
-:   cmp #$77
-    bne :+
-    jmp save
-:   cmp #$57
-    bne :+
-    jmp save
-
-    ;o
-:   cmp #$6f
-    bne :+
-    jmp open
-:   cmp #$4f
-    bne :+
-    jmp open
-
-    ;n
-:   cmp #$6e
-    bne :+
-    jmp newbuffer
-:   cmp #$4e
-    bne :+
-    jmp newbuffer
-
-    ;y
-:   cmp #$79
-    bne :+
-    jmp pgup
-:   cmp #$59
-    bne :+
-    jmp pgup
-
-    ;v
-:   cmp #$76
-    bne :+
-    jmp pgdown
-:   cmp #$56
-    bne :+
-    jmp pgdown
-
-    ;k
-:   cmp #$6b
-    bne :+
-    jmp cut
-:   cmp #$4b
-    bne :+
-    jmp cut
-
-    ;b
-:   cmp #$86
-    bne :+
-    jmp copy
-:   cmp #$66
-    bne :+
-    jmp copy
-
-    ;m
-:   cmp #$6d
-    bne :+
-    jmp mem_usage
-:   cmp #$4d
-    bne :+
-    jmp mem_usage
-
-    ;u
-:   cmp #$75
-    bne :+
-    jmp paste
-:   cmp #$55
-    bne :+
-    jmp paste
-
-    ;p
-:   cmp #$70
-    bne :+
-    jmp curpos
-:   cmp #$50
-    bne :+
-    jmp curpos
-
-    ;f
-:   cmp #$66
-    bne :+
-    jmp find
-:   cmp #$46
-    bne :+
-    jmp find
-
-    ;r
-:   cmp #$72
-    bne :+
-    jmp replace
-:   cmp #$52
-    bne :+
-    jmp replace
-
-    ;e
-:   cmp #$65
-    bne :+
-    jmp change_encoding
-:   cmp #$45
-    bne :+
-    jmp change_encoding
-    
-    ;z
-:   cmp #$5a
-    bne :+
-    jmp set_word_wrap
-:   cmp #$7a
-    bne :+
-    jmp set_word_wrap
-
-    ;l
-:   cmp #$6c
-    bne :+
-    jmp gotoline
-:   cmp #$4c
-    bne :+
-    jmp gotoline
-
-    ;d
-:   cmp #$64
-    bne :+
-    jmp setdevice
-:   cmp #$44
-    bne :+
-    jmp setdevice
-
-    ;c
-:   cmp #$63
-    bne :+
-    jmp rotate_text_color
-:   cmp #$43
-    bne :+
-    jmp rotate_text_color
-
-    ;1..9
-:   cmp #$31
-    bcs :+
-    jmp unknown
-:   cmp #$3a
-    bcs unknown
-    jmp tab_width
-
-    ;Uknown command, ignore
-unknown:
-    rts
-
-auto_indent:
-    stz APP_MOD
-    jsr cursor_activate
-    jmp cmd_auto_indent
-
-show_help:
-    stz APP_MOD
-    jmp cmd_show_help
-
-exit:
-    jsr cursor_activate
-    jmp cmd_exit
-
-save:
-    jsr cursor_activate
-    jmp cmd_file_save_prompt
-
-open:
-    jsr cursor_activate
-    jmp cmd_file_open_prompt
-
-newbuffer:
-    jsr cursor_activate
-    jsr screen_clear_status
-    jmp cmd_new_buffer
-
-pgup:
-    jsr cursor_activate
-    stz APP_MOD
-    jmp keyboard_cmd_pageup
-
-pgdown:
-    jsr cursor_activate
-    stz APP_MOD
-    jmp keyboard_cmd_pagedown
-
-cut:
-    jsr cmd_cut
-    jsr cursor_activate
-    stz APP_MOD
     jmp screen_clear_status
-
-copy:
-    jsr cmd_copy
-    jsr cursor_activate
-    stz APP_MOD
-    jmp screen_clear_status
-
-mem_usage:
-    jsr cursor_activate
-    jmp cmd_mem_usage
-
-paste:
-    jsr cmd_paste
-    jsr cursor_activate
-    stz APP_MOD
-    jmp screen_clear_status
-
-curpos:
-    jsr cursor_activate
-    jmp cmd_show_curpos
-
-find:
-    jsr cursor_activate
-    jmp cmd_find
-
-replace:
-    jsr cursor_activate
-    lda #0
-    jmp cmd_replace
-
-change_encoding:
-    jsr cursor_activate
-    jmp cmd_change_encoding
-
-set_word_wrap:
-    stz APP_MOD
-    jsr cursor_activate
-    jmp cmd_set_word_wrap
-
-setdevice:
-    jsr cursor_activate
-    jmp cmd_file_set_device
-
-tab_width:
-    pha
-    stz APP_MOD
-    jsr screen_clear_status
-    jsr cursor_activate
-    pla
-    sec
-    sbc #48
-    jmp cmd_set_tab_width
-
-gotoline:
-    jsr cursor_activate
-    jmp cmd_goto_line
-
-rotate_text_color:
-    jsr cursor_activate
-    jmp cmd_rotate_text_color
-
-abort_command_mode:
-    stz APP_MOD
-    jsr cursor_activate
-    jmp screen_clear_status
-
 .endproc
 
 ;******************************************************************************
@@ -808,12 +559,12 @@ abort_command_mode:
     cmp #$03
     beq abort
     
+    ;Default, send key to prompt
     jmp prompt_keypress
 
 abort:
     jsr prompt_close
-    lda #0
-    sta APP_MOD         ;mode_default
+    stz APP_MOD
     rts
 
 write_file:
@@ -828,15 +579,14 @@ write_file:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_save_overwrite
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+
     ;Y key pressed
-    cmp #$79
-    beq write_file
     cmp #$59
     beq write_file
 
     ;N key
-    cmp #$6e
-    beq abort
     cmp #$4e
     beq abort
 
@@ -878,8 +628,7 @@ write_file:
 
 abort:
     jsr prompt_close
-    lda #0              ;mode_default
-    sta APP_MOD
+    stz APP_MOD
     rts
 
 read_file:
@@ -895,15 +644,14 @@ read_file:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_open_save_before
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+    
     ;Y key pressed
-    cmp #$79
-    beq save
     cmp #$59
     beq save
 
     ;N key pressed
-    cmp #$6e
-    beq discard
     cmp #$4e
     beq discard
 
@@ -938,15 +686,14 @@ abort:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_new_buffer_save_before
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+    
     ;Y key pressed
-    cmp #$79
-    beq save
     cmp #$59
     beq save
 
     ;N key pressed
-    cmp #$6e
-    beq discard
     cmp #$4e
     beq discard
 
@@ -968,8 +715,7 @@ discard:
 
 abort:
     stz APP_MOD
-    jsr screen_clear_status
-    rts
+    jmp screen_clear_status
 .endproc
 
 ;******************************************************************************
@@ -1122,15 +868,14 @@ abort:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_replace_2
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+    
     ;Y
-    cmp #121
-    beq yes
     cmp #121-32
     beq yes
 
     ;A
-    cmp #97
-    beq all
     cmp #97-32
     beq all
 
@@ -1168,7 +913,7 @@ abort:
     cmp #$03
     beq abort
 
-    ;ENTER
+    ;Enter
     cmp #13
     beq enter
 
@@ -1220,7 +965,7 @@ abort:
 ;Error returns.......: None
 .proc keyboard_esc_key
     lda #3
-    sta APP_MOD         ;mode_command
+    sta APP_MOD
 
     jsr cursor_disable
 
@@ -1286,12 +1031,8 @@ exit:
 .proc keyboard_rightarrow_key
     jsr cmd_go_right
     bcs :+
-
-    jsr screen_println
-    rts
-
-:   jsr screen_refresh
-    rts
+    jmp screen_println
+:   jmp screen_refresh
 .endproc
 
 ;******************************************************************************
@@ -1304,11 +1045,8 @@ exit:
     jsr cmd_go_left
     bcs :+
     
-    jsr screen_println
-    rts
-
-:   jsr screen_refresh
-    rts
+    jmp screen_println
+:   jmp screen_refresh
 .endproc
 
 ;******************************************************************************
@@ -1398,25 +1136,6 @@ linecount:
 
 linecount:
     .byt 0
-.endproc
-
-;******************************************************************************
-;Function name.......: keyboard_default_keyhandler
-;Purpose.............: Key handler: Default operation, inserts character into
-;                      text buffer
-;Input...............: A=char
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_default_keyhandler
-    jsr cmd_insert
-    bcs refresh_screen
-
-    jmp screen_println
-
-refresh_screen:
-    jsr screen_refresh
-    jmp screen_println
-
 .endproc
 
 ;GLOBAL VARIABLES
