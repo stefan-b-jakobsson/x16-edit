@@ -274,7 +274,7 @@ loop_petscii_lc:
     rts
 
 program_name:
-    .byt "x16 edit 0.2.2", 0
+    .byt "x16 edit 0.2.3", 0
 
 new_buffer_msg:
     .byt "new buffer"
