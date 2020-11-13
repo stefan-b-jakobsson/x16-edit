@@ -306,7 +306,7 @@ foundend:
     jmp prompt_default_input
 
 msg:
-    .byt "set file storage device number (1-15):",0
+    .byt "set file storage device number (1, 8-30):",0
 .endproc
 
 .proc cmd_file_do_set_device
@@ -328,10 +328,14 @@ copydone:
     jsr util_str_to_bcd
     bcs invalid
     jsr util_bcd_to_bin
-    cpx #16
+    cpx #31
     bcs invalid
     cpx #1
+    beq valid
+    cpx #8
     bcc invalid
+
+valid:    
     stx file_cur_device
 
     stz APP_MOD
@@ -351,6 +355,6 @@ promptval:
     .byt 0,0,0
 
 msg:
-    .byt "invalid device number, must be in range 1 to 15",0
+    .byt "invalid device number, must be in range 1, 8-30",0
 .endproc
 
