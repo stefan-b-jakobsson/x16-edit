@@ -25,10 +25,23 @@
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc file_init
-    stz file_cur_filename_len
+    ;Init disk status message
+    ldx #0
+:   lda msg,x
+    beq :+
+    sta file_disk_status,x
+    inx
+    jmp :-
+
+:   stz file_cur_filename_len
+    
     lda #8
     sta file_cur_device
+
     rts
+
+msg:
+    .byt "disk status: ",0
 .endproc
 
 ;******************************************************************************
@@ -43,29 +56,36 @@
     stz file_io_err
     
     ;Close 1 and Open 1, 8, 1, "filename, s, w"
-    jsr KERNAL_SETNAM
+    pha
+    bridge_setaddr KERNAL_SETNAM
+    pla
+    bridge_call KERNAL_SETNAM
 
+    bridge_setaddr KERNAL_CLOSE
     lda #1
-    jsr KERNAL_CLOSE
+    bridge_call KERNAL_CLOSE
 
+    bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx file_cur_device
     ldy #1
-    jsr KERNAL_SETLFS
+    bridge_call KERNAL_SETLFS
     bcs io_err
 
-    jsr KERNAL_OPEN
+    bridge_setaddr KERNAL_OPEN
+    bridge_call KERNAL_OPEN
     bcs io_err
 
+    bridge_setaddr KERNAL_CHKOUT
     ldx #1
-    jsr KERNAL_CHKOUT
+    bridge_call KERNAL_CHKOUT
     bcs io_err
 
     ;Init temporary pointer to start of text
     stz TMP1_ADR
     lda #$a0
     sta TMP1_ADR+1
-    lda #1
+    lda #2
     sta BNK_SEL
 
     ;Len of first page
@@ -77,12 +97,21 @@
     ldy #5
     sty TMP1_ADR
     ldy #0
-    
+
+    bridge_setaddr KERNAL_CHROUT
 write_loop:
+
     cpy page_len
     beq get_next_page
     lda (TMP1_ADR),y
-    jsr KERNAL_CHROUT
+    
+    ldx screen_mode     ;Convert LF to CR line breaks if PETSCII mode (screenmode>0)
+    beq :+
+    cmp #LF
+    bne :+
+    lda #CR
+
+:   bridge_call KERNAL_CHROUT
     bcs io_err
     iny
     jmp write_loop
@@ -121,14 +150,15 @@ io_err:
     sta file_io_err
 
 close_file:
+    bridge_setaddr KERNAL_CLOSE
     lda #1
-    jsr KERNAL_CLOSE
-    jsr KERNAL_CLRCHN
+    bridge_call KERNAL_CLOSE
+    bridge_setaddr KERNAL_CLRCHN
+    bridge_call KERNAL_CLRCHN
 
     rts
 
-page_len:
-    .byt 0
+page_len = tempvars     ;1 byte
 
 .endproc
 
@@ -144,28 +174,38 @@ page_len:
     stz file_io_err
 
     ;Close 1 and Open 1,8,2,"filename"
-    jsr KERNAL_SETNAM
+    pha
+    bridge_setaddr KERNAL_SETNAM
+    pla
+    bridge_call KERNAL_SETNAM
 
+    bridge_setaddr KERNAL_CLOSE
     lda #1
-    jsr KERNAL_CLOSE
+    bridge_call KERNAL_CLOSE
 
+    bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx file_cur_device
     ldy #2
-    jsr KERNAL_SETLFS
+    bridge_call KERNAL_SETLFS
 
-    jsr KERNAL_OPEN
+    bridge_setaddr KERNAL_OPEN
+    bridge_call KERNAL_OPEN
     bcc :+
     jmp io_err
 
-:   ldx #1
-    jsr KERNAL_CHKIN
-    bcs io_err
+:   bridge_setaddr KERNAL_CHKIN
+    ldx #1
+    bridge_call KERNAL_CHKIN
+    bcc :+
+    jmp io_err
 
     ;Get one byte to see if there are any disk errors, in particular file not found
-    jsr KERNAL_CHRIN
+:   bridge_setaddr KERNAL_CHRIN
+    bridge_call KERNAL_CHRIN
     sta first_char
-    jsr KERNAL_READST
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST
     beq continue
     jmp close
 
@@ -176,21 +216,33 @@ continue:
     sta CRS_ADR
         
     ;Store first char
-    lda first_char
     ldy #0
-    sta (CRS_ADR),y
+    lda first_char
+    
+    cmp #CR             ;Convert CR to LF line break
+    bne :+
+    lda #LF
+
+:   sta (CRS_ADR),y
     
     lda #1
     sta curpage_len
 
 read_loop:
-    jsr KERNAL_READST
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST
     bne eof
-    jsr KERNAL_CHRIN
-    
-    ldy curpage_len
+    bridge_setaddr KERNAL_CHRIN
+    bridge_call KERNAL_CHRIN
+
+    cmp #CR         ;Concert CR to LF line break
+    bne :+
+    lda #LF
+
+:   ldy curpage_len
     cpy #251
     bcs alloc_new_page
+
     sta (CRS_ADR),y
     inc curpage_len
     jmp read_loop
@@ -255,7 +307,7 @@ eof:
     sta (CRS_ADR),y
       
     ;Set cursor mem pointer to start of text
-    lda #1
+    lda #2
     sta CRS_BNK
 
     lda #$a0
@@ -264,9 +316,11 @@ eof:
     stz CRS_IDX
     
 close:
+    bridge_setaddr KERNAL_CLOSE
     lda #1
-    jsr KERNAL_CLOSE
-    jsr KERNAL_CLRCHN
+    bridge_call KERNAL_CLOSE
+    bridge_setaddr KERNAL_CLRCHN
+    bridge_call KERNAL_CLRCHN
     
     rts
 
@@ -278,14 +332,9 @@ mem_full:
     lda #10         ;Set memory full error
     jmp io_err      
 
-first_char:
-    .byt 0
-
-curpage_len:
-    .byt 0
-
-newpage:
-    .byt 0,0
+first_char = file_read_first_char   ;1 byte
+curpage_len = file_read_curpage_len ;1 byte
+newpage = file_read_newpage         ;2 bytes
 
 msg:
     .byt "memory full",0
@@ -304,33 +353,40 @@ msg:
     stz file_io_err
 
     ;Open 15,8,15
+    bridge_setaddr KERNAL_SETNAM
     lda #0
     ldx #0
     ldy #0
-    jsr KERNAL_SETNAM
+    bridge_call KERNAL_SETNAM
 
+    bridge_setaddr KERNAL_CLOSE
     lda #15
-    jsr KERNAL_CLOSE
+    bridge_call KERNAL_CLOSE
 
+    bridge_setaddr KERNAL_SETLFS
     lda #15
     ldx file_cur_device
     ldy #15
-    jsr KERNAL_SETLFS
+    bridge_call KERNAL_SETLFS
     bcs io_error
 
-    jsr KERNAL_OPEN
+    bridge_setaddr KERNAL_OPEN
+    bridge_call KERNAL_OPEN
     bcs io_error
 
+    bridge_setaddr KERNAL_CHKIN
     ldx #15
-    jsr KERNAL_CHKIN
+    bridge_call KERNAL_CHKIN
     bcs io_error
 
     ;Read status
     stz index
 read_loop:
-    jsr KERNAL_READST
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST
     bne eof
-    jsr KERNAL_CHRIN
+    bridge_setaddr KERNAL_CHRIN
+    bridge_call KERNAL_CHRIN
     cmp #$20
     bcc read_loop       ;Ignore contron chars
     ldy index
@@ -353,9 +409,11 @@ eof:
     sta file_disk_status+13,y   ;Set end of string marker
 
 close:
+    bridge_setaddr KERNAL_CLOSE
     lda #15
-    jsr KERNAL_CLOSE
-    jsr KERNAL_CLRCHN
+    bridge_call KERNAL_CLOSE
+    bridge_setaddr KERNAL_CLRCHN
+    bridge_call KERNAL_CLRCHN
 
     ;Return value
     sec
@@ -374,8 +432,7 @@ close:
 
     rts
 
-index:
-    .byt 0
+index = tempvars        ;1 byte
 
 .endproc
 
@@ -406,16 +463,7 @@ exit:
 
 .endproc
 
-;GLOBAL VARIABELS
-
-;Last disk status saved here
-file_disk_status:
-    .byt "disk status: "
-    .res 243, 0
-
 ;Kernal error codes and their meaning (source: C64 PRG, 1:st ed, 9:th printing, 1987, page 306)
-file_io_err:
-    .byt 0
 file_ioerr_L:
     .byt <file_ioerr_1, <file_ioerr_2, <file_ioerr_3, <file_ioerr_4, <file_ioerr_5, <file_ioerr_6, <file_ioerr_7, <file_ioerr_8, <file_ioerr_9 , <file_ioerr_10
 file_ioerr_H:
@@ -440,11 +488,3 @@ file_ioerr_9:
     .byt "i/o error: illegal device number", 0
 file_ioerr_10:
     .byt "memory full error", 0
-
-;Current file name and device number
-file_cur_filename:
-    .res 253,0              ;Actual file name
-file_cur_filename_len:      ;Len of file name without counting from file_cur_filename_base
-    .byt 0
-file_cur_device:
-    .byt 8

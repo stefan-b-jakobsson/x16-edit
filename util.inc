@@ -81,11 +81,8 @@ loop:
  
     rts
     
-input:
-    .byt 0,0,0
-output:
-    .byt 0,0,0,0
-
+input = tempvars        ;3 bytes
+output = tempvars+3     ;4 bytes
 .endproc
 
 ;******************************************************************************
@@ -185,10 +182,8 @@ next_byte:
 
     rts
 
-    bcd_val:
-        .byt 0,0,0,0
-    bin_val:
-        .byt 0,0,0,0
+    bcd_val = tempvars      ;4 bytes
+    bin_val = tempvars+4    ;4 bytes
 .endproc
 
 ;******************************************************************************
@@ -257,10 +252,8 @@ exit:
  
     rts
     
-input:
-    .byt 0,0,0,0
-output:
-    .byt 0,0,0,0,0,0,0,0,0
+input = tempvars            ;4 bytes
+output = tempvars+4         ;9 bytes
 .endproc
 
 ;******************************************************************************
@@ -343,10 +336,7 @@ invalid:
     ldy #>bcd_val
     rts
 
-len:
-    .byt 0
+len = tempvars          ;1 byte
+bcd_val = tempvars+1    ;4 bytes
 
-bcd_val:
-    .byt 0,0,0,0
-    
 .endproc

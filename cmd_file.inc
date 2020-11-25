@@ -351,8 +351,7 @@ invalid:
     sta APP_MOD
     jmp screen_print_status
 
-promptval:
-    .byt 0,0,0
+promptval = cmd_file_do_set_device_promptval        ;3 bytes
 
 msg:
     .byt "invalid device number, must be in range 1, 8-30",0

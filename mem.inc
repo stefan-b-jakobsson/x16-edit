@@ -27,17 +27,21 @@
 ;Error returns.......: Nothing
 .proc mem_init
     ;Get mem top
+    bridge_setaddr KERNAL_MEMTOP
     sec
-    jsr KERNAL_MEMTOP
+    bridge_call KERNAL_MEMTOP
     sec
     sbc #1
     sta mem_top
-    sta $6000
 
     ;Mark pages in banks 0-63
     ;Mark bank 0 as used (by Kernal)
-    ;Bank 1 page $a0 as used (head of text)
+    ;Mark bank 1 as used (by the editor internals)
+    ;Bank 2 page $a0 as used (head of text)
     ;All other pages marked as free
+    lda #1
+    sta BNK_SEL
+
     ldx #0
     lda #0
 :   sta mem_map,x
@@ -45,13 +49,17 @@
     bne :-
 
     lda #255
-    sta mem_map
+    sta mem_map     ;Bank 0
     sta mem_map+1
     sta mem_map+2
     sta mem_map+3
+    sta mem_map+4   ;Bank 1
+    sta mem_map+5
+    sta mem_map+6
+    sta mem_map+7
 
-    lda #1
-    sta mem_map+4
+    lda #1          ;Bank 2
+    sta mem_map+8
 
     ;If mem_top >=127, mark pages in banks 64-127 as free, else mark as used
     ldx #0
@@ -109,10 +117,10 @@
     dex
     bne :-
 
-    ;Decrease mem blocks free counter with 1 to account for first page that is allocated by this function
+    ;Decrease mem blocks free counter by 33 to account for bank 1 and bank 2 first page that is allocated by this function
     sec
     lda mem_blocks_free
-    sbc #1
+    sbc #33
     sta mem_blocks_free
     lda mem_blocks_free+1
     sbc #0
@@ -121,7 +129,7 @@
     ;Setup zero page vectors
 
     ;Bank
-    lda #1
+    lda #2
     sta BNK_SEL
     sta CRS_BNK     ;Cursor
     sta LNV_BNK     ;Line first visible char
@@ -143,7 +151,7 @@
     stz LNV_IDX     ;Line first visible char
     stz SCR_IDX     ;Screen first visible char
 
-    ;Setup initial memory page metadata (bank 1, page $a0), bank selected above already
+    ;Setup initial memory page metadata (bank 2, page $a0), bank selected above already
     lda #0
     
     ldy #0
@@ -162,7 +170,7 @@
     sta (CRS_ADR),y     ;Len = 0
 
     ;Set initial memory page for defrag runner
-    lda #1
+    lda #2
     sta mem_run_defrag_page
     lda #$a0
     sta mem_run_defrag_page+1
@@ -187,14 +195,14 @@
 ;**********************************************************
 ;Function name.......: mem_is_head
 ;Description.........: Is page head of buffer, i.e.
-;                      bank 1, page $a0
+;                      bank 2, page $a0
 ;Input...............: Y    Bank
 ;                      X    Page
 ;Returns.............: C = 1    Is head
 ;                      C = 0    Is not head
 ;Error returns.......: None
 .proc mem_is_head
-    cpy #1
+    cpy #2
     bne :+
     cpx #$a0
     bne :+
@@ -321,6 +329,10 @@ at_eof:
 ;                      X=page (address MSB)
 ;Error returns.......: X=0 if memory full
 .proc mem_alloc
+    ;Select RAM bank 1
+    lda #1
+    sta BNK_SEL
+
     ;Set vector to memory map
     lda #<mem_map
     sta TMP1_ADR
@@ -472,19 +484,14 @@ exit:
 
 :   rts
 
-newbank:
-    .byt 0
-newpage:
-    .byt 0
-value:
-    .byt 0
+newbank = tempvars          ;1 byte
+newpage = tempvars+1        ;1 byte
+value = tempvars+2          ;1 byte
+nextbank = tempvars+3       ;1 byte
+nextpage = tempvars + 4     ;1 byte
+
 bitmask:
     .byt 1, 2, 4, 8, 16, 32, 64, 128
-nextbank:
-    .byt 0
-nextpage:
-    .byt 0
-
 .endproc
 
 ;**********************************************************
@@ -500,14 +507,15 @@ nextpage:
     stx page
     
     ;Check if bank is reserved, exit without deallocating if true
-    lda bank
-    cmp #0
+    cpy #0
     beq is_reserved     ;All of bank 0 is reserved by Kernal
+    cpy #1
+    beq is_reserved     ;All of bank 1 is reserved by editor internals
     
-    cmp mem_top
+    cpy mem_top
     bcs is_reserved     ;Don't touch unpopulated memory
 
-    cmp #1              ;And don't touch head of buffer - bank 1, page $a0
+    cpy #2              ;And don't touch head of buffer - bank 2, page $a0
     bne :+
     lda page
     cmp #$a0
@@ -519,7 +527,10 @@ is_reserved:
 
     ;Continue freeing that mem page...
     ;Find out position in mem_map corresponding to specified bank/page
-:   lda bank
+:   lda #1              ;Select bank 1 to access mem_map
+    sta BNK_SEL
+
+    lda bank
     lsr
     lsr
     lsr
@@ -623,17 +634,10 @@ exit:
 exit2:
     rts
 
-bank:
-    .byt 0
-
-page:
-    .byt 0
-
-prev:
-    .byt 0,0
-
-next:
-    .byt 0,0
+bank = tempvars     ;1 byte
+page = tempvars+1   ;1 byte
+prev = tempvars+2   ;2 bytes
+next = tempvars+4   ;2 bytes
 
 bitmask:
     .byt 1,2,4,8,16,32,64,128
@@ -748,15 +752,13 @@ exit:
 
 eof:
     ;We were at the last page, start over from the head of the buffer
-    lda #1
+    lda #2
     sta mem_run_defrag_page
     lda #$a0
     sta mem_run_defrag_page+1
     rts
 
 .endproc
-mem_run_defrag_page:
-    .byt 0,0
 
 ;**********************************************************
 ;Function name.......: mem_defrag
@@ -770,124 +772,124 @@ mem_run_defrag_page:
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_defrag
-    ;Set temp vector
+    ;Temp vectors
     sty BNK_SEL
     sty TMP1_BNK
     stx TMP1_ADR+1
     stz TMP1_ADR
 
-    ;Get page len
+    ;Page len, exit if page full
     ldy #4
     lda (TMP1_ADR),y
-    sta page_len
+    cmp #251
+    bcc :+
+    rts
 
-    ;Get next page
+:   sta page_len
+
+    ;Get next page, exit if null
     ldy #3
     lda (TMP1_ADR),y
-    bne :+            ;EOF, just exit
-    jmp exit
+    bne :+              
+    rts
 
 :   sta TMP2_ADR+1
     stz TMP2_ADR
+    
     ldy #2
     lda (TMP1_ADR),y
-    sta TMP2_BNK
-    sta BNK_SEL
-    
+    sta TMP2_BNK 
+
     ;Next page len
+    lda TMP2_BNK
+    sta BNK_SEL
     ldy #4
     lda (TMP2_ADR),y
-    sta nextpage_len
+    bne :+
+    jmp free
+:   sta nextpage_len
 
-    ;Prepare copying
-    stz nextpage_index
-
+    ;Prepare copy
     lda #5
     sta TMP1_ADR
     sta TMP2_ADR
-    
-copy_loop:
-    ldy page_len
-    cpy #251
+    stz nextpage_index
+
+copy:
+    lda nextpage_index
+    cmp nextpage_len
+    bcs copy_done
+
+    lda page_len
+    cmp #251
     bcs copy_done
 
     ldy nextpage_index
-    cpy nextpage_len
-    bcs copy_done
-
-    lda TMP2_BNK
-    sta BNK_SEL
-    ldy nextpage_index
+    ldx TMP2_BNK
+    stx BNK_SEL
     lda (TMP2_ADR),y
 
-    ldy TMP1_BNK
-    sty BNK_SEL
     ldy page_len
+    ldx TMP1_BNK
+    stx BNK_SEL
     sta (TMP1_ADR),y
 
-    inc page_len
     inc nextpage_index
-    jmp copy_loop
+    inc page_len
+
+    jmp copy
 
 copy_done:
-    ;Reset
-    stz TMP1_ADR
-    stz TMP2_ADR
-
-    ;Set page len
+    ;Set page len after copy
     lda TMP1_BNK
     sta BNK_SEL
+    stz TMP1_ADR
     ldy #4
     lda page_len
     sta (TMP1_ADR),y
 
-    ;Set next page len
+    ;Set next page len after copy
+    lda TMP2_BNK
+    sta BNK_SEL
+    stz TMP2_ADR
     sec
     lda nextpage_len
     sbc nextpage_index
-    ldy TMP2_BNK
-    sty BNK_SEL
     ldy #4
     sta (TMP2_ADR),y
-    sta nextpage_len
+    cmp #0
+    beq free
 
-    ;Move text in next mem page to start of page
-    clc
-    lda nextpage_index
-    adc #5
+move_nextpage:
+    lda TMP2_BNK
+    sta BNK_SEL
+
+    stz nextpage_index2
+    lda #5
     sta TMP2_ADR
 
-    lda TMP2_ADR+1
-    sta TMP1_ADR+1
-    lda #5
-    sta TMP1_ADR
-
-    ldy #0
-:   cpy nextpage_len
-    bcs free
-
+:   ldy nextpage_index
+    cpy #251
+    beq exit
     lda (TMP2_ADR),y
-    sta (TMP1_ADR),y
-    iny
+    ldy nextpage_index2
+    sta (TMP2_ADR),y
+    inc nextpage_index
+    inc nextpage_index2
     jmp :-
-
-free:
-    lda nextpage_len
-    bne exit
-
-    ldy TMP2_BNK
-    ldx TMP2_ADR+1
-    jsr mem_free
 
 exit:
     rts
 
-page_len:
-    .byt 0
-nextpage_len:
-    .byt 0
-nextpage_index:
-    .byt 0
+free:
+    ldy TMP2_BNK
+    ldx TMP2_ADR+1
+    jmp mem_free
+
+page_len = tempvars             ;1 byte
+nextpage_len = tempvars +1      ;1 byte
+nextpage_index = tempvars + 2   ;1 byte
+nextpage_index2 = tempvars +3   ;1 byte
 .endproc
 
 ;**********************************************************
@@ -971,12 +973,9 @@ setlen:
     clc
     rts
 
-start:
-    .byt 0
-len:
-    .byt 0
-last_char:
-    .byt 0
+start = tempvars        ;1 byte
+len = tempvars+1        ;1 byte
+last_char = tempvars+2  ;1 byte
 .endproc
 
 ;**********************************************************
@@ -1266,9 +1265,7 @@ default:
     sta mem_modified
     rts
 
-at_lf:
-    .byt 0
-
+at_lf = mem_delete_at_lf
 .endproc
 
 
@@ -1366,8 +1363,7 @@ default:
     ldx at_lf
     rts
 
-at_lf:
-    .byt 0
+at_lf = mem_crs_step_right_at_lf
 .endproc
 
 ;**********************************************************
@@ -1435,8 +1431,7 @@ exit:
  :  clc
     rts
 
-at_lf:
-    .byt 0
+at_lf = mem_crs_step_left_at_lf
 .endproc
 
 ;**********************************************************
@@ -1495,8 +1490,7 @@ exit:
    
     rts
 
-count:
-    .byt 0,0,0
+count = mem_crs_move_to_line_start_count
 .endproc
 
 ;**********************************************************
@@ -1600,10 +1594,9 @@ found:
     ldy counter+1
     rts
 
-pagelen:
-    .byt 0
-counter:
-    .byt 0,0
+pagelen = mem_crs_move_to_prev_blankspace_pagelen
+counter = mem_crs_move_to_prev_blankspace_counter
+
 .endproc
 
 ;**********************************************************
@@ -1646,9 +1639,7 @@ exit:
 
     rts
 
-count:
-    .byt 0,0
-
+count = mem_crs_move_to_line_end_count
 .endproc
 
 ;**********************************************************
@@ -1697,8 +1688,7 @@ count:
     
     rts
 
-backup:
-    .byt 0,0,0
+backup = mem_lnv_step_left_backuo
 .endproc
 
 ;**********************************************************
@@ -1747,8 +1737,7 @@ backup:
     
     rts
 
-backup:
-    .byt 0,0,0
+backup=mem_lnv_step_right_backup
 .endproc
 
 ;**********************************************************
@@ -1793,8 +1782,7 @@ backup:
     
     rts
     
-backup:
-    .byt 0,0,0
+backup = mem_scr_move_down_backup
 .endproc
 
 ;**********************************************************
@@ -1840,8 +1828,7 @@ backup:
     
     rts
 
-backup:
-    .byt 0,0,0
+backup = mem_scr_move_up_backup
 .endproc
 
 ;**********************************************************
@@ -1959,23 +1946,3 @@ exit:
 exit:
     rts
 .endproc
-
-;GLOBAL VARIABLES
-
-mem_modified:
-    .byt 0
-
-mem_blocks_free:
-    .byt 0,0
-
-mem_top:
-    .byt 0
-
-mem_cur_line:
-    .byt 1,0,0
-
-mem_cur_col:
-    .byt 1,0,0
-
-mem_map:
-    .byt 0

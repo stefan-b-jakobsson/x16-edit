@@ -24,9 +24,8 @@
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
+.if target_mem=target_ram
 .proc irq_init
-    sei
-    
     ;Backup default interrupt handler
     lda $0314
     sta irq_default_handler
@@ -34,15 +33,38 @@
     sta irq_default_handler+1
 
     ;Set vectors to our custom handler
+    sei
+    
     lda #<irq_handler
     sta $0314
     lda #>irq_handler
     sta $0315
 
     cli
-
     rts
 .endproc
+.endif
+
+.if target_mem=target_rom
+.proc irq_init
+    ;Backup default interrupt handler
+    lda $0314
+    sta irq_default_handler
+    lda $0315
+    sta irq_default_handler+1
+
+    ;Set vectors to our custom handler
+    sei
+    
+    lda #<($0780+bridge_irq-bridge_kernal)
+    sta $0314
+    lda #>($0780+bridge_irq-bridge_kernal)
+    sta $0315
+
+    cli
+    rts
+.endproc
+.endif
 
 ;******************************************************************************
 ;Function name.......: irq_handler
@@ -51,6 +73,7 @@
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
+.if target_mem=target_ram
 .proc irq_handler
     ;Check if the program is closing down, i.e. if APP_QUIT!=0
     lda APP_QUIT
@@ -61,13 +84,11 @@
     jsr cursor_toggle
     jsr screen_print_mod_status
 
-    ;Return control to default handler
+    ;Return
     jmp (irq_default_handler)
 
 shutdown:
     ;The program is closing, restore irq handler to default
-    
-    sei
 
     ;Restore irq handler
     lda irq_default_handler
@@ -79,17 +100,53 @@ shutdown:
     jsr cursor_hide
 
     ;Clear screen
+    bridge_setaddr KERNAL_CHROUT
     lda #147
-    jsr KERNAL_CHROUT
+    bridge_call KERNAL_CHROUT
+
+    ;Signal to program main process that it's safe to quit
+    lda #2
+    sta APP_QUIT
+
+    jmp (irq_default_handler)
+.endproc
+.endif
+
+.if target_mem=target_rom
+.proc irq_handler
+    ;Check if the program is closing down, i.e. if APP_QUIT!=0
+    lda APP_QUIT
+    bne shutdown
+
+    ;Main loop
+    jsr keyboard_read_and_dispatch
+    jsr cursor_toggle
+    jsr screen_print_mod_status
+
+    ;Return
+    rts
+
+shutdown:
+    ;The program is closing, restore irq handler to default
+
+    ;Restore irq handler
+    lda irq_default_handler
+    sta $0314
+    lda irq_default_handler+1
+    sta $0315
+
+    ;Hide cursor sprite
+    jsr cursor_hide
+
+    ;Clear screen
+    bridge_setaddr KERNAL_CHROUT
+    lda #147
+    bridge_call KERNAL_CHROUT
 
     ;Signal to program main process that it's safe to quit
     lda #2
     sta APP_QUIT
     
-    cli
-
-    jmp (irq_default_handler)
+    rts
 .endproc
-
-;GLOBAL VARIALBES
-irq_default_handler:    .byt 0,0
+.endif

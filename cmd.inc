@@ -24,6 +24,10 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_init
+    ;Set tab width
+    lda #4
+    sta keyboard_tabwidth
+
     ;Set auto indent = off
     stz cmd_auto_indent_status
 
@@ -158,10 +162,8 @@ bs_not_found:
     sec
     rts
 
-crs_backup:
-    .byt 0,0,0
-prevblank:
-    .byt 0,0
+crs_backup = cmd_word_wrap_crs_backup   ;3 bytes
+prevblank = cmd_word_wrap_prevblank     ;2 bytes
 .endproc
 
 ;******************************************************************************
@@ -278,12 +280,9 @@ mem_full:
     clc
     rts
 
-crs_backup:
-    .byt 0,0,0
-counter1:
-    .byt 0,0
-counter2:
-    .byt 0,0
+crs_backup = cmd_insert_lf_crs_backup   ;3 bytes
+counter1 = cmd_insert_lf_counter1       ;2 bytes
+counter2 = cmd_insert_lf_counter2       ;2 bytes
 .endproc
 
 ;******************************************************************************
@@ -370,8 +369,7 @@ at_tab_stop:
     ;Exit and refresh line
     jmp screen_println
 
-counter:
-    .byt 0,0,0
+counter = cmd_insert_tab_counter    ;3 bytes
 
 .endproc
 
@@ -460,8 +458,7 @@ linebreak_deleted_exit:
     ldx #1
     rts
 
-counter:
-    .byt 0,0
+counter = cmd_delete_counter    ;2 bytes
 .endproc
 
 ;******************************************************************************
@@ -714,11 +711,8 @@ at_first_line:
 
     rts
 
-count:
-    .byt 0,0
-
-backup:
-    .byt 0,0,0,0,0,0
+count = cmd_go_up_count     ;2 bytes
+backup = cmd_go_up_backup   ;6 bytes
 .endproc
 
 ;******************************************************************************
@@ -834,11 +828,8 @@ at_last_line:
 
     rts
 
-count:
-    .byt 0,0
-
-backup:
-    .byt 0,0,0,0,0,0
+count = cmd_go_down_count       ;2 bytes
+backup = cmd_go_down_backup     ;6 bytes
 .endproc
 
 ;******************************************************************************
@@ -906,8 +897,7 @@ loop:
 exit:
     rts
 
-counter:
-    .byt 0,0
+counter = cmd_go_end_counter        ;2 bytes
 .endproc
 
 ;******************************************************************************
@@ -1067,18 +1057,12 @@ mem_full:
 msg:
     .byt "clipboard full, could not copy line", 0
 
-crs_backup:
-    .byt 0,0,0
-scr_backup:
-    .byt 0,0,0
-lnv_backup:
-    .byt 0,0,0
-line_backup:
-    .byt 0,0,0
-col_backup:
-    .byt 0,0,0
-cursor:
-    .byt 0,0
+crs_backup = cmd_cut_crs_backup     ;3 bytes
+scr_backup =  cmd_cut_scr_backup    ;3 bytes
+lnv_backup = cmd_cut_lnv_backup     ;3 bytes
+line_backup = cmd_cut_line_backup   ;3 bytes
+col_backup = cmd_cut_col_backup     ;3 bytes
+cursor = cmd_cut_cursor             ;2 bytes
 .endproc
 
 ;******************************************************************************
@@ -1188,18 +1172,13 @@ mem_full:
 msg:
     .byt "clipboard full, could not copy line", 0
 
-crs_backup:
-    .byt 0,0,0
-scr_backup:
-    .byt 0,0,0
-lnv_backup:
-    .byt 0,0,0
-line_backup:
-    .byt 0,0,0
-col_backup:
-    .byt 0,0,0
-cursor:
-    .byt 0,0
+crs_backup = cmd_copy_crs_backup     ;3 bytes
+scr_backup = cmd_copy_scr_backup     ;3 bytes
+lnv_backup = cmd_copy_lnv_backup     ;3 bytes
+line_backup = cmd_copy_line_backup   ;3 bytes
+col_backup = cmd_copy_col_backup     ;3 bytes
+cursor = cmd_copy_cursor             ;2 bytes
+
 .endproc
 
 ;******************************************************************************
@@ -1244,8 +1223,16 @@ msg:
     lda #2
     sta APP_MOD         ;mode_statusmessage
 
+    ;Prepare message start
+    ldx #0
+:   lda msg_start,x
+    beq :+
+    sta msg,x
+    inx
+    jmp :-
+
     ;Prepare index
-    lda #23
+:   lda #23
     sta index
 
     ;Print line
@@ -1309,14 +1296,14 @@ msg:
     jsr screen_print_status
     rts
 
-msg:
-    .byt "current position: line "
-    .res 9+16+1, 0
+msg = cmd_display_msg
+
+msg_start:
+    .byt "current position: line ",0
 msg_col:
     .byt ", column ", 0
 
-index:
-    .byt 0
+index = cmd_show_curpos_index       ;1 byte
 .endproc
 
 ;******************************************************************************
@@ -1480,29 +1467,14 @@ eof:
     sec
     rts
 
-string_len:
-    .byt 0
-
-match:
-    .byt 0
-
-crs_backup:
-    .byt 0,0,0
-
-lnv_backup:
-    .byt 0,0,0
-
-scr_backup:
-    .byt 0,0,0
-
-cursor_backup:
-    .byt 0,0
-
-col_backup:
-    .byt 0,0,0
-
-line_backup:
-    .byt 0,0,0
+string_len = cmd_do_find_string_len         ;1 byte
+match = cmd_do_find_match                   ;1 byte
+crs_backup = cmd_do_find_crs_backup         ;3 bytes
+lnv_backup = cmd_do_find_lnv_backup         ;3 bytes
+scr_backup = cmd_do_find_scr_backup         ;3 bytes
+cursor_backup = cmd_do_find_cursor_backup   ;2 bytes
+col_backup = cmd_do_find_col_backup         ;3 bytes
+line_backup = cmd_do_find_line_backup       ;3 bytes
 
 .endproc
 
@@ -1648,7 +1620,15 @@ execute_done:
     lda replace_all
     beq exit
 
-    ldx replaced_count
+    ;Prepare message
+    ldx #0
+:   lda msg4_s,x
+    beq :+
+    sta msg4,x
+    inx
+    jmp :-
+
+:   ldx replaced_count
     ldy replaced_count+1
     lda replaced_count+2
     jsr util_bin_to_bcd
@@ -1659,21 +1639,21 @@ execute_done:
     ldy #0
 :   lda (TMP1_ADR),y
     beq :+
-    sta msg4_0+9,y
+    sta msg4+9,y
     iny
     jmp :-
 
 :   ldx #0
-:   lda msg4_1,x
-    sta msg4_0+9,y
+:   lda msg4_e,x
+    sta msg4+9,y
     cmp #0
     beq :+
     iny
     inx
     jmp :-
 
-:   ldx #<msg4_0
-    ldy #>msg4_0
+:   ldx #<msg4
+    ldy #>msg4
     jsr screen_print_status
     lda #2
     sta APP_MOD
@@ -1690,23 +1670,22 @@ msg2:
 msg3:
     .byt "replace this instance? y=yes, a=all or press esc to abort",0
 
-msg4_0:
-    .byt "replaced 00000000 occurence(s)",0
-msg4_1:
+msg4 = cmd_display_msg
+
+msg4_s:
+.byt "replaced ",0
+
+msg4_e:
     .byt " occurence(s)",0
 
-searchfor:
-    .res 21,0
-searchfor_len:
-    .byt 0
-counter:
-    .byt 0
-replace_all:
-    .byt 0
-replaced_count:
-    .byt 0,0,0
 msg_notfound:
     .byt "string not found",0
+
+searchfor = cmd_display_msg
+searchfor_len = cmd_replace_searchfor_len       ;1 byte
+counter = cmd_replace_counter                   ;1 byte
+replace_all = cmd_replace_replace_all           ;1 byte
+replaced_count = cmd_replace_replaced_count     ;3 bytes
 
 .endproc
 
@@ -1768,7 +1747,16 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_mem_usage
-    ldx mem_blocks_free
+    ;Prepare message start
+    ldx #0
+:   lda msg_start,x
+    beq :+
+    sta cmd_display_msg,x
+    inx
+    jmp :-
+
+    ;Get free mem
+:   ldx mem_blocks_free
     ldy mem_blocks_free+1
     lda #0
     jsr util_bin_to_bcd
@@ -1810,9 +1798,10 @@ exit:
 
     rts  
 
-msg:
-    .byt "memory usage: 00000000             "
+msg = cmd_display_msg
 
+msg_start:
+    .byt "memory usage: ",0
 msg_end:
     .byt " blocks free", 0
 
@@ -1938,8 +1927,7 @@ invalid_input:
 
     rts
 
-line:
-    .byt 0,0,0
+line = cmd_do_goto_line_line        ;3 bytes
 
 msg:
     .byt "invalid line number",0
@@ -2003,20 +1991,23 @@ msg_off:
     stz screen_mode
 
 iso:
+    bridge_setaddr KERNAL_CHROUT
     lda #$0f
-    jsr KERNAL_CHROUT
+    bridge_call KERNAL_CHROUT
     jmp exit
 
 petscii_uc:
+    bridge_setaddr KERNAL_CHROUT
     lda #$8f
-    jsr KERNAL_CHROUT
+    bridge_call KERNAL_CHROUT
     lda #$8e
-    jsr KERNAL_CHROUT
+    bridge_call KERNAL_CHROUT
     jmp exit
 
 petscii_lc:
+    bridge_setaddr KERNAL_CHROUT
     lda #$0e
-    jsr KERNAL_CHROUT
+    bridge_call KERNAL_CHROUT
 
 exit:
     lda #16
@@ -2097,8 +2088,8 @@ msg_plc:
     jsr screen_refresh
     jmp screen_println
 
-bgcolor:
-    .byt 0
+bgcolor = tempvars      ;1 bytes
+
 .endproc
 
 ;******************************************************************************
@@ -2128,8 +2119,7 @@ bgcolor:
     jsr screen_refresh
     jmp screen_println
 
-fgcolor:
-    .byt 0
+fgcolor = tempvars
 .endproc
 
 ;******************************************************************************
@@ -2144,7 +2134,7 @@ fgcolor:
 
 on:
     lda APP_MOD
-    beq prompt
+    beq showprompt
 
 set:
     lda prompt_len
@@ -2186,7 +2176,7 @@ illegal_value:
     ldy #>msg_illegal
     jmp screen_print_status
 
-prompt:
+showprompt:
     ldx #<msg_prompt
     ldy #>msg_prompt
     lda #3
@@ -2223,8 +2213,7 @@ off:
     ldy #>msg_off
     jmp screen_print_status
 
-col:
-    .byt 0,0,0,0
+col = cmd_set_word_wrap_col     ;4 bytes
 
 msg_prompt:
     .byt "set word wrap at column:", 0
@@ -2236,12 +2225,3 @@ msg_illegal:
     .byt "invalid value, column must be in range 10..250",0
 
 .endproc
-
-cmd_auto_indent_status:
-    .byt 0
-
-cmd_wordwrap_mode:
-    .byt 0
-
-cmd_wordwrap_pos:
-    .byt 80

@@ -152,10 +152,8 @@ loop:
 exit:
     jmp prompt_refresh
     
-len:
-    .byt 0
-index:
-    .byt 0
+len = prompt_default_input_len      ;1 byte
+index = prompt_default_input_index  ;1 byte
 .endproc
 
 ;******************************************************************************
@@ -436,25 +434,3 @@ exit:
     rts
 
 .endproc
-
-;GLOBAL VARIABLES
-prompt_input:
-    .res 256,1
-
-prompt_start:
-    .byt 0
-
-prompt_fvc:
-    .byt 0
-
-prompt_curpos:
-    .byt 0
-
-prompt_len:
-    .byt 0
-
-prompt_maxlen:
-    .byt 0
-
-prompt_cursor_backup:
-    .byt 0,0

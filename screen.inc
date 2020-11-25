@@ -31,20 +31,22 @@
     bcc :+
 
     ;Unknown charset, set ISO charset
+    bridge_setaddr KERNAL_CHROUT
     lda #$0f
-    jsr KERNAL_CHROUT
+    bridge_call KERNAL_CHROUT
     stz screen_mode
 
     ;Set default color
-    lda #97
+:   lda #97
     sta screen_color
 
     ;Clear screen
-:   jsr screen_clearall
+    jsr screen_clearall
 
     ;Initial screen setup
     jsr screen_print_header
-    jmp screen_print_footer
+    jsr screen_print_footer
+    rts
 .endproc
 
 ;******************************************************************************
@@ -279,9 +281,7 @@ program_name:
 new_buffer_msg:
     .byt "new buffer"
 
-filename_len:
-    .byt 0
-
+filename_len = tempvars     ;1 byte
 .endproc
 
 ;******************************************************************************
@@ -351,6 +351,8 @@ clear:
     lda #(2<<4)
     sta VERA_H
 
+    inc $6001
+
     ;Prepare printing loop, and select print routine for the current screen mode
     ldx #0
     
@@ -379,6 +381,7 @@ loop_petscii_uc1:
     inx
     jmp loop_petscii_uc1
 loop_petscii_uc1_exit:
+    inc $6002
     jmp nextrow
 
 loop_petscii_lc1:
@@ -453,7 +456,8 @@ color_row59:
     
 set_color:
     ldx #0
-:   cpx #0
+setcolorloop:
+    cpx #0
     beq speccol
     cpx #1
     beq speccol
@@ -486,7 +490,7 @@ speccol:
 setcol:
     sta VERA_D0
     inx
-    jmp :-
+    jmp setcolorloop
 
 exit:
     rts
@@ -820,15 +824,9 @@ exit:
 exit_2:
     rts
 
-len:
-    .byt 0
-
-columns:
-    .byt 0
-
-rows:
-    .byt 0
-
+len = screen_refresh_len
+columns = screen_refresh_columns
+rows = screen_refresh_rows
 .endproc
 
 ;******************************************************************************
@@ -953,12 +951,8 @@ clean_line_loop:
 exit:
     rts
 
-page_len:
-    .byt 0
-
-counter:
-    .byt 0
-
+page_len = screen_println_len
+counter = screen_println_counter
 .endproc
 
 ;******************************************************************************
@@ -1092,11 +1086,8 @@ loop_petscii_lc:
     bne loop_petscii_lc
     jmp exit
 
-len:
-    .byt 0
-
-start_at:
-    .byt 0
+len = tempvars          ;1 byte
+start_at = tempvars+1   ;1 byte
 
 .endproc
 
@@ -1155,12 +1146,6 @@ start_at:
 
     rts
 .endproc
-
-screen_mode:
-    .byt 0
-
-screen_color:
-    .byt 97
 
 screen_scrcodes:
     .byt 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143

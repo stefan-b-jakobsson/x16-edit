@@ -30,13 +30,15 @@
     cmp #16
     beq gotachar
     
-    jsr KERNAL_GETIN
+    bridge_setaddr KERNAL_GETIN
+    bridge_call KERNAL_GETIN
     bne gotachar
-    
+
     ;No input, run memory defrag instead during this interrupt cycle
     jmp mem_run_defrag
     
 gotachar:
+    sta $6000
     ;Store char in Y temporarily
     tay
 
@@ -53,8 +55,7 @@ gotachar:
     ;Jump to event handler
     jmp (eventhandler)
 
-eventhandler:
-    .byt 0,0
+eventhandler = keyboard_read_and_dispatch_eventhandler  ;2 bytes
 
 jmptbl_L:
     .byt <keyboard_mode_default
@@ -1112,9 +1113,7 @@ exit:
 
     jmp screen_refresh
 
-linecount:
-    .byt 0
-
+linecount = keyboard_cmd_pageup_linecount   ;1 byte
 .endproc
 
 ;******************************************************************************
@@ -1134,10 +1133,6 @@ linecount:
 
     jmp screen_refresh
 
-linecount:
-    .byt 0
-.endproc
+linecount = keyboard_cmd_pagedown_linecount ;1 byte
 
-;GLOBAL VARIABLES
-keyboard_tabwidth:
-    .byt 4
+.endproc

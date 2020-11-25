@@ -48,7 +48,7 @@
     sec
     lda clipboard_pointer
     sbc #>clipboard_mem
-    cmp #8                  ;Allow clipboard mem to be max 8x256 bytes = 2K
+    cmp #12                  ;Allow clipboard mem to be max 12x256 bytes = 3K
     bcc mem_not_full
 
     sec
@@ -64,7 +64,16 @@ mem_not_full:
 
     ;Get char from X and save it in clipboard mem
     txa
+    
+    ldx BNK_SEL
+    phx
+    ldx #1
+    stx BNK_SEL
+    
     sta (TMP1_ADR),y
+    
+    plx
+    stx BNK_SEL
     
     ;Increase clipboard pointer
     inc clipboard_pointer+1
@@ -151,7 +160,6 @@ eol:
 
 eof:
     ;At EOF, replace last char in clipboard mem with a LF
-    lda #LF
     lda #<clipboard_mem
     sta TMP1_ADR
     lda clipboard_end
@@ -162,7 +170,9 @@ eof:
     bne :+
     dec TMP1_ADR+1
 
-:   lda #LF
+:   lda #1
+    sta BNK_SEL
+    lda #LF
     sta (TMP1_ADR),y
 
 exit:
@@ -188,11 +198,8 @@ mem_full:
     sec
     rts
 
-count:
-    .byt 0,0,0
-
-backup:
-    .byt 0,0,0,0
+count = clipboard_copy_count    ;3 bytes
+backup = clipboard_copy_backup  ;4 bytes
 .endproc
 
 ;******************************************************************************
@@ -243,8 +250,7 @@ exit:
     clc
     rts
 
-count:
-    .byt 0,0,0
+count = clipboard_cut_count     ;3 bytes
 .endproc
 
 ;******************************************************************************
@@ -276,7 +282,9 @@ loop:
     bcs paste_done
 
     ;Otherwise we insert char into buffer
-:   lda (TMP1_ADR),y
+:   lda #1
+    sta BNK_SEL
+    lda (TMP1_ADR),y
     jsr cmd_insert
 
     ;Increase clipboard pointer, and start over
@@ -290,11 +298,3 @@ paste_done:
     jmp clipboard_init
 
 .endproc
-
-clipboard_pointer:
-    .byt 0,0
-
-clipboard_end:
-    .byt 0,0
-
-clipboard_mem = mem_map+1024

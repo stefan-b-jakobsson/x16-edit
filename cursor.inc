@@ -390,6 +390,3 @@ exit:
     stz cursor_toggle_counter
     rts
 .endproc
-
-;GLOBAL VARIABLES
-cursor_toggle_counter: .byt 0
