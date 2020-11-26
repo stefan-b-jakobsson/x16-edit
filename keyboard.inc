@@ -302,8 +302,22 @@ jmptbl_H:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_command
+    ;1..9
+    cmp #$31
+    bcc :+
+    cmp #$3b
+    bcs :+
+    
+    sec
+    sbc #48
+    jsr cmd_set_tab_width
+
+    stz APP_MOD
+    jsr screen_clear_status
+    jmp cursor_activate
+    
     ;Clear bit 5 to make upper and lower case the same value
-    and #%11011111
+:   and #%11011111
 
     ;ESC key
     cmp #$03
@@ -446,24 +460,9 @@ jmptbl_H:
 
     ;s
 :   cmp #$53
-    bne :+
+    bne unknown
     jsr cursor_activate
     jmp cmd_rotate_background_color
-
-    ;1..9
-:   cmp #$31
-    bcs :+
-    jmp unknown
-:   cmp #$3a
-    bcs unknown
-    pha
-    stz APP_MOD
-    jsr screen_clear_status
-    jsr cursor_activate
-    pla
-    sec
-    sbc #48
-    jmp cmd_set_tab_width
 
     ;Uknown command, ignore
 unknown:
