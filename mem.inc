@@ -32,83 +32,84 @@
     bridge_call KERNAL_MEMTOP
     sec
     sbc #1
+    cmp mem_top
+    bcs :+
     sta mem_top
 
-    ;Mark pages in banks 0-63
-    ;Mark bank 0 as used (by Kernal)
-    ;Mark bank 1 as used (by the editor internals)
-    ;Bank 2 page $a0 as used (head of text)
-    ;All other pages marked as free
-    lda #1
+    ;Mark pages in banks 0 to mem_start as allocated (not free)
+:   lda mem_start
     sta BNK_SEL
 
+    lda #<mem_map
+    sta TMP1_ADR
+    lda #>mem_map
+    sta TMP1_ADR+1
+    
     ldx #0
-    lda #0
-:   sta mem_map,x
-    inx
-    bne :-
-
+    ldy #0
     lda #255
-    sta mem_map     ;Bank 0
-    sta mem_map+1
-    sta mem_map+2
-    sta mem_map+3
-    sta mem_map+4   ;Bank 1
-    sta mem_map+5
-    sta mem_map+6
-    sta mem_map+7
-
-    lda #1          ;Bank 2
-    sta mem_map+8
-
-    ;If mem_top >=127, mark pages in banks 64-127 as free, else mark as used
-    ldx #0
-
-    lda mem_top
-    cmp #127
-    bcc :+
-    lda #0
-    jmp :++
-:   lda #255
-
-:   ldx #0
-:   sta mem_map+256,x
-    inx
-    bne :-
-
-    ;If mem_top >=191, mark pages in banks 128-191 as free, else mark as used
-    ldx #0
-
-    lda mem_top
-    cmp #191
-    bcc :+
-    lda #0
-    jmp :++
-:   lda #255
-
-:   ldx #0
-:   sta mem_map+512,x
-    inx
-    bne :-
-
-    ;If mem_top=255, mark pages in banks 192-255 as free, else mark as used
-    ldx #0
-
-    lda mem_top
-    cmp #255
+mem_start_init:
+    sta (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    iny
     bne :+
+    inc TMP1_ADR+1
+:   inx
+    cpx mem_start
+    bcc mem_start_init
+    beq mem_start_init
+
+    ;Mark pages in banks mem_start+1 to mem_top as free, except the head of buffer
+    lda #%00000001
+mem_usable_init:
+    sta (TMP1_ADR),y
     lda #0
-    jmp :++
-:   lda #255
-
-:   ldx #0
-:   sta mem_map+768,x
+    iny
+    sta (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    iny
+    bne :+
+    inc TMP1_ADR+1
+:   cpx mem_top
+    bcs :+
     inx
-    bne :-
+    jmp mem_usable_init
 
-    ;Set mem blocks free counter = mem_top * 32
-    stz mem_blocks_free
+;Mark pages in banks mem_top+1 to 255 as allocated (not free)
+:   cpx #255
+    beq blocks_free_counter
+
+    inx
+    lda #255
+mem_top_init:
+    sta (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    iny
+    sta (TMP1_ADR),y
+    iny
+    bne :+
+    inc TMP1_ADR+1
+:   inx
+    bne mem_top_init
+
+blocks_free_counter:
+    ;Calculate free blocks
+    sec
     lda mem_top
+    sbc mem_start
+
+    stz mem_blocks_free
     sta mem_blocks_free+1
 
     ldx #3
@@ -117,19 +118,20 @@
     dex
     bne :-
 
-    ;Decrease mem blocks free counter by 33 to account for bank 1 and bank 2 first page that is allocated by this function
+    ;Decrease mem blocks free counter by 1 to account for the head of buffer
     sec
     lda mem_blocks_free
-    sbc #33
+    sbc #1
     sta mem_blocks_free
     lda mem_blocks_free+1
     sbc #0
     sta mem_blocks_free+1
 
     ;Setup zero page vectors
-
+    inc $6000
     ;Bank
-    lda #2
+    lda mem_start
+    ina
     sta BNK_SEL
     sta CRS_BNK     ;Cursor
     sta LNV_BNK     ;Line first visible char
@@ -151,7 +153,7 @@
     stz LNV_IDX     ;Line first visible char
     stz SCR_IDX     ;Screen first visible char
 
-    ;Setup initial memory page metadata (bank 2, page $a0), bank selected above already
+    ;Setup initial memory page metadata (bank mem_start+1, page $a0), bank selected above already
     lda #0
     
     ldy #0
@@ -170,7 +172,8 @@
     sta (CRS_ADR),y     ;Len = 0
 
     ;Set initial memory page for defrag runner
-    lda #2
+    lda mem_start
+    ina
     sta mem_run_defrag_page
     lda #$a0
     sta mem_run_defrag_page+1
@@ -195,14 +198,15 @@
 ;**********************************************************
 ;Function name.......: mem_is_head
 ;Description.........: Is page head of buffer, i.e.
-;                      bank 2, page $a0
+;                      bank mem_start+1, page $a0
 ;Input...............: Y    Bank
 ;                      X    Page
 ;Returns.............: C = 1    Is head
 ;                      C = 0    Is not head
 ;Error returns.......: None
 .proc mem_is_head
-    cpy #2
+    dey
+    cpy mem_start
     bne :+
     cpx #$a0
     bne :+
@@ -329,8 +333,8 @@ at_eof:
 ;                      X=page (address MSB)
 ;Error returns.......: X=0 if memory full
 .proc mem_alloc
-    ;Select RAM bank 1
-    lda #1
+    ;Select RAM bank mem_start
+    lda mem_start
     sta BNK_SEL
 
     ;Set vector to memory map
@@ -507,15 +511,17 @@ bitmask:
     stx page
     
     ;Check if bank is reserved, exit without deallocating if true
-    cpy #0
-    beq is_reserved     ;All of bank 0 is reserved by Kernal
-    cpy #1
-    beq is_reserved     ;All of bank 1 is reserved by editor internals
+    cpy mem_start
+    beq is_reserved
+    bcc is_reserved
     
     cpy mem_top
+    beq :+
     bcs is_reserved     ;Don't touch unpopulated memory
 
-    cpy #2              ;And don't touch head of buffer - bank 2, page $a0
+:   tya                 ;And don't touch head of buffer - bank mem_start+1, page $a0
+    dea
+    cmp mem_start
     bne :+
     lda page
     cmp #$a0
@@ -527,7 +533,7 @@ is_reserved:
 
     ;Continue freeing that mem page...
     ;Find out position in mem_map corresponding to specified bank/page
-:   lda #1              ;Select bank 1 to access mem_map
+:   lda mem_start              ;Select bank mem_start to access mem_map
     sta BNK_SEL
 
     lda bank
@@ -752,7 +758,8 @@ exit:
 
 eof:
     ;We were at the last page, start over from the head of the buffer
-    lda #2
+    lda mem_start
+    ina
     sta mem_run_defrag_page
     lda #$a0
     sta mem_run_defrag_page+1
@@ -1688,7 +1695,7 @@ count = mem_crs_move_to_line_end_count
     
     rts
 
-backup = mem_lnv_step_left_backuo
+backup = mem_lnv_step_left_backup
 .endproc
 
 ;**********************************************************

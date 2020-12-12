@@ -56,9 +56,9 @@
     ;Set vectors to our custom handler
     sei
     
-    lda #<($0780+bridge_irq-bridge_kernal)
+    lda #<(bridge_code+bridge_irq-bridge_kernal)
     sta $0314
-    lda #>($0780+bridge_irq-bridge_kernal)
+    lda #>(bridge_code+bridge_irq-bridge_kernal)
     sta $0315
 
     cli

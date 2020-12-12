@@ -27,7 +27,7 @@
 .proc bridge_copy
     ldx #0
 :   lda bridge_kernal,x
-    sta $0780,x
+    sta bridge_code,x
     inx
     cpx #(bridge_end-bridge_kernal)
     bne :-
@@ -44,9 +44,9 @@
 ;Error returns.......: None
 bridge_kernal:
     stz ROM_SEL
-    jsr $ffff       ;$ffff is just placeholder
+    jsr $ffff            ;$ffff is just placeholder
     pha
-    lda #7          ;Put possible ROM bank here
+    lda #ROM_BNK
     sta ROM_SEL
     pla
     rts
@@ -54,7 +54,7 @@ bridge_kernal:
 bridge_irq:
     lda ROM_SEL
     pha
-    lda #7
+    lda #ROM_BNK
     sta ROM_SEL
     jsr irq_handler
     pla

@@ -51,6 +51,7 @@
     cmp #12                  ;Allow clipboard mem to be max 12x256 bytes = 3K
     bcc mem_not_full
 
+mem_full:
     sec
     rts
 
@@ -65,14 +66,14 @@ mem_not_full:
     ;Get char from X and save it in clipboard mem
     txa
     
-    ldx BNK_SEL
+    ldx BNK_SEL         ;Save current RAM bank on stack
     phx
-    ldx #1
+
+    ldx mem_start
     stx BNK_SEL
-    
     sta (TMP1_ADR),y
     
-    plx
+    plx                 ;Restore RAM bank
     stx BNK_SEL
     
     ;Increase clipboard pointer
@@ -106,15 +107,15 @@ exit:
     stz count+1
     stz count+2
 
-    ;Backup clipboard pointer, should we need to restore on mem full
+    ;Backup clipboard pointer on the stack, should we need to restore on mem full
     lda clipboard_pointer
-    sta backup
+    pha
     lda clipboard_pointer+1
-    sta backup+1
+    pha
     lda clipboard_end
-    sta backup+2
+    pha
     lda clipboard_end+1
-    sta backup+3
+    pha
 
     ;Move cursor to start of line
     jsr cmd_go_home
@@ -170,12 +171,19 @@ eof:
     bne :+
     dec TMP1_ADR+1
 
-:   lda #1
+:   lda mem_start
     sta BNK_SEL
     lda #LF
     sta (TMP1_ADR),y
 
 exit:
+    ;Restore stack
+    pla
+    pla
+    pla
+    pla
+
+    ;Return values
     clc
     ldx count
     ldy count+1
@@ -184,22 +192,20 @@ exit:
 
 mem_full:
     ;Restore pointers
-    lda backup
-    sta clipboard_pointer
-    lda backup+1
-    sta clipboard_pointer+1
-
-    lda backup+2
-    sta clipboard_end
-    lda backup+3
+    pla
     sta clipboard_end+1
+    pla
+    sta clipboard_end
+    pla
+    sta clipboard_pointer+1
+    pla
+    sta clipboard_pointer
 
     ;Exit with C=1 to indicate mem full
     sec
     rts
 
 count = clipboard_copy_count    ;3 bytes
-backup = clipboard_copy_backup  ;4 bytes
 .endproc
 
 ;******************************************************************************
@@ -282,7 +288,7 @@ loop:
     bcs paste_done
 
     ;Otherwise we insert char into buffer
-:   lda #1
+:   lda mem_start
     sta BNK_SEL
     lda (TMP1_ADR),y
     jsr cmd_insert

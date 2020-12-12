@@ -93,154 +93,135 @@
 .define CRS_X $36   ;Cursor screen column position
 .define CRS_Y $37   ;Cursor screen row position
 
+;*****************************************************************************
+;Global variables stored in $0400
+;*****************************************************************************
+
+globalvars              = $0400
+
+APP_MOD                 = globalvars        ;1 byte, application mode
+APP_QUIT                = globalvars+1      ;1 byte, used to signal program exit
+
+mem_modified            = globalvars+2      ;1 byte 
+mem_blocks_free         = globalvars+3      ;2 bytes
+mem_start               = globalvars+5      ;1 byte
+mem_top                 = globalvars+6      ;1 byte
+mem_cur_line            = globalvars+7      ;3 bytes
+mem_cur_col             = globalvars+10      ;3 bytes
+
+screen_mode             = globalvars+13     ;1 byte
+screen_color            = globalvars+14     ;1 byte
+
+prompt_start            = globalvars+15     ;1 byte
+prompt_fvc              = globalvars+16     ;1 byte
+prompt_curpos           = globalvars+17     ;1 byte
+prompt_len              = globalvars+18     ;1 byte
+prompt_maxlen           = globalvars+19     ;1 byte
+prompt_cursor_backup    = globalvars+20     ;2 bytes
+
+keyboard_tabwidth       = globalvars+22     ;1 byte
+
+irq_default_handler     = globalvars+23     ;2 bytes
+
+file_io_err             = globalvars+25     ;1 byte
+file_cur_filename_len   = globalvars+26     ;1 byte
+file_cur_device         = globalvars+27     ;1 byte
+file_format             = globalvars+28     ;1 byte
+
+cursor_toggle_counter   = globalvars+29     ;1 byte
+cmd_auto_indent_status  = globalvars+30     ;1 byte
+cmd_wordwrap_mode       = globalvars+31     ;1 byte
+cmd_wordwrap_pos        = globalvars+32     ;1 byte
+clipboard_pointer       = globalvars+33     ;2 bytes
+clipboard_end           = globalvars+35     ;2 bytes
 
 ;*****************************************************************************
-;Global zero page variables
+;Variables used locally by functions stored in $0400
 ;*****************************************************************************
+tempvars                                = globalvars + 37       ;16 bytes
 
-.define zpvars $38
+mem_vars                                = tempvars+16
+mem_run_defrag_page                     = mem_vars              ;2 bytes
+mem_delete_at_lf                        = mem_vars+2            ;1 byte
+mem_crs_step_right_at_lf                = mem_vars+3            ;1 byte
+mem_crs_step_left_at_lf                 = mem_vars+4            ;1 byte
+mem_crs_move_to_line_start_count        = mem_vars+5            ;3 bytes
+mem_crs_move_to_prev_blankspace_pagelen = mem_vars+8            ;1 byte
+mem_crs_move_to_prev_blankspace_counter = mem_vars+9            ;2 bytes
+mem_crs_move_to_line_end_count          = mem_vars+11           ;2 bytes
+mem_lnv_step_left_backup                = mem_vars+13           ;3 bytes
+mem_lnv_step_right_backup               = mem_vars+16           ;3 bytes
+mem_scr_move_down_backup                = mem_vars+19           ;3 bytes
+mem_scr_move_up_backup                  = mem_vars+22           ;3 bytes
 
-APP_MOD = zpvars                    ;1 byte, application mode
-APP_QUIT = zpvars+1                 ;1 byte, used to signal program exit
+screen_vars                             = mem_vars+25
+screen_refresh_len                      = screen_vars           ;1 byte
+screen_refresh_columns                  = screen_vars+1         ;1 byte
+screen_refresh_rows                     = screen_vars+2         ;1 byte
+screen_println_len                      = screen_vars+3         ;1 byte
+screen_println_counter                  = screen_vars+4         ;1 byte
 
-mem_modified = zpvars+2             ;1 byte 
-mem_blocks_free = zpvars+3          ;2 bytes
-mem_top = zpvars+5                  ;1 byte
-mem_cur_line = zpvars+6             ;3 bytes
-mem_cur_col = zpvars+9              ;3 bytes
+prompt_vars                             = screen_vars+5                    
+prompt_default_input_len                = prompt_vars           ;1 byte
+prompt_default_input_index              = prompt_vars+1         ;1 byte
 
-screen_mode = zpvars+12             ;1 byte
-screen_color = zpvars+13            ;1 byte
+keyboard_vars                           = prompt_vars+2
+keyboard_read_and_dispatch_eventhandler = keyboard_vars         ;2 bytes
+keyboard_cmd_pageup_linecount           = keyboard_vars+2       ;1 byte
+keyboard_cmd_pagedown_linecount         = keyboard_vars+3       ;1 byte
 
-prompt_start = zpvars+14            ;1 byte
-prompt_fvc = zpvars+15              ;1 byte
-prompt_curpos =zpvars+16            ;1 byte
-prompt_len = zpvars+17              ;1 byte
-prompt_maxlen = zpvars+18           ;1 byte
-prompt_cursor_backup = zpvars+19    ;2 bytes
+file_vars                               = keyboard_vars+4
+file_read_first_char                    = file_vars             ;1 byte
+file_read_curpage_len                   = file_vars+1           ;1 byte
+file_read_newpage                       = file_vars+2           ;2 bytes
 
-keyboard_tabwidth = zpvars+21       ;1 byte
+cmd_vars                                = file_vars+4
+cmd_word_wrap_prevblank                 = cmd_vars              ;2 bytes
+cmd_insert_lf_counter1                  = cmd_vars+2            ;2 bytes
+cmd_insert_lf_counter2                  = cmd_vars+4            ;2 bytes
+cmd_insert_tab_counter                  = cmd_vars+6            ;3 bytes
+cmd_delete_counter                      = cmd_vars+9            ;2 bytes
+cmd_go_up_count                         = cmd_vars+11           ;2 bytes
+cmd_go_down_count                       = cmd_vars+13           ;2 bytes
+cmd_go_end_counter                      = cmd_vars+15           ;2 bytes
+cmd_show_curpos_index                   = cmd_vars+17           ;1 byte
+cmd_do_find_string_len                  = cmd_vars+18           ;1 byte
+cmd_do_find_match                       = cmd_vars+19           ;1 byte
+cmd_replace_searchfor_len               = cmd_vars+20           ;3 bytes
+cmd_replace_counter                     = cmd_vars+23           ;1 byte
+cmd_replace_replace_all                 = cmd_vars+24           ;1 byte
+cmd_replace_replaced_count              = cmd_vars+25           ;3 bytes
+cmd_do_goto_line_line                   = cmd_vars+28           ;3 bytes
+cmd_set_word_wrap_col                   = cmd_vars+31           ;4 bytes
+cmd_display_msg                         = cmd_vars+35           ;59 bytes, used as temp storage of various messages
 
-irq_default_handler = zpvars+22     ;2 bytes
+cmd_file_vars                           = cmd_vars+94
+cmd_file_do_set_device_promptval        = cmd_file_vars         ;3 bytes
 
-file_io_err = zpvars+24             ;1 byte
-file_cur_filename_len = zpvars+25   ;1 byte
-file_cur_device = zpvars+26         ;1 byte
-file_format = zpvars+27             ;1 byte
-
-cursor_toggle_counter = zpvars+28   ;1 byte
-cmd_auto_indent_status = zpvars+29  ;1 byte
-cmd_wordwrap_mode = zpvars+30       ;1 byte
-cmd_wordwrap_pos = zpvars+31        ;1 byte
-clipboard_pointer = zpvars+32       ;2 bytes
-clipboard_end = zpvars+34           ;2 bytes
+clipboard_vars                          = cmd_file_vars+3
+clipboard_copy_count                    = clipboard_vars        ;3 bytes
+clipboard_cut_count                     = clipboard_vars+3      ;3 bytes
 
 ;*****************************************************************************
-;Function local variables ($0400-)
+;Buffers
 ;*****************************************************************************
-.define tempvars                                    $0400            ;16 bytes
-
-.define mem_vars                                    tempvars+16
-.define mem_run_defrag_page                         mem_vars        ;2 bytes
-.define mem_delete_at_lf                            mem_vars+2      ;1 byte
-.define mem_crs_step_right_at_lf                    mem_vars+3      ;1 byte
-.define mem_crs_step_left_at_lf                     mem_vars+4      ;1 byte
-.define mem_crs_move_to_line_start_count            mem_vars+5      ;3 bytes
-.define mem_crs_move_to_prev_blankspace_pagelen     mem_vars+8      ;1 byte
-.define mem_crs_move_to_prev_blankspace_counter     mem_vars+9      ;2 bytes
-.define mem_crs_move_to_line_end_count              mem_vars+11     ;2 bytes
-.define mem_lnv_step_left_backuo                    mem_vars+13     ;3 bytes
-.define mem_lnv_step_right_backup                   mem_vars+16     ;3 bytes
-.define mem_scr_move_down_backup                    mem_vars+19     ;3 bytes
-.define mem_scr_move_up_backup                      mem_vars+22     ;3 bytes
-
-.define screen_vars                                 mem_vars+25
-.define screen_refresh_len                          screen_vars     ;1 byte
-.define screen_refresh_columns                      screen_vars+1   ;1 byte
-.define screen_refresh_rows                         screen_vars+2   ;1 byte
-.define screen_println_len                          screen_vars+3   ;1 byte
-.define screen_println_counter                      screen_vars+4   ;1 byte
-
-.define prompt_vars                                 screen_vars+5                    
-.define prompt_default_input_len                    prompt_vars     ;1 byte
-.define prompt_default_input_index                  prompt_vars+1   ;1 byte
-
-.define keyboard_vars                               prompt_vars+2
-.define keyboard_read_and_dispatch_eventhandler     keyboard_vars   ;2 bytes
-.define keyboard_cmd_pageup_linecount               keyboard_vars+2 ;1 byte
-.define keyboard_cmd_pagedown_linecount             keyboard_vars+3 ;1 byte
-
-.define file_vars                                   keyboard_vars+4
-.define file_read_first_char                        file_vars       ;1 byte
-.define file_read_curpage_len                       file_vars+1     ;1 byte
-.define file_read_newpage                           file_vars+2     ;2 bytes
-
-.define cmd_vars                                    file_vars+4
-.define cmd_word_wrap_crs_backup                    cmd_vars        ;3 bytes 
-.define cmd_word_wrap_prevblank                     cmd_vars+3      ;2 bytes
-.define cmd_insert_lf_crs_backup                    cmd_vars+5      ;3 bytes
-.define cmd_insert_lf_counter1                      cmd_vars+8      ;2 bytes
-.define cmd_insert_lf_counter2                      cmd_vars+10     ;2 bytes
-.define cmd_insert_tab_counter                      cmd_vars+12     ;3 bytes
-.define cmd_delete_counter                          cmd_vars+15     ;2 bytes
-.define cmd_go_up_count                             cmd_vars+17     ;2 bytes
-.define cmd_go_up_backup                            cmd_vars+19     ;6 bytes
-.define cmd_go_down_count                           cmd_vars+25     ;2 bytes
-.define cmd_go_down_backup                          cmd_vars+27     ;6 bytes
-.define cmd_go_end_counter                          cmd_vars+33     ;2 bytes
-.define cmd_cut_crs_backup                          cmd_vars+25     ;3 bytes
-.define cmd_cut_scr_backup                          cmd_vars+28     ;3 bytes
-.define cmd_cut_lnv_backup                          cmd_vars+31     ;3 bytes
-.define cmd_cut_line_backup                         cmd_vars+34     ;3 bytes
-.define cmd_cut_col_backup                          cmd_vars+37     ;3 bytes
-.define cmd_cut_cursor                              cmd_vars+40     ;2 bytes
-.define cmd_copy_crs_backup                         cmd_vars+42     ;3 bytes
-.define cmd_copy_scr_backup                         cmd_vars+45     ;3 bytes
-.define cmd_copy_lnv_backup                         cmd_vars+48     ;3 bytes
-.define cmd_copy_line_backup                        cmd_vars+51     ;3 bytes
-.define cmd_copy_col_backup                         cmd_vars+54     ;3 bytes
-.define cmd_copy_cursor                             cmd_vars+57     ;2 bytes
-.define cmd_show_curpos_index                       cmd_vars+59     ;1 byte
-.define cmd_do_find_string_len                      cmd_vars+60     ;1 byte
-.define cmd_do_find_match                           cmd_vars+61     ;1 byte
-.define cmd_do_find_crs_backup                      cmd_vars+62     ;3 bytes
-.define cmd_do_find_lnv_backup                      cmd_vars+65     ;3 bytes
-.define cmd_do_find_scr_backup                      cmd_vars+68     ;3 bytes
-.define cmd_do_find_cursor_backup                   cmd_vars+71     ;2 bytes
-.define cmd_do_find_col_backup                      cmd_vars+73     ;3 bytes
-.define cmd_do_find_line_backup                     cmd_vars+76     ;3 bytes
-.define cmd_replace_searchfor_len                   cmd_vars+79     ;3 bytes
-.define cmd_replace_counter                         cmd_vars+82     ;1 byte
-.define cmd_replace_replace_all                     cmd_vars+83     ;1 byte
-.define cmd_replace_replaced_count                  cmd_vars+84     ;3 bytes
-.define cmd_do_goto_line_line                       cmd_vars+87     ;3 bytes
-.define cmd_set_word_wrap_col                       cmd_vars+90     ;4 bytes
-.define cmd_display_msg                             cmd_vars+94     ;59 bytes, used as temp storage of various messages
-
-.define cmd_file_vars                               cmd_vars+153
-.define cmd_file_do_set_device_promptval            cmd_file_vars   ;3 bytes
-
-.define clipboard_vars                              cmd_file_vars+3
-.define clipboard_copy_count                        clipboard_vars      ;3 bytes
-.define clipboard_copy_backup                       clipboard_vars+3    ;4 bytes
-.define clipboard_cut_count                         clipboard_vars+7    ;3 bytes
-
-.define prompt_input                                $0500               ;256 bytes
-.define file_cur_filename                           $0600               ;256 bytes
-.define file_disk_status                            $0700               ;81 bytes
+prompt_input                            = $0500                 ;256 bytes
+file_cur_filename                       = $0600                 ;256 bytes
+file_disk_status                        = $0700                 ;127 bytes
+bridge_code                             = $0780                 
 
 ;*****************************************************************************
 ;VARIABLES STORED IN RAM BANK 1
 ;*****************************************************************************
-.define mem_map                                     $a000               ;1024 bytes ($a000-$a3ff)
-.define clipboard_mem                               $a400               ;3072 bytes ($a400-$afff)
+mem_map                                 = $a000               ;1024 bytes ($a000-$a3ff)
+clipboard_mem                           = $a400               ;3072 bytes ($a400-$afff)
 
 ;*****************************************************************************
 ;CONSTANTS
 ;*****************************************************************************
 .define BNK_SEL $9f61 
 .define ROM_SEL $9f60
-.define PRG_ROM_BNK 6
+.define ROM_BNK 7
 
 .define LF 10
 .define CR 13          

@@ -17,7 +17,7 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-;Target
+;Build target
 .define target_ram 1
 .define target_rom 2
 
@@ -28,6 +28,7 @@
 .else
     .error "target_mem invalid value (1=RAM, 2=ROM)"
 .endif
+
 
 ;Include global defines
 .include "common.inc"
@@ -45,16 +46,49 @@
     ;Ensure we are in binary mode
     cld
 
+    ;Save content of mem_start and mem_top on stack before the values are changed
+    ;These values are to be picked up by the ram_backup function
+    ;Not the cleanest solution, but there's nothing else to do if RAM is to be preserved
+    lda mem_start
+    pha
+    lda mem_top
+    pha
+
+    ;Set banked RAM start and end
+    .if (::target_mem=target_ram)
+        ldx #1
+        ldy #255
+    .endif
+    stx mem_start
+    sty mem_top
+
+    cpy mem_start
+    bcs rambackup
+
+;Error: mem_top < mem_start => exit program
+    bridge_setaddr KERNAL_CHROUT
+    ldx #0
+printerrloop:
+    lda errormsg,x
+    beq exit
+    bridge_call KERNAL_CHROUT
+    inx
+    jmp printerrloop
+
+    ;Backup ZP page and $0400-$07FF data so it can be restored on program exit
+rambackup:
+    jsr ram_backup
+
+    ;Copy Kernal bridge code to RAM
+    .if (::target_mem=target_rom)
+        jsr bridge_copy
+    .endif
+
     ;Set program mode to default
     stz APP_MOD
 
     ;Set program in running state
     stz APP_QUIT
-
-    ;Copy Kernal bridge code to RAM $0780
-    .if (::target_mem=target_rom)
-        jsr bridge_copy
-    .endif
 
     ;Initialize base functions
     jsr mem_init
@@ -69,8 +103,13 @@
 :   lda APP_QUIT        ;0=running, 1=closing down, 2=close now
     cmp #2
     bne :-
-    
+
+exit:
+    jsr ram_restore     ;Restore ZP and $0400-$07FF
     rts
+
+errormsg:
+    .byt "error: banked ram top less than banked ram start",0
 .endproc
 
 .include "screen.inc"
@@ -84,6 +123,7 @@
 .include "util.inc"
 .include "clipboard.inc"
 .include "mem.inc"
+.include "ram.inc"
 
 .if target_mem=target_rom
     .include "bridge.inc"

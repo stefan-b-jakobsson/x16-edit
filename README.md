@@ -15,13 +15,11 @@ editor functions.
 
 The program is written in 65c02 assembly for the ca65 compiler.
 
-Currently, there are two build targets. 
+Currently, there are two build targets.
 
 The first target (the RAM version) is to be loaded as a normal program from the filesystem. It has a BASIC header, and is started with the RUN command.
 
-The second target is an image to be stored in one of the ROM banks (the ROM version).
-
-There are one build script for each target in the build folder to make this easier.
+The second target is a 16 KB image to be stored in one of the ROM banks (the ROM version).
 
 
 # Running the RAM version
@@ -32,9 +30,9 @@ The emulator may be downloaded from
 
 https://www.commanderx16.com/
 
-Run the RAM version with the following command line
+Run the RAM version with the following command
 
-x16emu -sdcard sdcard.img -prg x16edit.prg -run
+x16emu -sdcard sdcard.img -prg X16EDIT.PRG -run
 
 Loading and saving files in X16 Edit require that the emulator is started with an attached sdcard.
 
@@ -43,7 +41,7 @@ Loading and saving files in X16 Edit require that the emulator is started with a
 
 There are a few more steps to set up and try the ROM version.
 
-The ROM version build scripts generate a 16KB image to be stored in one of the ROM banks. To get a working system, you need to append this image to the ROM image distributed with
+The ROM version build script generates a 16KB image to be stored in one of the ROM banks. To get a working system, you need to append this image to the ROM image distributed with
 the emulator ("rom.bin"). This may be done with the following command (Linux/MacOS):
 
 cat rom.bin x16edit-rom.bin > customrom.bin
@@ -58,15 +56,16 @@ To start the ROM version of the editor you need to type in a small startup routi
 .A1003 PHA
 .A1004 LDA #$07
 .A1006 STA $9F60
-.A1009 JSR $C000
-.A100C PLA
-.A100D STA $9F60
-.A1010 RTS
+.A1009 LDX #$01
+.A100B LDY #$FF
+.A100D JSR $C000
+.A1010 PLA
+.A1011 STA $9F60
+.A1014 RTS
 
 To run this from BASIC, symply type SYS $1000.
 
-A short explanation of the startup program. $9F60 is the ROM select. The original value is first stored on the stack, and then we switch to ROM bank 7 where X16Edit is stored. Thereafter it calls the subroutine at $C000, which is the start of ROM and the entry point of the editor. When exiting from the editor we return to $100C, which reads the initial ROM bank
-from stack and sets it to that value before returning from the routine.
+A short explanation of the startup program. $9F60 is the ROM select. The original value is first stored on the stack, and then we switch to ROM bank 7 where X16Edit is stored. The ROM version of the editor requires that the first and last RAM bank used by the program are specified (X=first bank and Y=last bank). Thereafter it calls the subroutine at $C000, which is the start of ROM and the entry point of the editor. When exiting from the editor the initial ROM bank is read from the stack stored in the ROM select.
 
 
 # X16 Community

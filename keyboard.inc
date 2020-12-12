@@ -286,6 +286,11 @@ jmptbl_H:
     bne :+
     jmp cmd_find
 
+:   ;Convert non-breaking space (Shift+space, ASCII 160) to normal space char
+    cmp #$a0
+    bne :+
+    lda #$20
+
     ;Default key handler
 :   jsr cmd_insert
     bcs :+
@@ -315,6 +320,19 @@ jmptbl_H:
     stz APP_MOD
     jsr screen_clear_status
     jmp cursor_activate
+
+    ;Space, convert to non-breaking space
+:   cmp #$20
+    bne :++
+    stz APP_MOD
+    jsr cursor_activate
+    jsr screen_clear_status
+    lda #160
+    jsr cmd_insert
+    bcs :+
+    jmp screen_println
+:   jsr screen_refresh
+    jmp screen_println
     
     ;Clear bit 5 to make upper and lower case the same value
 :   and #%11011111
@@ -387,7 +405,7 @@ jmptbl_H:
     jmp screen_clear_status
 
     ;b
-:   cmp #$66
+:   cmp #$42
     bne :+
     stz APP_MOD
     jsr screen_clear_status
@@ -404,7 +422,7 @@ jmptbl_H:
 :   cmp #$55
     bne :+
     stz APP_MOD
-    jmp screen_clear_status
+    jsr screen_clear_status
     jsr cursor_activate
     jmp cmd_paste
 
@@ -434,7 +452,7 @@ jmptbl_H:
     jmp cmd_change_encoding
     
     ;z
-:   cmp #$7a
+:   cmp #$5a
     bne :+
     stz APP_MOD
     jsr cursor_activate

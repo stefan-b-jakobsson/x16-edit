@@ -33,8 +33,10 @@
     inx
     jmp :-
 
+    ;Reset file name
 :   stz file_cur_filename_len
     
+    ;Set default device 8
     lda #8
     sta file_cur_device
 
@@ -55,7 +57,7 @@ msg:
     ;Set default = no i/o error
     stz file_io_err
     
-    ;Close 1 and Open 1, 8, 1, "filename, s, w"
+    ;Close file #1, and open file #1 for writing
     pha
     bridge_setaddr KERNAL_SETNAM
     pla
@@ -70,9 +72,10 @@ msg:
     ldx file_cur_device
     ldy #1
     bridge_call KERNAL_SETLFS
-    bcs io_err
+    bcc :+
+    jmp io_err
 
-    bridge_setaddr KERNAL_OPEN
+:   bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
     bcs io_err
 
@@ -81,11 +84,12 @@ msg:
     bridge_call KERNAL_CHKOUT
     bcs io_err
 
-    ;Init temporary pointer to start of text
+    ;Init temporary pointer to start of text; head of buffer is bank=mem_start+1, addressH=$a0
     stz TMP1_ADR
     lda #$a0
     sta TMP1_ADR+1
-    lda #2
+    lda mem_start       
+    ina
     sta BNK_SEL
 
     ;Len of first page
@@ -173,7 +177,7 @@ page_len = tempvars     ;1 byte
     ;Set default = no I/O error
     stz file_io_err
 
-    ;Close 1 and Open 1,8,2,"filename"
+    ;Close file #1, and open file #1 for reading
     pha
     bridge_setaddr KERNAL_SETNAM
     pla
@@ -307,7 +311,8 @@ eof:
     sta (CRS_ADR),y
       
     ;Set cursor mem pointer to start of text
-    lda #2
+    lda mem_start
+    ina
     sta CRS_BNK
 
     lda #$a0
@@ -352,7 +357,7 @@ msg:
     ;Set default = no kernal error
     stz file_io_err
 
-    ;Open 15,8,15
+    ;Close file #15, and open file #15, secondary address 15
     bridge_setaddr KERNAL_SETNAM
     lda #0
     ldx #0
@@ -391,7 +396,7 @@ read_loop:
     bcc read_loop       ;Ignore contron chars
     ldy index
     sta file_disk_status+13, y
-    cpy #241            ;Last index = 255 - 13 - 1, where 13 is length of ingress "disk status: " and 1 byte is reserved for end of string marker (a zero)
+    cpy #113            ;Last index = 127 - 13 - 1, where 13 is length of ingress "disk status: " and 1 byte is reserved for end of string marker (a zero)
     beq eof
     inc index
     jmp read_loop

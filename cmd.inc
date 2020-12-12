@@ -93,8 +93,7 @@ mem_full:
 ;                      margin.
 ;Input...............: Nothing
 ;Returns.............: Nothing
-;Error returns.......: C=1 if a line feed char was inserted, either directly
-;                      or by the word wrap function
+;Error returns.......: C=1 if a line feed char was inserted
 .proc cmd_word_wrap
     ;Check if we're at the column where to wrap the line
     lda mem_cur_col+1
@@ -110,13 +109,13 @@ nowrap:
     rts
 
 wrap:
-    ;Backup pointers
+    ;Backup pointers on stack
     lda CRS_BNK
-    sta crs_backup
+    pha 
     lda CRS_ADR+1
-    sta crs_backup+1
+    pha
     lda CRS_IDX
-    sta crs_backup+2
+    pha
 
     ;Goto prev space
     jsr mem_crs_move_to_prev_blankspace
@@ -145,24 +144,32 @@ wrap_step_back:
     jmp wrap_step_back
 
 wrap_done:
+    ;Restore stack
+    pla
+    pla
+    pla
+
+    ;Return value
     sec
     rts
 
 bs_not_found:
-    lda crs_backup
-    sta CRS_BNK
-    lda crs_backup+1
-    sta CRS_ADR+1
-    lda crs_backup+2
+    ;Restore pointers
+    pla
     sta CRS_IDX
+    pla
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
 
+    ;Insert LF
     lda #LF
     jsr cmd_insert_lf
 
+    ;Return value
     sec
     rts
 
-crs_backup = cmd_word_wrap_crs_backup   ;3 bytes
 prevblank = cmd_word_wrap_prevblank     ;2 bytes
 .endproc
 
@@ -174,20 +181,19 @@ prevblank = cmd_word_wrap_prevblank     ;2 bytes
 ;                      done
 ;Input...............: Nothing
 ;Returns.............: Nothing
-;Error returns.......: C=1 if a line feed char was inserted, either directly
-;                      or by the word wrap function
+;Error returns.......: C=1 if a line feed char was inserted
 .proc cmd_insert_lf
     ;Is auto indent on?
     lda cmd_auto_indent_status
     beq linefeed_store          ;No, continue storing the line feed in buffer
 
-    ;Backup mem pointer
+    ;Backup mem pointer on stack
     lda CRS_BNK
-    sta crs_backup
+    pha
     lda CRS_ADR+1
-    sta crs_backup+1
+    pha
     lda CRS_IDX
-    sta crs_backup+2
+    pha
 
     ;Goto line start
     jsr mem_crs_move_to_line_start
@@ -224,13 +230,13 @@ auto_indent_loop:
     jmp auto_indent_loop
 
 auto_indent_stop:
-    ;Restore mem pointer
-    lda crs_backup
-    sta CRS_BNK
-    lda crs_backup+1
-    sta CRS_ADR+1
-    lda crs_backup+2
+    ;Restore mem pointer from stack
+    pla
     sta CRS_IDX
+    pla
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
 
 linefeed_store:
     ;Store char in mem
@@ -280,7 +286,6 @@ mem_full:
     clc
     rts
 
-crs_backup = cmd_insert_lf_crs_backup   ;3 bytes
 counter1 = cmd_insert_lf_counter1       ;2 bytes
 counter2 = cmd_insert_lf_counter2       ;2 bytes
 .endproc
@@ -598,20 +603,20 @@ at_bottom:
 ;Returns.............: C=1 if at first line, else C=0
 ;Error returns.......: None
 .proc cmd_go_up
-    ;Backup pointers so we can restore them if necessary
+    ;Backup pointers on stack so we can restore them if necessary
     lda CRS_BNK
-    sta backup
+    pha
     lda CRS_ADR+1
-    sta backup+1
+    pha
     lda CRS_IDX
-    sta backup+2
+    pha
     
     lda LNV_BNK
-    sta backup+3
+    pha
     lda LNV_ADR+1
-    sta backup+4
+    pha
     lda LNV_IDX
-    sta backup+5
+    pha
 
     ;Move to start of current line, and save number of chars stepped over
     jsr mem_crs_move_to_line_start
@@ -687,32 +692,38 @@ dec_count:
 exit:
     stz CRS_ADR         ;Restore to default value, so that we don't mess up other functions use of this pointer
 
-    clc
+    ;Restore stack, remove the 6 bytes pushed there at the beginning
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
 
+    ;Return value
+    clc
     rts
 
 at_first_line:
     ;Restore pointers and exit
-    lda backup
-    sta CRS_BNK
-    lda backup+1
-    sta CRS_ADR+1
-    lda backup+2
-    sta CRS_IDX
-
-    lda backup+3
-    sta LNV_BNK
-    lda backup+4
-    sta LNV_ADR+1
-    lda backup+5
+    pla
     sta LNV_IDX
+    pla
+    sta LNV_ADR+1
+    pla
+    sta LNV_BNK
+    pla
+    sta CRS_IDX
+    pla
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
 
+    ;Return value
     sec
-
     rts
 
 count = cmd_go_up_count     ;2 bytes
-backup = cmd_go_up_backup   ;6 bytes
 .endproc
 
 ;******************************************************************************
@@ -724,20 +735,20 @@ backup = cmd_go_up_backup   ;6 bytes
 ;Returns.............: C=1 if at last line, else C=0
 ;Error returns.......: None
 .proc cmd_go_down
-    ;Backup pointers so we can restore them later if necessary
+    ;Backup pointers on stack so we can restore them later if necessary
     lda CRS_BNK
-    sta backup
+    pha
     lda CRS_ADR+1
-    sta backup+1
+    pha
     lda CRS_IDX
-    sta backup+2
+    pha
     
     lda LNV_BNK
-    sta backup+3
+    pha
     lda LNV_ADR+1
-    sta backup+4
+    pha
     lda LNV_IDX
-    sta backup+5
+    pha
 
     ;Move cursor mem pointer to start of line, and save number of chars stepped over
     jsr mem_crs_move_to_line_start
@@ -803,33 +814,41 @@ loop_3:
     jmp loop
 
 exit:
-    stz CRS_ADR
-    clc
+    ;Restore stack, remove 6 bytes pushed there at start
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
 
+    ;Reset offset
+    stz CRS_ADR
+
+    ;Return value
+    clc
     rts
 
 at_last_line:
     ;Restore pointers, and exit
-    lda backup
-    sta CRS_BNK
-    lda backup+1
-    sta CRS_ADR+1
-    lda backup+2
-    sta CRS_IDX
-
-    lda backup+3
-    sta LNV_BNK
-    lda backup+4
-    sta LNV_ADR+1
-    lda backup+5
+    pla
     sta LNV_IDX
+    pla
+    sta LNV_ADR+1
+    pla
+    sta LNV_BNK
+    pla
+    sta CRS_IDX
+    pla
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
 
+    ;Return value
     sec
-
     rts
 
 count = cmd_go_down_count       ;2 bytes
-backup = cmd_go_down_backup     ;6 bytes
 .endproc
 
 ;******************************************************************************
@@ -960,89 +979,110 @@ msg:
 .proc cmd_cut
     ;Backup pointers, should we need to restore on mem full
     lda CRS_BNK
-    sta crs_backup
+    pha
     lda CRS_ADR+1
-    sta crs_backup+1
+    pha
     lda CRS_IDX
-    sta crs_backup+2
+    pha
 
     lda SCR_BNK
-    sta scr_backup
+    pha
     lda SCR_ADR+1
-    sta scr_backup+1
+    pha
     lda SCR_IDX
-    sta scr_backup+2
+    pha
 
     lda LNV_BNK
-    sta lnv_backup
+    pha
     lda LNV_ADR+1
-    sta lnv_backup+1
+    pha
     lda LNV_IDX
-    sta lnv_backup+2
+    pha
 
     lda mem_cur_col
-    sta col_backup
+    pha
     lda mem_cur_col+1
-    sta col_backup+1
+    pha
     lda mem_cur_col+2
-    sta col_backup+2
+    pha
 
     lda mem_cur_line
-    sta line_backup
+    pha
     lda mem_cur_line+1
-    sta line_backup+1
+    pha
     lda mem_cur_line+2
-    sta line_backup+2
+    pha
 
     lda CRS_X
-    sta cursor
+    pha
     lda CRS_Y
-    sta cursor+1
+    pha
 
     ;Cut line
     jsr clipboard_cut
     bcs mem_full
+
+    ;Restore stack (17 bytes)
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+
     jmp screen_refresh
 
 mem_full:
     ;Restore pointers
-    lda crs_backup
-    sta CRS_BNK
-    lda crs_backup+1
-    sta CRS_ADR+1
-    lda crs_backup+2
-    sta CRS_IDX
+    pla
+    sta CRS_Y
+    pla
+    sta CRS_X
     
-    lda scr_backup
-    sta SCR_BNK
-    lda scr_backup+1
-    sta SCR_ADR+1
-    lda scr_backup+2
-    sta SCR_IDX
-
-    lda lnv_backup
-    sta LNV_BNK
-    lda lnv_backup+1
-    sta LNV_ADR+1
-    lda lnv_backup+2
-    sta LNV_IDX
-
-    lda col_backup
-    sta mem_cur_col
-    lda col_backup+1
-    sta mem_cur_col+1
-    lda col_backup+2
-    sta mem_cur_col+2
-
-    lda line_backup
-    sta mem_cur_line
-    lda line_backup+1
-    sta mem_cur_line+1
-    lda line_backup+2
+    pla
     sta mem_cur_line+2
+    pla
+    sta mem_cur_line+1
+    pla
+    sta mem_cur_line
+    pla
+    sta mem_cur_col+2
+    pla
+    sta mem_cur_col+1
+    pla
+    sta mem_cur_col
+    pla
+    sta LNV_IDX
+    pla
+    sta LNV_ADR+1
+    pla
+    sta LNV_BNK
+    pla
+    sta SCR_IDX
+    pla
+    sta SCR_ADR+1
+    pla
+    sta SCR_BNK
+    pla
+    sta CRS_IDX
+    pla
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
 
-    ldx cursor
-    ldy cursor+1
+    ldx CRS_X
+    ldy CRS_Y
     jsr cursor_move
 
     ;Display message
@@ -1056,13 +1096,6 @@ mem_full:
 
 msg:
     .byt "clipboard full, could not copy line", 0
-
-crs_backup = cmd_cut_crs_backup     ;3 bytes
-scr_backup =  cmd_cut_scr_backup    ;3 bytes
-lnv_backup = cmd_cut_lnv_backup     ;3 bytes
-line_backup = cmd_cut_line_backup   ;3 bytes
-col_backup = cmd_cut_col_backup     ;3 bytes
-cursor = cmd_cut_cursor             ;2 bytes
 .endproc
 
 ;******************************************************************************
@@ -1075,89 +1108,110 @@ cursor = cmd_cut_cursor             ;2 bytes
 .proc cmd_copy
     ;Backup pointers, should we need to restore on mem full
     lda CRS_BNK
-    sta crs_backup
+    pha
     lda CRS_ADR+1
-    sta crs_backup+1
+    pha
     lda CRS_IDX
-    sta crs_backup+2
+    pha
 
     lda SCR_BNK
-    sta scr_backup
+    pha
     lda SCR_ADR+1
-    sta scr_backup+1
+    pha
     lda SCR_IDX
-    sta scr_backup+2
+    pha
 
     lda LNV_BNK
-    sta lnv_backup
+    pha
     lda LNV_ADR+1
-    sta lnv_backup+1
+    pha
     lda LNV_IDX
-    sta lnv_backup+2
+    pha
 
     lda mem_cur_col
-    sta col_backup
+    pha
     lda mem_cur_col+1
-    sta col_backup+1
+    pha
     lda mem_cur_col+2
-    sta col_backup+2
+    pha
 
     lda mem_cur_line
-    sta line_backup
+    pha
     lda mem_cur_line+1
-    sta line_backup+1
+    pha
     lda mem_cur_line+2
-    sta line_backup+2
+    pha
 
     lda CRS_X
-    sta cursor
+    pha
     lda CRS_Y
-    sta cursor+1
+    pha
 
     ;Copy
     jsr clipboard_copy
     bcs mem_full
+
+    ;Restore stack (17 bytes)
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+
     jmp screen_refresh
 
 mem_full:
     ;Restore pointers
-    lda crs_backup
-    sta CRS_BNK
-    lda crs_backup+1
-    sta CRS_ADR+1
-    lda crs_backup+2
-    sta CRS_IDX
+    pla
+    sta CRS_Y
+    pla
+    sta CRS_X
     
-    lda scr_backup
-    sta SCR_BNK
-    lda scr_backup+1
-    sta SCR_ADR+1
-    lda scr_backup+2
-    sta SCR_IDX
-
-    lda lnv_backup
-    sta LNV_BNK
-    lda lnv_backup+1
-    sta LNV_ADR+1
-    lda lnv_backup+2
-    sta LNV_IDX
-
-    lda col_backup
-    sta mem_cur_col
-    lda col_backup+1
-    sta mem_cur_col+1
-    lda col_backup+2
-    sta mem_cur_col+2
-
-    lda line_backup
-    sta mem_cur_line
-    lda line_backup+1
-    sta mem_cur_line+1
-    lda line_backup+2
+    pla
     sta mem_cur_line+2
+    pla
+    sta mem_cur_line+1
+    pla
+    sta mem_cur_line
+    pla
+    sta mem_cur_col+2
+    pla
+    sta mem_cur_col+1
+    pla
+    sta mem_cur_col
+    pla
+    sta LNV_IDX
+    pla
+    sta LNV_ADR+1
+    pla
+    sta LNV_BNK
+    pla
+    sta SCR_IDX
+    pla
+    sta SCR_ADR+1
+    pla
+    sta SCR_BNK
+    pla
+    sta CRS_IDX
+    pla
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
 
-    ldx cursor
-    ldy cursor+1
+    ldx CRS_X
+    ldy CRS_Y
     jsr cursor_move
 
     ;Display message
@@ -1171,14 +1225,6 @@ mem_full:
 
 msg:
     .byt "clipboard full, could not copy line", 0
-
-crs_backup = cmd_copy_crs_backup     ;3 bytes
-scr_backup = cmd_copy_scr_backup     ;3 bytes
-lnv_backup = cmd_copy_lnv_backup     ;3 bytes
-line_backup = cmd_copy_line_backup   ;3 bytes
-col_backup = cmd_copy_col_backup     ;3 bytes
-cursor = cmd_copy_cursor             ;2 bytes
-
 .endproc
 
 ;******************************************************************************
@@ -1342,47 +1388,47 @@ msg:
     ;Init & backup pointers if they need to be restored
     stz match
 
+    ;Backup pointers
     lda CRS_BNK
     sta BNK_SEL
-
-    sta crs_backup
+    pha
     lda CRS_ADR+1
-    sta crs_backup+1
+    pha
     lda CRS_IDX
-    sta crs_backup+2
+    pha
 
     lda LNV_BNK
-    sta lnv_backup
+    pha
     lda LNV_ADR+1
-    sta lnv_backup+1
+    pha
     lda LNV_IDX
-    sta lnv_backup+2
+    pha
 
     lda SCR_BNK
-    sta scr_backup
+    pha
     lda SCR_ADR+1
-    sta scr_backup+1
+    pha
     lda SCR_IDX
-    sta scr_backup+2
+    pha
 
     lda mem_cur_col
-    sta col_backup
+    pha
     lda mem_cur_col+1
-    sta col_backup+1
+    pha
     lda mem_cur_col+2
-    sta col_backup+2
+    pha
 
     lda mem_cur_line
-    sta line_backup
+    pha
     lda mem_cur_line+1
-    sta line_backup+1
+    pha
     lda mem_cur_line+2
-    sta line_backup+2
+    pha
 
     lda CRS_X
-    sta cursor_backup
+    pha
     lda CRS_Y
-    sta cursor_backup+1
+    pha
 
 ;Now search for that string
 
@@ -1420,62 +1466,77 @@ goto_match:
     jsr cmd_go_left
     jmp :-
 
-:   clc
+:   ;Restore stack (17 bytes)
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+    pla
+
+    ;Return value
+    clc
     rts
 
 eof:
     ;Restore pointers
-    lda crs_backup
-    sta CRS_BNK
-    lda crs_backup+1
-    sta CRS_ADR+1
-    lda crs_backup+2
-    sta CRS_IDX
-
-    lda lnv_backup
-    sta LNV_BNK
-    lda lnv_backup+1
-    sta LNV_ADR+1
-    lda lnv_backup+2
-    sta LNV_IDX
-
-    lda scr_backup
-    sta SCR_BNK
-    lda scr_backup+1
-    sta SCR_ADR+1
-    lda scr_backup+2
-    sta SCR_IDX
-
-    lda col_backup
-    sta mem_cur_col
-    lda col_backup+1
-    sta mem_cur_col+1
-    lda col_backup+2
-    sta mem_cur_col+2
-
-    lda line_backup
-    sta mem_cur_line
-    lda line_backup+1
-    sta mem_cur_line+1
-    lda line_backup+2
+    pla
+    sta CRS_Y
+    pla
+    sta CRS_X
+    
+    pla
     sta mem_cur_line+2
+    pla
+    sta mem_cur_line+1
+    pla
+    sta mem_cur_line
+    pla
+    sta mem_cur_col+2
+    pla
+    sta mem_cur_col+1
+    pla
+    sta mem_cur_col
+    pla
+    sta SCR_IDX
+    pla
+    sta SCR_ADR+1
+    pla
+    sta SCR_BNK
+    pla
+    sta LNV_IDX
+    pla
+    sta LNV_ADR+1
+    pla
+    sta LNV_BNK
+    pla
+    sta CRS_IDX
+    pla
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
 
-    ldx cursor_backup
-    ldy cursor_backup+1
+    ldx CRS_X
+    ldy CRS_Y
     jsr cursor_move
     
+    ;Return values
     sec
     rts
 
 string_len = cmd_do_find_string_len         ;1 byte
 match = cmd_do_find_match                   ;1 byte
-crs_backup = cmd_do_find_crs_backup         ;3 bytes
-lnv_backup = cmd_do_find_lnv_backup         ;3 bytes
-scr_backup = cmd_do_find_scr_backup         ;3 bytes
-cursor_backup = cmd_do_find_cursor_backup   ;2 bytes
-col_backup = cmd_do_find_col_backup         ;3 bytes
-line_backup = cmd_do_find_line_backup       ;3 bytes
-
 .endproc
 
 ;******************************************************************************
@@ -1602,6 +1663,7 @@ execute_loop:
 
 execute_done:
     inc replaced_count
+    lda replaced_count
 
     lda replace_all
     beq :+
@@ -2130,7 +2192,8 @@ fgcolor = tempvars
 ;Error returns.......: None
 .proc cmd_set_word_wrap
     lda cmd_wordwrap_mode
-    bne off
+    beq on
+    jmp off
 
 on:
     lda APP_MOD
