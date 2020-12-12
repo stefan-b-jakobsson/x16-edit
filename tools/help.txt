@@ -1,0 +1,53 @@
+HELP
+--------------------------------------------------------------------------------
+
+X16 Edit is a text editor for the Commander X16 platform with a look and feel
+inspired by GNU Nano.
+
+The editor is modeless. Commands are selected by Ctrl+key sequences. You may
+alternatively press and release ESC, and the next key will be interpreted as
+a command. Some functions are also available via a function key.
+
+^G  (F1)  Display built-in help screen
+^X  (F2)  Exit program
+^W  (F3)  Write text buffer to file
+^O  (F4)  Open and read file into text buffer
+^N        Create new text buffer
+^Y        PageUp
+^V        PageDown
+^K  (F5)  Cut current line to clipboard
+^B        Copy current line to clipboard
+^U  (F6)  Uncut (paste) all content from clipboard to text buffer
+^P  (F7)  Show current position (line/column)
+^F  (F8)  Search and find text (case sensitive)
+^R        Replace one or all occurences of a string (case sensitive)
+^L        Go to line number
+^A        Toggle auto indent on/off
+^Z        Toggle word wrap on/off
+^E        Change charset
+^D        Set file storage device number
+
+The following commands are only available by first pressing and releasing ESC.
+
+1..9      Set tab width
+C         Set text color (default white)
+S         Set background color (default blue)
+M         Show memory usage (1 bank=251 bytes of text)
+SPACE     Insert non-breaking space
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------
+X16 Edit, Copyright 2020, Stefan Jakobsson.
+
+This program is free software and comes with ABSOLUTELY NO WARRANTY. You may
+redistribute and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3 of the License,
+or, at your option, any later version. For detailed terms see supplemented file
+"license". Also available from <https://www.gnu.org/licenses>.
+--------------------------------------------------------------------------------
