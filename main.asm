@@ -104,8 +104,8 @@ rambackup:
     cmp #2
     bne :-
 
-exit:
     jsr ram_restore     ;Restore ZP and $0400-$07FF
+exit:
     rts
 
 errormsg:

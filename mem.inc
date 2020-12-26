@@ -128,7 +128,6 @@ blocks_free_counter:
     sta mem_blocks_free+1
 
     ;Setup zero page vectors
-    inc $6000
     ;Bank
     lda mem_start
     ina
@@ -1272,7 +1271,9 @@ default:
     sta mem_modified
     rts
 
-at_lf = mem_delete_at_lf
+.segment "VARS"
+    at_lf: .res 1
+.CODE
 .endproc
 
 
@@ -1370,7 +1371,9 @@ default:
     ldx at_lf
     rts
 
-at_lf = mem_crs_step_right_at_lf
+.segment "VARS"
+    at_lf: .res 1
+.CODE
 .endproc
 
 ;**********************************************************
@@ -1438,7 +1441,9 @@ exit:
  :  clc
     rts
 
-at_lf = mem_crs_step_left_at_lf
+.segment "VARS"
+    at_lf: .res 1
+.CODE
 .endproc
 
 ;**********************************************************
@@ -1497,7 +1502,9 @@ exit:
    
     rts
 
-count = mem_crs_move_to_line_start_count
+.segment "VARS"
+    count: .res 3
+.CODE
 .endproc
 
 ;**********************************************************
@@ -1601,8 +1608,10 @@ found:
     ldy counter+1
     rts
 
-pagelen = mem_crs_move_to_prev_blankspace_pagelen
-counter = mem_crs_move_to_prev_blankspace_counter
+.segment "VARS"
+    pagelen: .res 1
+    counter: .res 2
+.CODE
 
 .endproc
 
@@ -1646,7 +1655,10 @@ exit:
 
     rts
 
-count = mem_crs_move_to_line_end_count
+.segment "VARS"
+    count: .res 2
+.CODE
+
 .endproc
 
 ;**********************************************************
@@ -1695,7 +1707,9 @@ count = mem_crs_move_to_line_end_count
     
     rts
 
-backup = mem_lnv_step_left_backup
+.segment "VARS"
+    backup: .res 3
+.CODE
 .endproc
 
 ;**********************************************************
@@ -1744,7 +1758,9 @@ backup = mem_lnv_step_left_backup
     
     rts
 
-backup=mem_lnv_step_right_backup
+.segment "VARS"
+    backup: .res 3
+.CODE
 .endproc
 
 ;**********************************************************
@@ -1788,8 +1804,10 @@ backup=mem_lnv_step_right_backup
     sta CRS_IDX
     
     rts
-    
-backup = mem_scr_move_down_backup
+
+.segment "VARS"    
+    backup: .res 3
+.CODE
 .endproc
 
 ;**********************************************************
@@ -1835,7 +1853,10 @@ backup = mem_scr_move_down_backup
     
     rts
 
-backup = mem_scr_move_up_backup
+.segment "VARS"
+    backup: .res 3
+.CODE
+
 .endproc
 
 ;**********************************************************
@@ -1953,3 +1974,13 @@ exit:
 exit:
     rts
 .endproc
+
+.segment "VARS"
+    mem_run_defrag_page:    .res 2
+    mem_modified:           .res 1              ;1 byte 
+    mem_blocks_free:        .res 2              ;2 bytes
+    mem_start:              .res 1              ;1 byte
+    mem_top:                .res 1              ;1 byte
+    mem_cur_line:           .res 3              ;3 bytes
+    mem_cur_col:            .res 3              ;3 bytes
+.CODE

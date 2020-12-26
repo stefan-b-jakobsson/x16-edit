@@ -12,7 +12,7 @@
 
 \section{Introduction}
 
-    This document describes the steps required for installing and using the X16 Edit ROM version:
+    This document describes the steps required to install and use the X16 Edit ROM version:
 
     \begin{itemize}
         \item Prepare a custom ROM image
@@ -28,7 +28,7 @@
     You got the standard ROM image when you downloaded the emulator. It's the file
     rom.bin, normally in the same folder as the emulator.
 
-    According to the X16 PRG, the standard ROM image banks---16 kB each---are allocated as follows:
+    The standard ROM image uses banks 0--6 as follows:
 
     \begin{enumerate}
         \setcounter{enumi}{-1}
@@ -38,14 +38,14 @@
         \item GEOS KERNAL
         \item BASIC interpreter
         \item Machine language monitor
-        \item Used by the Kernal even though the X16 PRG don't say so
+        \item Charset data
         \item Unused
     \end{enumerate}
 
     \noindent The most user-friendly option would be to distribute a complete custom ROM image with
     banks 0--6 from the standard rom.bin, and with X16 Edit ROM code in bank 7.
 
-    The X16 Kernal is, however, not free software, and I have no right to distribute it in its
+    The X16 Kernal is, however, not free software, and I am probably not allowed to distribute it in its
     original form or in an amended form. Consequently, the X16 Edit ROM version contains only the X16 Edit code (one bank, 16 kB). To get a 
     usable ROM image, you need to append the X16 Edit ROM code to the standard
     rom.bin file.
@@ -56,7 +56,7 @@
         cat rom.bin x16edit-rom-x.x.x.bin > customrom.bin
     \end{verbatim}
 
-    If you're using Windows, and cat is not available, you may try using the type command instead:
+    If you're using Windows, and cat is not available, you may try using the type command instead (not tested):
     
     \begin{verbatim}
         type rom.bin x16edit-rom-x.x.x.bin > customrom.bin
@@ -75,13 +75,14 @@
     The startup program should do the following:
 
     \begin{itemize}
-        \item Switch to the ROM bank where X16 Edit is stored, which will be bank 7 if you follow the ROM image preparation instructions above
+        \item Switch to the ROM bank where X16 Edit is stored, which will be bank 7 if you follow the ROM image preparation instructions above.
 
-        \item Set the part of banked RAM available to the editor---load the first bank in the X register and the last bank in the Y register
+        \item Set the part of banked RAM available to the editor---load the start bank in the X register and the last bank in the Y register.
+        Bank 0 is used by the Kernal, so you should not specify a start bank number lower than 1.
 
-        \item Call the editor ROM entry point, \$C000
+        \item Call the editor ROM entry point, \$C000.
 
-        \item On returning from the editor, restore the ROM bank to its original value
+        \item On returning from the editor, restore the ROM bank select to its original value.
     \end{itemize}
 
     \noindent An example of such a startup code typed in the built-in monitor could look like this (don't type in the comments after semicolons):
@@ -89,8 +90,8 @@
     \begin{verbatim}
         .A 9E00 LDA $9F60       ;Get current ROM bank...
         .A 9E03 PHA             ;... and store it on the stack
-        .A 9E04 LDA #$07        ;Store editor ROM bank in...
-        .A 9E06 STA $9F60       ;...ROM select, here 7
+        .A 9E04 LDA #$07        ;Store bank 7...
+        .A 9E06 STA $9F60       ;...in the ROM select
         .A 9E09 LDX #$01        ;Set first RAM bank used to 1
         .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
         .A 9E0D JSR $C000       ;Call editor entry point
@@ -106,7 +107,7 @@
     The X16 Edit ROM version is currently a proof of concept, showing that the code is ready to be installed and run in ROM.
     
     The installation and startup process is not very convenient for the end-user at this stage. The editor version is of most
-    interest if you like to install your own custom rom image or if the X16 project would like to officially include the
+    interest if you like to install your own custom ROM image or if the X16 project would like to officially include the
     editor in the standard ROM. In the latter case, there could be a BASIC command to start the editor in a similar way
     that the built-in monitor is started.
 

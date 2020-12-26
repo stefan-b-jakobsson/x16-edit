@@ -150,3 +150,7 @@ shutdown:
     rts
 .endproc
 .endif
+
+.segment "VARS"
+    irq_default_handler:    .res 2              ;2 bytes
+.CODE

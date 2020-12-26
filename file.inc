@@ -57,6 +57,29 @@ msg:
     ;Set default = no i/o error
     stz file_io_err
     
+    ;Append ",s,w" to file name
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    
+    phy
+    
+    tay
+    lda #','
+    sta (TMP1_ADR),y
+    iny
+    lda #'s'
+    sta (TMP1_ADR),y
+    iny
+    lda #','
+    sta (TMP1_ADR),y
+    iny
+    lda #'w'
+    sta (TMP1_ADR),y
+    iny
+    
+    tya
+    ply
+
     ;Close file #1, and open file #1 for writing
     pha
     bridge_setaddr KERNAL_SETNAM
@@ -70,7 +93,7 @@ msg:
     bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx file_cur_device
-    ldy #1
+    ldy #3
     bridge_call KERNAL_SETLFS
     bcc :+
     jmp io_err
@@ -173,9 +196,32 @@ page_len = tempvars     ;1 byte
 ;                      Length of file name in A
 ;Returns.............: Nothing
 ;Error returns.......: Kernal I/O error code available in file_io_err
-.proc file_read  
+.proc file_read 
     ;Set default = no I/O error
     stz file_io_err
+
+    ;Append ",s,r" to file name
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    
+    phy
+    
+    tay
+    lda #','
+    sta (TMP1_ADR),y
+    iny
+    lda #'s'
+    sta (TMP1_ADR),y
+    iny
+    lda #','
+    sta (TMP1_ADR),y
+    iny
+    lda #'r'
+    sta (TMP1_ADR),y
+    iny
+    
+    tya
+    ply
 
     ;Close file #1, and open file #1 for reading
     pha
@@ -190,7 +236,7 @@ page_len = tempvars     ;1 byte
     bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx file_cur_device
-    ldy #2
+    ldy #3
     bridge_call KERNAL_SETLFS
 
     bridge_setaddr KERNAL_OPEN
@@ -324,6 +370,7 @@ close:
     bridge_setaddr KERNAL_CLOSE
     lda #1
     bridge_call KERNAL_CLOSE
+
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
     
@@ -337,9 +384,11 @@ mem_full:
     lda #10         ;Set memory full error
     jmp io_err      
 
-first_char = file_read_first_char   ;1 byte
-curpage_len = file_read_curpage_len ;1 byte
-newpage = file_read_newpage         ;2 bytes
+.segment "VARS"
+    first_char: .res 1
+    curpage_len: .res 1
+    newpage: .res 2 
+.CODE
 
 msg:
     .byt "memory full",0
@@ -493,3 +542,10 @@ file_ioerr_9:
     .byt "i/o error: illegal device number", 0
 file_ioerr_10:
     .byt "memory full error", 0
+
+.segment "VARS"
+    file_io_err:            .res 1              ;1 byte
+    file_cur_filename_len:  .res 1              ;1 byte
+    file_cur_device:        .res 1              ;1 byte
+    file_format:            .res 1              ;1 byte
+.CODE

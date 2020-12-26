@@ -170,7 +170,10 @@ bs_not_found:
     sec
     rts
 
-prevblank = cmd_word_wrap_prevblank     ;2 bytes
+.segment "VARS"
+    prevblank: .res 2
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -286,8 +289,11 @@ mem_full:
     clc
     rts
 
-counter1 = cmd_insert_lf_counter1       ;2 bytes
-counter2 = cmd_insert_lf_counter2       ;2 bytes
+.segment "VARS"
+    counter1: .res 2
+    counter2: .res 2
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -374,7 +380,9 @@ at_tab_stop:
     ;Exit and refresh line
     jmp screen_println
 
-counter = cmd_insert_tab_counter    ;3 bytes
+.segment "VARS"
+    counter: .res 3
+.CODE
 
 .endproc
 
@@ -463,7 +471,9 @@ linebreak_deleted_exit:
     ldx #1
     rts
 
-counter = cmd_delete_counter    ;2 bytes
+.segment "VARS"
+    counter: .res 2
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -723,7 +733,9 @@ at_first_line:
     sec
     rts
 
-count = cmd_go_up_count     ;2 bytes
+.segment "VARS"
+    count: .res 2
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -848,7 +860,10 @@ at_last_line:
     sec
     rts
 
-count = cmd_go_down_count       ;2 bytes
+.segment "VARS"
+    count: .res 2
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -916,7 +931,10 @@ loop:
 exit:
     rts
 
-counter = cmd_go_end_counter        ;2 bytes
+.segment "VARS"
+    counter: .res 2
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -1349,7 +1367,10 @@ msg_start:
 msg_col:
     .byt ", column ", 0
 
-index = cmd_show_curpos_index       ;1 byte
+.segment "VARS"
+    index: .res 1
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -1535,8 +1556,11 @@ eof:
     sec
     rts
 
-string_len = cmd_do_find_string_len         ;1 byte
-match = cmd_do_find_match                   ;1 byte
+.segment "VARS"
+    string_len: .res 1
+    match: .res 1
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -1744,10 +1768,13 @@ msg_notfound:
     .byt "string not found",0
 
 searchfor = cmd_display_msg
-searchfor_len = cmd_replace_searchfor_len       ;1 byte
-counter = cmd_replace_counter                   ;1 byte
-replace_all = cmd_replace_replace_all           ;1 byte
-replaced_count = cmd_replace_replaced_count     ;3 bytes
+
+.segment "VARS"
+    searchfor_len: .res 1
+    counter: .res 1
+    replace_all: .res 1
+    replaced_count: .res 3
+.CODE
 
 .endproc
 
@@ -1989,7 +2016,9 @@ invalid_input:
 
     rts
 
-line = cmd_do_goto_line_line        ;3 bytes
+.segment "VARS"
+    line: .res 3
+.CODE
 
 msg:
     .byt "invalid line number",0
@@ -2276,7 +2305,9 @@ off:
     ldy #>msg_off
     jmp screen_print_status
 
-col = cmd_set_word_wrap_col     ;4 bytes
+.segment "VARS"
+    col: .res 4
+.CODE
 
 msg_prompt:
     .byt "set word wrap at column:", 0
@@ -2288,3 +2319,9 @@ msg_illegal:
     .byt "invalid value, column must be in range 10..250",0
 
 .endproc
+
+.segment "VARS"
+    cmd_auto_indent_status: .res 1              ;1 byte
+    cmd_wordwrap_mode:      .res 1              ;1 byte
+    cmd_wordwrap_pos:       .res 1              ;1 byte
+.CODE

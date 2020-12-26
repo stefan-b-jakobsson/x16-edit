@@ -117,20 +117,40 @@ overwrite_msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_file_save_overwrite
-    ;Prepend input with @0: to overwrite existing file
+    ;Prepend input with @ to overwrite existing file
     stz prompt_curpos
     lda #64
     jsr prompt_insert
     inc prompt_curpos
-    lda #'0'
-    jsr prompt_insert
-    inc prompt_curpos
+
+    ;Insert colon if doesn't already exist in path
+    lda #<prompt_input
+    sta TMP1_ADR
+    lda #>prompt_input
+    sta TMP1_ADR+1
+    ldy #1
+
+:   cpy prompt_len
+    beq colonnotfound
+    lda (TMP1_ADR),y
+    cmp #':'
+    beq foundcolon
+    iny
+    jmp :-
+
+colonnotfound:
     lda #':'
     jsr prompt_insert
-    inc prompt_curpos
+    lda #2
+    pha
+    jmp :+
+
+foundcolon:
+    lda #1
+    pha
     
     ;Write file
-    lda prompt_len
+:   lda prompt_len
     ldx #<prompt_input
     ldy #>prompt_input
     jsr file_write
@@ -145,15 +165,31 @@ overwrite_msg:
     
     stz mem_modified
 
-    ldx #<(prompt_input+3)
-    ldy #>(prompt_input+3)
+    pla
+    cmp #2
+    beq colonwasadded
+
+colonwasnotadded:    
+    ldx #<(prompt_input+1)
+    ldy #>(prompt_input+1)
     sec
     lda prompt_len
-    sbc #3
+    sbc #1
+    jmp setfilename
+
+colonwasadded:
+    ldx #<(prompt_input+2)
+    ldy #>(prompt_input+2)
+    sec
+    lda prompt_len
+    sbc #2
+
+setfilename:
     jsr file_set_filename
     jsr screen_print_header
 
-:   ldx #<file_disk_status
+ printdiskstatus:
+    ldx #<file_disk_status
     ldy #>file_disk_status
     jsr screen_print_status ;Print disk status message
 
@@ -306,7 +342,7 @@ foundend:
     jmp prompt_default_input
 
 msg:
-    .byt "set file storage device number (1, 8-30):",0
+    .byt "set file storage device number (8-30):",0
 .endproc
 
 .proc cmd_file_do_set_device
@@ -330,8 +366,6 @@ copydone:
     jsr util_bcd_to_bin
     cpx #31
     bcs invalid
-    cpx #1
-    beq valid
     cpx #8
     bcc invalid
 
@@ -351,9 +385,12 @@ invalid:
     sta APP_MOD
     jmp screen_print_status
 
-promptval = cmd_file_do_set_device_promptval        ;3 bytes
-
 msg:
-    .byt "invalid device number, must be in range 1, 8-30",0
+    .byt "invalid device number, must be in range 8-30",0
+
+.segment "VARS"
+    promptval: .res 3        ;3 bytes
+.CODE
+
 .endproc
 

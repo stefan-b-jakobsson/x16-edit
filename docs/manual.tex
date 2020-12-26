@@ -29,7 +29,7 @@
 
 \section{Getting help}
 
-    X16 Edit is controlled by keyboard shortcuts. The most frequently used keyboard 
+    X16 Edit is controlled by keyboard shortcuts. The most frequently used 
     shortcuts are always displayed at the bottom of the screen.
     
     There is also a built-in help screen, which is displayed when you press
@@ -48,18 +48,22 @@
         By default, line breaks are not made automatically. There is no limit
         to the length of a line, other than the available memory. If 
         the current line does not fit on the screen, it is 
-        scrolled horizontally. There is, however, an optional automatic 
+        scrolled horizontally. 
+        
+        There is, however, an optional automatic 
         word wrap mode. Read more about that in section \ref{wordwrap}.
        
     \subsection{Moving the cursor}
 
-        The cursor is moved by the standard arrow keys.
+        The cursor is primarily moved by the standard arrow keys.
 
-        Furthermore, you may move to start of line with the Home key, and to end of line with Shift+Home.
+        You may move to start of line with the Home key, and to end of line with Shift+Home.
 
-        Page up (Ctrl+Y) and page down (Ctrl+V) are also supported.
-
-        Finally, you may go to a specified line number with the go to line feature (Ctrl+L).
+        The computer does not recognize the standard page up and down keys. Those operations
+        are, however, supported by pressing Ctrl+Y (page up) or Ctrl+V (page down).
+        
+        Finally, it is also possible to move the cursor to a specified line number 
+        with the go to line feature (Ctrl+L).
 
     \subsection{Commands}
     \label{commands}
@@ -67,43 +71,47 @@
         Commands are selected with keyboard shortcuts. They may be entered in the following three ways:
 
         \begin{itemize}
-            \item Press and release the Esc key. A message is displayed in the status bar that the program is ready to receive a command key.
-            Press a command key or Esc to abort.
 
-            \item Most commands may alternatively be executed by pressing and holding down the Ctrl key at the same time as you press a command key. 
-            This option is generally to prefer.
+            \item Press and hold down the Ctrl key at the same time as you press a command key. This is the
+            preferred way of selecting commands.
+            
+            \item Alternatively you may press and release the Esc key. The progam is now ready to receive
+            a command key, and a message stating this is displayed in the status bar. 
+            Press a command key, without holding down Ctrl, or Esc to abort. This option is mostly
+            made as a backup, in case the Ctrl+key sequence does not work. 
             
             \item Finally, some commands are available via an optional function key.
         \end{itemize}
 
-	\begin{longtable}{c c c l}
+	\begin{longtable}{c c l}
 		\caption{List of keyboard shortcuts} \\
-	    \textbf{Ctrl} & \textbf{Esc} & \textbf{F-key} & \textbf{Description} \\
+	    \textbf{Ctrl or Esc} & \textbf{F-key} & \textbf{Description} \\
 	    \hline \\
-            G    & G   & F1    & Display built-in help screen \\
-            X    & X   & F2    & Exit from the program \\
-            W    & W   & F3    & Write text buffer to file \\
-            O    & O   & F4    & Open and read a file into the buffer \\
-            N    & N   & ---   & Create new text buffer \\
-            Y    & Y   & ---   & Page up \\
-            V    & V   & ---   & Page down \\
-            K    & K   & F5    & Cut current line and save it to clipboard \\
-            B    & B   & ---   & Copy current line to clipboard \\
-            U    & U   & F6    & Paste (uncut) all content from clipboard \\
-            P    & P   & F7    & Display current cursor position (line and column) \\
-            F    & F   & F8    & Search and find string in buffer (case sensitive) \\
-            R    & R   & ---   & Replace one or all occurrences of a string in buffer (case sensitive) \\
-            L    & L   & ---   & Goto line number \\
-            A    & A   & ---   & Toggle auto indent on/off \\
-            Z    & Z   & ---   & Toggle word wrap on/off \\
-            E    & E   & ---   & Change charset, cycles through the three supported charsets\\
-            D    & D   & ---   & Set file storage device number, default is 8 \\
-            ---    & 1..9 & ---    & Set tab stop width \\
-            ---    & C   &  ---    & Cycle through text colors \\
-            ---    & S   &  ---    & Cycle through background colors \\
-            ---    & M   &  ---    & Show memory usage (1 block=251 bytes) \\
-            ---    & space & ---   & Insert non-breaking space 
+            G    & F1    & Display built-in help screen \\
+            X    & F2    & Exit from the program \\
+            O    & F3    & Write text buffer to file \\
+            R    & F4    & Open and read a file into the buffer \\
+            N    & ---   & Create new text buffer \\
+            Y    & ---   & Page up \\
+            V    & ---   & Page down \\
+            K    & F5    & Cut current line and save it to clipboard \\
+            P    & ---   & Copy current line to clipboard \\
+            U    & F6    & Paste (uncut) all content from clipboard \\
+            C    & F7    & Display current cursor position (line and column) \\
+            W    & F8    & Search and find string in buffer (case sensitive) \\
+            S    & ---   & Replace one or all occurrences of a string in buffer (case sensitive) \\
+            L    & ---   & Goto line number \\
+            A    & ---   & Toggle auto indent on/off \\
+            Z    & ---   & Toggle word wrap on/off \\
+            E    & ---   & Change charset, cycles through the three supported charsets\\
+            D    & ---   & Set file storage device number, default is 8 \\
+            T    &  ---  & Cycle through text colors \\
+            B    &  ---  & Cycle through background colors \\
+            M    &  ---  & Show memory usage (1 block=251 bytes) \\
+            space& ---   & Insert non-breaking space 
         \end{longtable}
+
+        \noindent The tab stop width is set by first pressing and releasing Esc and then one of the digits 1--9.
 
     \subsection{User interface}
 	
@@ -113,7 +121,7 @@
 		\item The title bar
 		\item The status bar
 		\item The shortcut list
-		\item The edit area
+		\item The editor area
 	\end{itemize}
 	
 	\noindent The \textit{title bar} is displayed on the first row of the screen. You find the program name and version to the left. 
@@ -128,10 +136,10 @@
 	The last two lines at the bottom of the screen contain the \textit{shortcut list}. The most frequently used commands are
 	shown here.
 	
-	The \textit{edit area} covers all lines between the title bar and the status bar. 
+	The \textit{editor area} covers all lines between the title bar and the status bar. 
 
     \begin{figure}[H]
-        \caption{Main elements of the user interface, (1) title bar, (2) edit area, (3) status bar, and (4) shortcut list.}
+        \caption{Main elements of the user interface, (1) title bar, (2) editor area, (3) status bar, and (4) shortcut list.}
         \centering\includegraphics[width=0.67\textwidth]{interface.png}
     \end{figure}
 	
@@ -139,11 +147,11 @@
 
         By default, the Commander X16 interprets Shift+space as a non-breaking space. 
         
-        The editor will, however, insert a normal space even if the Shift key is pressed. This is to prevent 
-        mistakes---it is easily done to hold down the 
-        Shift key when pressing space if the character before or after the space is a capital letter.
-        If you actually want to insert a non-breaking space you need to press and release Esc followed
-        by space.
+        To prevent typing errors, the editor will, however, insert a normal space character even if the Shift key is held down.
+        Non-breaking spaces are rarely used when you edit raw text files. And it is quite easy to type them by mistake,
+        especially if the character immediately before or after the space requires the Shift key.
+
+        If you actually want to insert a non-breaking space you may type Ctrl+space.
 
     \subsection{Text buffer size}
 
@@ -154,9 +162,8 @@
         switch memory to the file system. Consequently, it cannot handle text
         buffers larger than the available banked RAM.
 
-        You may get the available free memory by pressing and releasing Esc followed
-        by M. The available memory is reported as number of blocks free. One block
-        may hold at most 251 characters.
+        You may get the available free memory by pressing Ctrl+M. The available memory is 
+        reported as number of blocks free. One block may hold at most 251 characters.
 
         If you have used all available memory, the editor will display a memory
         full message in the status bar. Further insertion of characters is ignored.
@@ -196,17 +203,17 @@
 
         X16 Edit supports the traditional cut, copy, and paste features.
 
-        The copy (Ctrl+B) and cut (Ctrl+K) commands copy all of the current line to the clipboard. It is not possible to select 
+        The copy (Ctrl+P) and cut (Ctrl+K) commands copy all of the current line to the clipboard. It is not possible to select 
         a part of a line. The lines you copy or cut are placed in the clipboard in the order they were copied or cut.
         
         The clipboard may hold a maximum of 3 kB of data. If you reach that limit, the program will inform you.
 
         Pasting or uncutting (Ctrl+U) will insert all content in the clipboard at the position of the cursor. The clipboard
-        is emptied after this.
+        is cleared after this.
 
     \subsection{Search and replace}
 
-        X16 Edit also supports search and replace.
+        X16 Edit also supports search (Ctrl+W) and replace (Ctrl+S).
 
         Both search and replace are case sensitive. Search starts from the
         cursor position and is only forward looking.
@@ -229,7 +236,7 @@
 
             \item ISO character set. This mode is new, and there is no corresponding mode supported by 
             Commodore 8 bit computers. Text is encoded according to ISO-8859-15, making it
-            easy to transfer files to and from modern computers.
+            easier to transfer files to and from modern computers.
         \end{itemize}
 
         \noindent On startup, X16 Edit detects the current character set. If the detection is successful, it
@@ -245,13 +252,13 @@
         The selected character set mode determines how the editor encodes line breaks when writing the
         text buffer to file. 
         
-        In the PETSCII modes, it uses a single CR to indicate line breaks. This
+        In both PETSCII modes, it uses a single CR to indicate line breaks. This
         is the closest you get to a standard for Commodore 8 bit computers. This is also the
         setup most likely to work with applications written for Commodore computers.
         
         In ISO mode it uses
         a single LF to mark line breaks. This is the standard used today by Linux and MacOS. Following
-        this standard makes it easy to transfer text files to or from modern computers.
+        this standard makes it easier to transfer text files to or from modern computers.
 
         Internally the editor uses a single LF as line break marker. On reading a file it converts
         all occurrences of CR to LF. When writing the text buffer back to file, the line breaks
@@ -266,8 +273,8 @@
 
         Both the background and the text color may be changed while using the editor.
 
-        Press and release Esc and then S to cycle through background color options.
-        Press and release Esc and then C to cycle through text color options.
+        Press Ctrl+T to cycle through background color options.
+        Press Ctrl+B to cycle through text color options.
 
         \begin{figure}[H]
             \caption{Use your favorite colors!}
@@ -276,7 +283,7 @@
        
 \section{File handling}
 
-    X16 Edit supports no other file handling functions than reading (Ctrl+O) and writing files (Ctrl+W).
+    X16 Edit supports no other file handling functions than reading (Ctrl+R) and writing files (Ctrl+O).
 
     In order to simplify the program, there are no functions to show directory listings,
     or to rename, move or delete files. These operations need to be handled at the

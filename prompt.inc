@@ -152,8 +152,11 @@ loop:
 exit:
     jmp prompt_refresh
     
-len = prompt_default_input_len      ;1 byte
-index = prompt_default_input_index  ;1 byte
+.segment "VARS"
+    len: .res 1
+    index: .res 1
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -434,3 +437,12 @@ exit:
     rts
 
 .endproc
+
+.segment "VARS"
+    prompt_start:           .res 1              ;1 byte
+    prompt_fvc:             .res 1              ;1 byte
+    prompt_curpos:          .res 1              ;1 byte
+    prompt_len:             .res 1              ;1 byte
+    prompt_maxlen:          .res 1              ;1 byte
+    prompt_cursor_backup:   .res 2              ;2 bytes
+.CODE

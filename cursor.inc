@@ -390,3 +390,10 @@ exit:
     stz cursor_toggle_counter
     rts
 .endproc
+
+
+.segment "VARS"
+    CRS_X:                  .res 1              ;Cursor screen column position
+    CRS_Y:                  .res 1              ;Cursor screen row position
+    cursor_toggle_counter:  .res 1              ;1 byte
+.CODE

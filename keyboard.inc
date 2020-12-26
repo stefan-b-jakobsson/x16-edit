@@ -38,7 +38,6 @@
     jmp mem_run_defrag
     
 gotachar:
-    sta $6000
     ;Store char in Y temporarily
     tay
 
@@ -55,7 +54,9 @@ gotachar:
     ;Jump to event handler
     jmp (eventhandler)
 
-eventhandler = keyboard_read_and_dispatch_eventhandler  ;2 bytes
+.segment "VARS"
+    eventhandler: .res 2
+.CODE
 
 jmptbl_L:
     .byt <keyboard_mode_default
@@ -104,7 +105,44 @@ jmptbl_H:
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
+;Keyboard shordcuts..: ^G=$07 Get Help
+;                      ^X=$18 Exit Program
+;                      ^O=$0f Write Out
+;                      ^R=$12 Read file
+;                      ^N=$0e New buffer
+;                      ^Y=$19 PageUp
+;                      ^V=$16 PageDown
+;                      ^K=$0b Cut
+;                      ^P=$10 Copy
+;                      ^U=$15 Uncut (paste)
+;                      ^C=$03 Show cursor position
+;                      ^W=$17 WhereIs
+;                      ^S=$13 Replace
+;                      ^L=$0c Go to line
+;                      ^A=$01 Auto indent on/off
+;                      ^Z=$1a Word wrap on/off
+;                      ^E=$05 Change character encoding
+;                      ^D=$04 Set device number
+;                      ^T=$14 Change text color
+;                      ^B=$02 Change background color
+;                      ^M=$0d Show memory usage
+;                      ^SPACE=$a0 Insert non-breaking space
 .proc keyboard_mode_default
+    ;Store key in Y
+    tay
+
+    ;Get key modifiers
+    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
+    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
+    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
+    tax
+    tya
+
+    cpx #KBD_MODIFIER_CTRL
+    bne modifier_none
+    jmp modifier_ctrl
+
+modifier_none:
     ;ESC key
     cmp #$03
     bne :+
@@ -155,97 +193,6 @@ jmptbl_H:
     bne :+
     jmp keyboard_end_key
 
-    ;Ctrl+G
-:   cmp #$07
-    bne :+
-    jmp cmd_show_help
-
-    ;Ctrl+x
-:   cmp #$18
-    bne :+
-    jmp cmd_exit
-
-    ;Ctrl+Y
-:   cmp #$19
-    bne :+
-    jmp keyboard_cmd_pageup
-
-    ;Ctrl+V
-:   cmp #$16
-    bne :+
-    jmp keyboard_cmd_pagedown
-
-    ;Ctrl+W
-:   cmp #$17
-    bne :+
-    jmp cmd_file_save_prompt
-
-    ;Ctrl+O
-:   cmp #$0f
-    bne :+
-    jmp cmd_file_open_prompt
-
-    ;Ctrl+k
-:   cmp #$0b
-    bne :+
-    jmp cmd_cut
-
-    ;Ctrl+b
-:   cmp #$02
-    bne :+
-    jmp cmd_copy
-
-    ;Ctrl+u
-:   cmp #$15
-    bne :+
-    jmp cmd_paste
-
-    ;Ctrl+p
-:   cmp #$10
-    bne :+
-    jmp cmd_show_curpos
-
-    ;Ctrl+l
-:   cmp #$0c
-    bne :+
-    jmp cmd_goto_line
-
-    ;Ctrl+f
-:   cmp #$06
-    bne :+
-    jmp cmd_find
-
-    ;Ctrl+r
-:   cmp #$12
-    bne :+
-    lda #0
-    jmp cmd_replace
-
-    ;Ctrl+n
-:   cmp #$0e
-    bne :+
-    jmp cmd_new_buffer
-
-    ;Ctrl+e
-:   cmp #$05
-    bne :+
-    jmp cmd_change_encoding
-
-    ;Ctrl+a
-:   cmp #$01
-    bne :+
-    jmp cmd_auto_indent
-
-    ;Ctrl+z
-:   cmp #$1a
-    bne :+
-    jmp cmd_set_word_wrap
-
-    ;Ctrl+d
-:   cmp #$04
-    bne :+
-    jmp cmd_file_set_device
-
     ;F1
 :   cmp #$85
     bne :+
@@ -261,42 +208,154 @@ jmptbl_H:
     bne :+
     jmp cmd_file_save_prompt
 
-    ;F4
-:   cmp #$8a
-    bne :+
-    jmp cmd_file_open_prompt
-
     ;F5
 :   cmp #$87
     bne :+
-    jmp cmd_cut
+    jmp cmd_file_open_prompt
 
     ;F6
 :   cmp #$8b
     bne :+
-    jmp cmd_paste
+    jmp cmd_find
 
     ;F7
 :   cmp #$88
     bne :+
-    jmp cmd_show_curpos
+    jmp keyboard_cmd_pageup
 
     ;F8
 :   cmp #$8c
     bne :+
-    jmp cmd_find
+    jmp keyboard_cmd_pagedown
 
 :   ;Convert non-breaking space (Shift+space, ASCII 160) to normal space char
     cmp #$a0
-    bne :+
+    bne default_handler
     lda #$20
 
     ;Default key handler
-:   jsr cmd_insert
+default_handler:
+    jsr cmd_insert
     bcs :+
     jmp screen_println
 :   jsr screen_refresh
     jmp screen_println
+
+modifier_ctrl:
+    ;Ctrl+G
+    cmp #$07
+    bne :+
+    jmp cmd_show_help
+
+    ;Ctrl+X
+:   cmp #$18
+    bne :+
+    jmp cmd_exit
+
+    ;Ctrl+O
+:   cmp #$0f
+    bne :+
+    jmp cmd_file_save_prompt
+
+    ;Ctrl+R
+:   cmp #$12
+    bne :+
+    lda #0
+    jmp cmd_file_open_prompt
+
+    ;Ctrl+N
+:   cmp #$0e
+    bne :+
+    jmp cmd_new_buffer
+
+    ;Ctrl+V
+:   cmp #$16
+    bne :+
+    jmp keyboard_cmd_pagedown
+
+    ;Ctrl+Y
+:   cmp #$19
+    bne :+
+    jmp keyboard_cmd_pageup
+
+    ;Ctrl+K
+:   cmp #$0b
+    bne :+
+    jmp cmd_cut
+
+    ;Ctrl+P
+    cmp #$10
+    bne :+
+    jmp cmd_copy
+
+    ;Ctrl+U
+:   cmp #$15
+    bne :+
+    jmp cmd_paste
+
+    ;Ctrl+C
+:   cmp #3
+    bne :+
+    jmp cmd_show_curpos
+
+    ;Ctrl+W
+:   cmp #$17
+    bne :+
+    jmp cmd_find
+
+    ;Ctrl+S
+:   cmp #$13
+    bne :+
+    lda #0
+    jmp cmd_replace
+
+    ;Ctrl+L
+:   cmp #$0c
+    bne :+
+    jmp cmd_goto_line
+
+    ;Ctrl+A
+:   cmp #$01
+    bne :+
+    jmp cmd_auto_indent
+
+    ;Ctrl+Z
+:   cmp #$1a
+    bne :+
+    jmp cmd_set_word_wrap
+
+    ;Ctrl+E
+:   cmp #$05
+    bne :+
+    jmp cmd_change_encoding
+
+    ;Ctrl+D
+:   cmp #$04
+    bne :+
+    jmp cmd_file_set_device
+
+    ;Ctrl+T
+:   cmp #$14
+    bne :+
+    jmp cmd_rotate_text_color
+
+    ;Ctrl+B
+:   cmp #$02
+    bne :+
+    jmp cmd_rotate_background_color
+
+    ;Ctrl+M
+:   cmp #$0d
+    bne :+
+    jmp cmd_mem_usage
+
+    ;Ctrl+space, insert non-breaking space
+:   cmp #$a0
+    bne :+
+    jmp default_handler
+
+:   rts
+
 .endproc
 
 ;******************************************************************************
@@ -367,13 +426,13 @@ jmptbl_H:
 :   cmp #$57
     bne :+
     jsr cursor_activate
-    jmp cmd_file_save_prompt
+    jmp cmd_find
 
     ;o
 :   cmp #$4f
     bne :+
     jsr cursor_activate
-    jmp cmd_file_open_prompt
+    jmp cmd_file_save_prompt
 
     ;n
 :   cmp #$4e
@@ -410,7 +469,7 @@ jmptbl_H:
     stz APP_MOD
     jsr screen_clear_status
     jsr cursor_activate
-    jmp cmd_copy
+    jmp cmd_rotate_background_color
 
     ;m
 :   cmp #$4d
@@ -429,21 +488,17 @@ jmptbl_H:
     ;p
 :   cmp #$50
     bne :+
+    stz APP_MOD
     jsr cursor_activate
-    jmp cmd_show_curpos
-
-    ;f
-:   cmp #$46
-    bne :+
-    jsr cursor_activate
-    jmp cmd_find
+    jsr screen_clear_status
+    jmp cmd_copy
 
     ;r
 :   cmp #$52
     bne :+
     jsr cursor_activate
     lda #0
-    jmp cmd_replace
+    jmp cmd_file_open_prompt
 
     ;e
 :   cmp #$45
@@ -474,13 +529,19 @@ jmptbl_H:
 :   cmp #$43
     bne :+
     jsr cursor_activate
-    jmp cmd_rotate_text_color
+    jmp cmd_show_curpos
 
     ;s
 :   cmp #$53
-    bne unknown
+    bne :+
     jsr cursor_activate
-    jmp cmd_rotate_background_color
+    lda #0
+    jmp cmd_replace
+
+    ;t
+:   cmp #$54
+    bne unknown
+    jmp cmd_rotate_text_color
 
     ;Uknown command, ignore
 unknown:
@@ -1130,7 +1191,10 @@ exit:
 
     jmp screen_refresh
 
-linecount = keyboard_cmd_pageup_linecount   ;1 byte
+.segment "VARS"
+    linecount: .res 1
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -1150,6 +1214,12 @@ linecount = keyboard_cmd_pageup_linecount   ;1 byte
 
     jmp screen_refresh
 
-linecount = keyboard_cmd_pagedown_linecount ;1 byte
+.segment "VARS"
+    linecount: .res 1
+.CODE
 
 .endproc
+
+.segment "VARS"
+    keyboard_tabwidth:      .res 1              ;1 byte
+.CODE

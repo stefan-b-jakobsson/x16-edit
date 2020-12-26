@@ -17,6 +17,8 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
+.import __ZEROPAGE_LOAD__, __ZEROPAGE_SIZE__, __VARS_LOAD__
+
 ;******************************************************************************
 ;Function name.......: ram_backup
 ;Purpose.............: Backup of zero page addresses and $0400-07FF used by the
@@ -34,28 +36,30 @@
     sta BNK_SEL
 
     ;Copy zero page addresses used by the program
-    zpstart = CRS_BNK
-    zpsize = CRS_Y-zpstart+1
     backup = $b000
+    VARS = __VARS_LOAD__
+    zpsize = $14
 
     ldx #0
-:   lda zpstart,x
+:   lda __ZEROPAGE_LOAD__,x
     sta $b000,x
     inx
     cpx #zpsize
     bne :-
 
-    ;Copy $0400-$07FF, mem_start and mem_top already affected by startup, but we
+    ;Copy VARS segment, mem_start and mem_top already affected by startup, but we
     ;handle those two bytes in a jiffy
+    
     ldx #0
-:   lda $0400,x
+:   lda VARS,x
     sta backup+zpsize,x
-    lda $0500,x
-    sta backup+$100+zpsize,x
-    lda $0600,x
-    sta backup+$200+zpsize,x
-    lda $0700,x
-    sta backup+$300+zpsize,x
+    lda VARS+$0100,x
+    sta backup+$0100+zpsize,x
+    lda VARS+$0200,x
+    sta backup+$0200+zpsize,x
+    lda VARS+$0300,x
+    sta backup+$0300+zpsize,x
+    
     inx
     bne :-
 
@@ -64,9 +68,9 @@
     ply     ;...two bytes, and temporarily store in X and Y
 
     pla     ;Pull off mem_top
-    sta backup+zpsize+mem_top-$0400
+    sta backup+zpsize+mem_top-VARS
     pla     ;Pull off mem_start
-    sta backup+zpsize+mem_start-$0400
+    sta backup+zpsize+mem_start-VARS
 
     ;Restore return address on stack
     phy
@@ -90,13 +94,13 @@
     sta BNK_SEL
 
     ;Restore zero page
-    zpstart = CRS_BNK
-    zpsize = CRS_Y-zpstart+1
+    zpsize = $14
     backup = $b000
+    VARS = __VARS_LOAD__
 
     ldx #0
 :   lda backup,x
-    sta zpstart,x
+    sta __ZEROPAGE_LOAD__,x
     inx
     cpx #zpsize
     bne :-
@@ -104,13 +108,13 @@
     ;Restore $0400-$07FF
     ldx #0
 :   lda backup+zpsize,x
-    sta $0400,x
+    sta VARS,x
     lda backup+zpsize+$100,x
-    sta $0500,x
+    sta VARS+$0100,x
     lda backup+zpsize+$200,x
-    sta $0600,x
+    sta VARS+$0200,x
     lda backup+zpsize+$300,x
-    sta $0700,x
+    sta VARS+$0300,x
     inx
     bne :-
 

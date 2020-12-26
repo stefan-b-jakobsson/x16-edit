@@ -17,7 +17,7 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-bridge_call = $0780
+bridge_call = bridge_code
 bridge_addr = bridge_call+4
 
 .if target_mem=target_rom

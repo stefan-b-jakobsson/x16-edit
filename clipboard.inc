@@ -205,7 +205,9 @@ mem_full:
     sec
     rts
 
-count = clipboard_copy_count    ;3 bytes
+.segment "VARS"
+    count: .res 3
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -256,7 +258,10 @@ exit:
     clc
     rts
 
-count = clipboard_cut_count     ;3 bytes
+.segment "VARS"
+    count: .res 3   ;3 bytes
+.CODE
+
 .endproc
 
 ;******************************************************************************
@@ -304,3 +309,8 @@ paste_done:
     jmp clipboard_init
 
 .endproc
+
+.segment "VARS"
+    clipboard_pointer:      .res 2              ;2 bytes
+    clipboard_end:          .res 2              ;2 bytes
+.CODE
