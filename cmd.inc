@@ -202,12 +202,17 @@ bs_not_found:
     jsr mem_crs_move_to_line_start
     stx counter1
     sty counter1+1
+    sta counter1+2
 
     stz counter2
     stz counter2+1
+    stz counter2+2
 
 auto_indent_loop:
     ;Count leading blank spaces on the line
+    lda counter1+2
+    cmp counter2+2
+    bne :+
     lda counter1+1
     cmp counter2+1
     bne :+
@@ -230,6 +235,8 @@ auto_indent_loop:
     inc counter2
     bne auto_indent_loop
     inc counter2+1
+    bne auto_indent_loop
+    inc counter2+2
     jmp auto_indent_loop
 
 auto_indent_stop:
@@ -268,6 +275,8 @@ auto_indent_insert_blanks:
     lda counter2
     bne :+
     lda counter2+1
+    bne :+
+    lda counter2+2
     beq linefeed_exit
 
 :   lda #32
@@ -277,7 +286,13 @@ auto_indent_insert_blanks:
     lda counter2
     cmp #$ff
     bne auto_indent_insert_blanks
+
     dec counter2+1
+    lda counter2+1
+    cmp #$ff
+    bne auto_indent_insert_blanks
+    
+    dec counter2+2
     jmp auto_indent_insert_blanks
 
 linefeed_exit:
@@ -290,8 +305,8 @@ mem_full:
     rts
 
 .segment "VARS"
-    counter1: .res 2
-    counter2: .res 2
+    counter1: .res 3
+    counter2: .res 3
 .CODE
 
 .endproc
@@ -321,6 +336,7 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc cmd_insert_tab
+    stz $6000
     ;Find next tab stop by adding the tab width until we pass the current column index
     lda #1
     sta counter
@@ -330,23 +346,30 @@ msg:
 loop:
     lda counter+2
     cmp mem_cur_col+2
-    bcc :+
-    lda counter+1
+    beq :+
+    bcs at_tab_stop
+
+:   lda counter+1
     cmp mem_cur_col+1
-    bcc :+
-    lda counter
+    beq :+
+    bcs at_tab_stop
+
+:   lda counter
     cmp mem_cur_col
     beq :+
     bcs at_tab_stop
 
 :   clc
+
     lda counter
     adc keyboard_tabwidth
     sta counter
+    sta $6000
     
     lda counter+1
     adc #0
     sta counter+1
+    sta $6001
 
     lda counter+2
     adc #0
@@ -356,6 +379,12 @@ loop:
     
 
 at_tab_stop:
+    lda mem_cur_col
+    lda mem_cur_col+1
+    lda counter
+    lda counter+1
+    lda counter+2
+
     ;Calculate difference
     sec
     
@@ -364,11 +393,11 @@ at_tab_stop:
     sta counter
     
     lda counter+1
-    sbc #0
+    sbc mem_cur_col+1
     sta counter+1
     
     lda counter+2
-    sbc #0
+    sbc mem_cur_col+2
     sta counter+2
 
     ;Insert blank spaces
@@ -432,6 +461,7 @@ linebreak_deleted:
     jsr mem_crs_move_to_line_start
     stx counter
     sty counter+1
+    sta counter+2
 
     ;Set first visible char of that line to start of line (cursor position)
     jsr mem_set_lnv_to_crs
@@ -445,6 +475,8 @@ loop:
     lda counter
     bne :+
     lda counter+1
+    bne :+
+    lda counter+2
     beq linebreak_deleted_exit
 
 :   jsr mem_crs_step_right
@@ -458,12 +490,27 @@ loop:
     jsr mem_lnv_step_right
 
 continue:
+    ;Check if done
+    lda counter
+    bne :+
+    lda counter+1
+    bne :+
+    lda counter+2
+    beq linebreak_deleted_exit
+
     ;Decrease column counter
-    dec counter
+:   dec counter
     lda counter
     cmp #$ff
     bne loop
+    
     dec counter+1
+    lda counter+1
+    cmp #$ff
+    bne loop
+
+    dec counter+2
+
     jmp loop
     
 linebreak_deleted_exit:
@@ -472,7 +519,7 @@ linebreak_deleted_exit:
     rts
 
 .segment "VARS"
-    counter: .res 2
+    counter: .res 3
 .CODE
 .endproc
 
@@ -632,6 +679,7 @@ at_bottom:
     jsr mem_crs_move_to_line_start
     stx count
     sty count+1
+    sta count+2
 
     ;Move one step left to get to end of line above
     jsr mem_crs_step_left
@@ -661,6 +709,8 @@ stepto_column:
     lda count
     bne :+
     lda count+1
+    bne :+
+    lda count+2
     beq exit
 
 :   ;If char = LF then exit
@@ -687,16 +737,17 @@ stepto_column:
     jsr mem_lnv_step_right
 
 dec_count:
-    ;Decrease counter
     dec count
     lda count
     cmp #$ff
     bne stepto_column
 
-    lda count+1
-    beq exit
     dec count+1
+    lda count+1
+    cmp #$ff
+    bne stepto_column
 
+    dec count+2
     jmp stepto_column
 
 exit:
@@ -734,7 +785,7 @@ at_first_line:
     rts
 
 .segment "VARS"
-    count: .res 2
+    count: .res 3
 .CODE
 .endproc
 
@@ -766,6 +817,7 @@ at_first_line:
     jsr mem_crs_move_to_line_start
     stx count
     sty count+1
+    sta count+2
 
     ;Move cursor mem pointer to end of line, and move one more step to get to next line (carry set = end of file)
     jsr mem_crs_move_to_line_end
@@ -795,6 +847,8 @@ loop:
     lda count
     bne loop_2
     lda count+1
+    bne loop_2
+    lda count+2
     beq exit
 
 loop_2:
@@ -822,7 +876,13 @@ loop_3:
     lda count
     cmp #$ff
     bne loop
+
     dec count+1
+    lda count+1
+    cmp #$ff
+    bne loop
+
+    dec count+2
     jmp loop
 
 exit:
@@ -861,7 +921,7 @@ at_last_line:
     rts
 
 .segment "VARS"
-    count: .res 2
+    count: .res 3
 .CODE
 
 .endproc
@@ -901,6 +961,7 @@ at_last_line:
 .proc cmd_go_end
     ;Move cursor mem pointer to end of line, save number of chars stepped over
     jsr mem_crs_move_to_line_end
+    sta counter+2
     sty counter+1
     stx counter
 
@@ -910,6 +971,8 @@ loop:
     lda counter
     bne :+
     lda counter+1
+    bne :+
+    lda counter+2
     beq exit
 
 :   jsr cursor_move_right
@@ -925,14 +988,21 @@ loop:
     lda counter
     cmp #$ff
     bne loop
+
     dec counter+1
+    lda counter+1
+    cmp #$ff
+    bne loop
+
+    dec counter+2
+
     jmp loop
 
 exit:
     rts
 
 .segment "VARS"
-    counter: .res 2
+    counter: .res 3
 .CODE
 
 .endproc

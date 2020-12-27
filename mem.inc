@@ -1452,7 +1452,8 @@ exit:
 ;                      at start of line
 ;Input...............: Nothing
 ;Returns.............: Numbers of steps the cursor was
-;                      moved, LSB in X and MSB in Y
+;                      moved, 24 bit value, X=low, Y=mid, and
+;                      A=high
 ;Error returns.......: Nothing
 .proc mem_crs_move_to_line_start
     stz count
@@ -1515,12 +1516,13 @@ exit:
 ;                      space was found before
 ;Input...............: Nothing
 ;Returns.............: Number of steps the cursor was moved,
-;                      LSB in X and MSB in Y
+;                      24 bit value, X=low, Y=mid, A=high
 ;Error returns.......: C=1 if LF found before a blank space
 .proc mem_crs_move_to_prev_blankspace
     ;Reset counter
     stz counter
     stz counter+1
+    stz counter+2
 
     ;First take one step left before we begin searching
     jsr mem_crs_step_left
@@ -1558,6 +1560,8 @@ loop:
     inc counter
     bne :+
     inc counter+1
+    bne :+
+    inc counter+2
 
 :   lda CRS_IDX
     beq prevpage
@@ -1606,11 +1610,12 @@ found:
     clc
     ldx counter
     ldy counter+1
+    lda counter+2
     rts
 
 .segment "VARS"
     pagelen: .res 1
-    counter: .res 2
+    counter: .res 3
 .CODE
 
 .endproc
@@ -1621,11 +1626,12 @@ found:
 ;                      at end of line
 ;Input...............: Nothing
 ;Returns.............: Number of steps the cursor was moved,
-;                      LSB in X and MSB in Y
+;                      24 bit value, X=low, Y=mid, A=high
 ;Error returns.......: Nothing
 .proc mem_crs_move_to_line_end
     stz count
     stz count+1
+    stz count+2
 
     lda CRS_BNK
     sta BNK_SEL
@@ -1645,18 +1651,20 @@ loop:
     inc count
     bne loop
     inc count+1
-
+    bne loop
+    inc count+2
     jmp loop
 
 exit:
     stz CRS_ADR
-    ldy count+1 ;MSB
-    ldx count   ;LSB
+    lda count+2 ;high
+    ldy count+1 ;mid
+    ldx count   ;low
 
     rts
 
 .segment "VARS"
-    count: .res 2
+    count: .res 3
 .CODE
 
 .endproc

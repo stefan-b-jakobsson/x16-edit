@@ -19,8 +19,8 @@
 
 ;******************************************************************************
 ;Function name.......: bridge_copy
-;Purpose.............: Copies bridge code to RAM location $0780,
-;                      necessary for making the program romable
+;Purpose.............: Copies bridge code to RAM, necessary to make the program 
+;                      run in ROM
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -37,7 +37,7 @@
 ;******************************************************************************
 ;Function name.......: kernal_bridge
 ;Purpose.............: Bridge code to be copied to RAM on program startup.
-;                      Necessary for making the program romable.
+;                      Necessary to make the program run in ROM
 ;Input...............: Use macro BRIDGE_SETADDR to set the Kernal address
 ;                      to call before using this function
 ;Returns.............: Nothing
