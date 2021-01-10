@@ -128,22 +128,20 @@ set_bgcolor:
     ;Setup zero page vector to input string
     stx TMP1_ADR
     sty TMP1_ADR+1
-    sta len
+    sta prompt_len
 
     ldy #0
     sty index
-
 loop:
     ;This loop copies default input string to prompt input
     ldy index
-    cpy len
+    cpy prompt_len
     beq exit
     cpy prompt_maxlen
     beq exit
 
     lda (TMP1_ADR),y
     sta prompt_input,y
-    inc prompt_len
     jsr prompt_go_right
     
     inc index
@@ -153,7 +151,6 @@ exit:
     jmp prompt_refresh
     
 .segment "VARS"
-    len: .res 1
     index: .res 1
 .CODE
 

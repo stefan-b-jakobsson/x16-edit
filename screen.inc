@@ -45,7 +45,7 @@
 
     ;Initial screen setup
     jsr screen_print_header
-    jsr screen_print_footer
+    jsr screen_print_default_footer
     rts
 .endproc
 
@@ -99,11 +99,7 @@ detect:
     cmp #$ff
     beq iso
 
-    ;Unknown charset, return error. This would happen, for example, if the user has
-    ;redefined the characters. The user could of coarse also change
-    ;the definitions in a way that tricks this routine. The consequences would, 
-    ;however not be fatal for the program. The user may manually select what 
-    ;charset to use after starting the program.
+unknown:
     sec
     rts
 
@@ -161,29 +157,12 @@ iso:
     ldx #0
 name_loop:
     lda program_name,x
-    bne :+
-    jmp name_done
-:   ldy screen_mode
-    cpy #1      ;PETSCII uc/gx mode
-    bne :+
-    .scope
-        charset_ascii_to_petscii_ucase
-    .endscope
-    jmp :++
-:   cpy #2      ;PETSCII lc/uc mode
-    bne :+
-    .scope
-        charset_ascii_to_petscii_lcase
-    .endscope
-
-:   sta VERA_D0
+    beq name_done
+    jsr screen_put_uc_char
     inx
     jmp name_loop
 
 name_done:
-    ;Print MOD at top right corner if the buffer has been modified
-    jsr screen_print_mod_status
-
     ;Print current file name (centered)
     lda file_cur_filename_len
     beq new_buffer
@@ -197,9 +176,9 @@ name_done:
 
 :   sta filename_len
 
-    ;Calulate where to start printing file name (78-len)
+    ;Calulate where to start printing file name
 :   sec
-    lda #78
+    lda #80
     sbc filename_len
     and #%11111110
 
@@ -209,70 +188,29 @@ name_done:
     sta VERA_H
 
     ldy #0
-    lda screen_mode
-    bne fname_petscii
-
-fname_iso:
+fn_loop:
     lda file_cur_filename,y
-    sta VERA_D0
+    jsr screen_put_char
     iny
     cpy filename_len
-    bne fname_iso
-    rts
-
-fname_petscii:
-    lda file_cur_filename,y
-    charset_petscii_to_scrcode
-    sta VERA_D0
-    iny
-    cpy filename_len
-    bne fname_petscii
+    bne fn_loop
     rts
 
 new_buffer:
     ;Buffer not yet saved. Prints "NEW BUFFER" instead of a file name
-    lda #(78-10)
+    lda #(80-10)
     sta VERA_L
     stz VERA_M
     lda #(2<<4)
     sta VERA_H
 
     ldy #0
-
-    lda screen_mode
-    beq loop_iso
-    cmp #1
-    beq loop_petscii_uc
-    jmp loop_petscii_lc
-
-loop_iso:
+nb_loop:
     lda new_buffer_msg,y
-    sta VERA_D0
+    jsr screen_put_uc_char
     iny
     cpy #10
-    bne loop_iso
-    rts
-
-loop_petscii_uc:
-    lda new_buffer_msg,y
-    .scope
-        charset_ascii_to_petscii_ucase
-    .endscope
-    sta VERA_D0
-    iny
-    cpy #10
-    bne loop_petscii_uc
-    rts
-
-loop_petscii_lc:
-    lda new_buffer_msg,y
-    .scope
-        charset_ascii_to_petscii_lcase
-    .endscope
-    sta VERA_D0
-    iny
-    cpy #10
-    bne loop_petscii_lc
+    bne nb_loop
     rts
 
 program_name:
@@ -303,27 +241,13 @@ filename_len = tempvars     ;1 byte
     lda mem_modified
     beq clear
 
-    ;Select printing routine based on screen mode
-    lda screen_mode
-    cmp #1
-    beq petscii_uc
-
-default:
+    ;Print
     lda #'m'
-    sta VERA_D0
+    jsr screen_put_uc_char
     lda #'o'
-    sta VERA_D0
+    jsr screen_put_uc_char
     lda #'d'
-    sta VERA_D0
-    rts
-
-petscii_uc:
-    lda #'m'-64
-    sta VERA_D0
-    lda #'o'-64
-    sta VERA_D0
-    lda #'d'-64
-    sta VERA_D0
+    jsr screen_put_uc_char
     rts
 
 clear:
@@ -339,164 +263,150 @@ clear:
 ;******************************************************************************
 ;Function name.......: screen_print_footer
 ;Purpose.............: Prints program footer at two last rows of screen
-;Input...............: None
+;Input...............: Pointer to two consequtive null terminated strings
+;                      one for each footer row, X=AddressL, Y=AddressH
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_print_footer
+    ;Set vector to strings
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+
     ;Set VERA address to print from start of row 58
     lda #0
     sta VERA_L
     lda #58
     sta VERA_M
-    lda #(2<<4)
+    lda #(1<<4)
     sta VERA_H
 
-    ;Prepare printing loop, and select print routine for the current screen mode
+    ldy #255
     ldx #0
-    
-    lda screen_mode
-    beq loop_iso1
-    cmp #1
-    beq loop_petscii_uc1
-    jmp loop_petscii_lc1
-
-loop_iso1:
-    lda row1,x
-    beq loop_iso1_exit
-    sta VERA_D0
-    inx
-    jmp loop_iso1
-loop_iso1_exit:
-    jmp nextrow
-
-loop_petscii_uc1:
-    lda row1,x
-    beq loop_petscii_uc1_exit
-    .scope
-        charset_ascii_to_petscii_ucase
-    .endscope
-    sta VERA_D0
-    inx
-    jmp loop_petscii_uc1
-loop_petscii_uc1_exit:
-    jmp nextrow
-
-loop_petscii_lc1:
-    lda row1,x
+    lda (TMP1_ADR),y
+printloop:
+    iny
+    lda (TMP1_ADR),y
     beq nextrow
-    .scope
-        charset_ascii_to_petscii_lcase
-    .endscope
+    cmp #':'
+    bne :+
+    ldx #2
+    bra printloop
+
+:   jsr screen_put_uc_char
+
+    cpx #0      ;If X>0, print with different background color
+    bne :+
+    inc VERA_L
+    bra printloop
+
+:   dex
+    lda #64
     sta VERA_D0
-    inx
-    jmp loop_petscii_lc1
+    bra printloop
 
 nextrow:
-    ;Set VERA address to print from start of row 59
+    stz VERA_L
+    inc VERA_M
+    lda VERA_M
+    cmp #60             ;End if we are at row 60
+    bcc printloop
+
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: screen_clear_footer
+;Purpose.............: Clears program footer at two last rows of screen
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_clear_footer
+     ;Set VERA address to print from start of row 58
     lda #0
-    sta VERA_L
-    lda #59
-    sta VERA_M
-
-    ;Prepare printing loop, and select print routine for the current screen mode
-    ldx #0
-
-    lda screen_mode
-    beq loop_iso2
-    cmp #1
-    beq loop_petscii_uc2
-    jmp loop_petscii_lc2
-
-loop_iso2:
-    lda row2,x
-    beq loop_iso2_exit
-    sta VERA_D0
-    inx
-    jmp loop_iso2
-loop_iso2_exit:
-    jmp color_row58
-
-loop_petscii_uc2:
-    lda row2,x
-    beq loop_petscii_uc2_exit
-    .scope
-        charset_ascii_to_petscii_ucase
-    .endscope
-    sta VERA_D0
-    inx
-    jmp loop_petscii_uc2
-loop_petscii_uc2_exit:
-    jmp color_row58
-
-loop_petscii_lc2:
-    lda row2,x
-    beq color_row58
-    .scope
-        charset_ascii_to_petscii_lcase
-    .endscope
-    sta VERA_D0
-    inx
-    jmp loop_petscii_lc2
-
-color_row58:
-    lda #1
     sta VERA_L
     lda #58
     sta VERA_M
-    jsr set_color
+    lda #(1<<4)
+    sta VERA_H
 
-color_row59:
-    lda #1
-    sta VERA_L
-    lda #59
-    sta VERA_M
-    
-set_color:
-    ldx #0
-setcolorloop:
-    cpx #0
-    beq speccol
-    cpx #1
-    beq speccol
-    cpx #12
-    beq speccol
-    cpx #13
-    beq speccol
-    cpx #25
-    beq speccol
-    cpx #26
-    beq speccol
-    cpx #38
-    beq speccol
-    cpx #39
-    beq speccol
-    cpx #47
-    beq speccol
-    cpx #48
-    beq speccol
-    cpx #80
+    ldy #0
+    lda #32
+    ldx screen_color
+:   sta VERA_D0
+    stx VERA_D0
+    iny
+    cpy #80
+    bne :-
+
+    inc VERA_M
+    stz VERA_L
+    ldy VERA_M
+    cpy #60
     beq exit
-
-defcol:
-    lda screen_color
-    jmp setcol
-
-speccol:
-    lda #64
-
-setcol:
-    sta VERA_D0
-    inx
-    jmp setcolorloop
+    ldy #0
+    bra :-
 
 exit:
     rts
+.endproc
+
+;******************************************************************************
+;Function name.......: screen_print_default_footer
+;Purpose.............: Prints program footer at two last rows of screen
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_print_default_footer
+    jsr screen_clear_footer
+
+    ldx #<row1
+    ldy #>row1
+    jmp screen_print_footer
 
 row1:
-    .byt "^g get help ^o write out ^y prev page ^k cut   ^c cur pos", 0 
+    .byt ":^g get help :^o write out :^y prev page :^k cut   :^c cur pos", 0 
 row2:
-    .byt "^x exit     ^r open file ^v next page ^u uncut ^w where is", 0
+    .byt ":^x exit     :^r open file :^v next page :^u uncut :^w where is", 0
 .endproc
+
+;******************************************************************************
+;Function name.......: screen_print_file_ctx_footer
+;Purpose.............: Prints program footer at two last rows of screen used
+;                      when in file context
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_print_file_ctx_footer
+    jsr screen_clear_footer
+
+    ldx #<row1
+    ldy #>row1
+    jmp screen_print_footer
+row1:
+    .byt ":^t to files", 0 
+row2:
+    .byt 0
+.endproc
+
+;******************************************************************************
+;Function name.......: screen_print_dir_ctx_footer
+;Purpose.............: Prints program footer at two last rows of screen
+;                      when in directory context
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_print_dir_ctx_footer
+    jsr screen_clear_footer
+
+    ldx #<row1
+    ldy #>row1
+    jmp screen_print_footer
+row1:
+    .byt ":^y page up", 0
+row2:
+    .byt ":^v page down",0
+.endproc
+
 
 ;******************************************************************************
 ;Function name.......: screen_show_help
@@ -569,73 +479,65 @@ mod_pet_lc:
 
 ;Help screen content (ASCII/ISO encoded nullterminated string)
 msg:
-    .byt 72, 69, 76, 80, 10, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
-    .byt 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
-    .byt 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 10, 10, 88, 49, 54
-    .byt 32, 69, 100, 105, 116, 32, 105, 115, 32, 97, 32, 116, 101, 120, 116, 32, 101, 100, 105, 116, 111, 114, 32, 102, 111, 114, 32, 116, 104, 101
-    .byt 32, 67, 111, 109, 109, 97, 110, 100, 101, 114, 32, 88, 49, 54, 32, 112, 108, 97, 116, 102, 111, 114, 109, 32, 119, 105, 116, 104, 32, 97
-    .byt 32, 108, 111, 111, 107, 32, 97, 110, 100, 32, 102, 101, 101, 108, 10, 105, 110, 115, 112, 105, 114, 101, 100, 32, 98, 121, 32, 71, 78, 85
-    .byt 32, 78, 97, 110, 111, 46, 10, 10, 84, 104, 101, 32, 101, 100, 105, 116, 111, 114, 32, 105, 115, 32, 109, 111, 100, 101, 108, 101, 115, 115
-    .byt 46, 32, 67, 111, 109, 109, 97, 110, 100, 115, 32, 97, 114, 101, 32, 115, 101, 108, 101, 99, 116, 101, 100, 32, 98, 121, 32, 67, 116, 114
-    .byt 108, 43, 107, 101, 121, 32, 115, 101, 113, 117, 101, 110, 99, 101, 115, 46, 32, 89, 111, 117, 32, 109, 97, 121, 10, 97, 108, 116, 101, 114
-    .byt 110, 97, 116, 105, 118, 101, 108, 121, 32, 112, 114, 101, 115, 115, 32, 97, 110, 100, 32, 114, 101, 108, 101, 97, 115, 101, 32, 69, 83, 67
-    .byt 44, 32, 97, 110, 100, 32, 116, 104, 101, 32, 110, 101, 120, 116, 32, 107, 101, 121, 32, 119, 105, 108, 108, 32, 98, 101, 32, 105, 110, 116
-    .byt 101, 114, 112, 114, 101, 116, 101, 100, 32, 97, 115, 10, 97, 32, 99, 111, 109, 109, 97, 110, 100, 46, 32, 83, 111, 109, 101, 32, 102, 117
-    .byt 110, 99, 116, 105, 111, 110, 115, 32, 97, 114, 101, 32, 97, 108, 115, 111, 32, 97, 118, 97, 105, 108, 97, 98, 108, 101, 32, 118, 105, 97
-    .byt 32, 97, 32, 102, 117, 110, 99, 116, 105, 111, 110, 32, 107, 101, 121, 46, 10, 10, 94, 71, 32, 32, 40, 70, 49, 41, 32, 32, 68, 105
-    .byt 115, 112, 108, 97, 121, 32, 98, 117, 105, 108, 116, 45, 105, 110, 32, 104, 101, 108, 112, 32, 115, 99, 114, 101, 101, 110, 10, 94, 88, 32
-    .byt 32, 40, 70, 50, 41, 32, 32, 69, 120, 105, 116, 32, 112, 114, 111, 103, 114, 97, 109, 10, 94, 79, 32, 32, 40, 70, 51, 41, 32, 32
-    .byt 87, 114, 105, 116, 101, 32, 116, 101, 120, 116, 32, 98, 117, 102, 102, 101, 114, 32, 116, 111, 32, 102, 105, 108, 101, 10, 94, 82, 32, 32
-    .byt 40, 70, 52, 41, 32, 32, 79, 112, 101, 110, 32, 97, 110, 100, 32, 114, 101, 97, 100, 32, 102, 105, 108, 101, 32, 105, 110, 116, 111, 32
-    .byt 116, 101, 120, 116, 32, 98, 117, 102, 102, 101, 114, 10, 94, 78, 32, 32, 32, 32, 32, 32, 32, 32, 67, 114, 101, 97, 116, 101, 32, 110
-    .byt 101, 119, 32, 116, 101, 120, 116, 32, 98, 117, 102, 102, 101, 114, 10, 94, 89, 32, 32, 32, 32, 32, 32, 32, 32, 80, 97, 103, 101, 85
-    .byt 112, 10, 94, 86, 32, 32, 32, 32, 32, 32, 32, 32, 80, 97, 103, 101, 68, 111, 119, 110, 10, 94, 75, 32, 32, 40, 70, 53, 41, 32
-    .byt 32, 67, 117, 116, 32, 99, 117, 114, 114, 101, 110, 116, 32, 108, 105, 110, 101, 32, 116, 111, 32, 99, 108, 105, 112, 98, 111, 97, 114, 100
-    .byt 10, 94, 80, 32, 32, 32, 32, 32, 32, 32, 32, 67, 111, 112, 121, 32, 99, 117, 114, 114, 101, 110, 116, 32, 108, 105, 110, 101, 32, 116
-    .byt 111, 32, 99, 108, 105, 112, 98, 111, 97, 114, 100, 10, 94, 85, 32, 32, 40, 70, 54, 41, 32, 32, 85, 110, 99, 117, 116, 32, 40, 112
-    .byt 97, 115, 116, 101, 41, 32, 97, 108, 108, 32, 99, 111, 110, 116, 101, 110, 116, 32, 102, 114, 111, 109, 32, 99, 108, 105, 112, 98, 111, 97
-    .byt 114, 100, 32, 116, 111, 32, 116, 101, 120, 116, 32, 98, 117, 102, 102, 101, 114, 10, 94, 67, 32, 32, 40, 70, 55, 41, 32, 32, 83, 104
-    .byt 111, 119, 32, 99, 117, 114, 114, 101, 110, 116, 32, 112, 111, 115, 105, 116, 105, 111, 110, 32, 40, 108, 105, 110, 101, 47, 99, 111, 108, 117
-    .byt 109, 110, 41, 10, 94, 87, 32, 32, 40, 70, 56, 41, 32, 32, 83, 101, 97, 114, 99, 104, 32, 97, 110, 100, 32, 102, 105, 110, 100, 32
-    .byt 116, 101, 120, 116, 32, 40, 99, 97, 115, 101, 32, 115, 101, 110, 115, 105, 116, 105, 118, 101, 41, 10, 94, 83, 32, 32, 32, 32, 32, 32
-    .byt 32, 32, 82, 101, 112, 108, 97, 99, 101, 32, 111, 110, 101, 32, 111, 114, 32, 97, 108, 108, 32, 111, 99, 99, 117, 114, 101, 110, 99, 101
-    .byt 115, 32, 111, 102, 32, 97, 32, 115, 116, 114, 105, 110, 103, 32, 40, 99, 97, 115, 101, 32, 115, 101, 110, 115, 105, 116, 105, 118, 101, 41
-    .byt 10, 94, 76, 32, 32, 32, 32, 32, 32, 32, 32, 71, 111, 32, 116, 111, 32, 108, 105, 110, 101, 32, 110, 117, 109, 98, 101, 114, 10, 94
-    .byt 65, 32, 32, 32, 32, 32, 32, 32, 32, 84, 111, 103, 103, 108, 101, 32, 97, 117, 116, 111, 32, 105, 110, 100, 101, 110, 116, 32, 111, 110
-    .byt 47, 111, 102, 102, 10, 94, 90, 32, 32, 32, 32, 32, 32, 32, 32, 84, 111, 103, 103, 108, 101, 32, 119, 111, 114, 100, 32, 119, 114, 97
-    .byt 112, 32, 111, 110, 47, 111, 102, 102, 10, 94, 69, 32, 32, 32, 32, 32, 32, 32, 32, 67, 104, 97, 110, 103, 101, 32, 99, 104, 97, 114
-    .byt 115, 101, 116, 10, 94, 68, 32, 32, 32, 32, 32, 32, 32, 32, 83, 101, 116, 32, 102, 105, 108, 101, 32, 115, 116, 111, 114, 97, 103, 101
-    .byt 32, 100, 101, 118, 105, 99, 101, 32, 110, 117, 109, 98, 101, 114, 10, 94, 67, 32, 32, 32, 32, 32, 32, 32, 32, 83, 101, 116, 32, 116
-    .byt 101, 120, 116, 32, 99, 111, 108, 111, 114, 32, 40, 100, 101, 102, 97, 117, 108, 116, 32, 119, 104, 105, 116, 101, 41, 10, 94, 83, 32, 32
-    .byt 32, 32, 32, 32, 32, 32, 83, 101, 116, 32, 98, 97, 99, 107, 103, 114, 111, 117, 110, 100, 32, 99, 111, 108, 111, 114, 32, 40, 100, 101
-    .byt 102, 97, 117, 108, 116, 32, 98, 108, 117, 101, 41, 10, 94, 77, 32, 32, 32, 32, 32, 32, 32, 32, 83, 104, 111, 119, 32, 109, 101, 109
-    .byt 111, 114, 121, 32, 117, 115, 97, 103, 101, 32, 40, 49, 32, 98, 97, 110, 107, 61, 50, 53, 49, 32, 98, 121, 116, 101, 115, 32, 111, 102
-    .byt 32, 116, 101, 120, 116, 41, 10, 94, 83, 80, 65, 67, 69, 32, 32, 32, 32, 73, 110, 115, 101, 114, 116, 32, 110, 111, 110, 45, 98, 114
-    .byt 101, 97, 107, 105, 110, 103, 32, 115, 112, 97, 99, 101, 10, 10, 84, 97, 98, 32, 119, 105, 100, 116, 104, 44, 32, 97, 115, 32, 110, 117
-    .byt 109, 98, 101, 114, 32, 111, 102, 32, 99, 104, 97, 114, 97, 99, 116, 101, 114, 115, 44, 32, 105, 115, 32, 115, 101, 116, 32, 98, 121, 32
-    .byt 102, 105, 114, 115, 116, 32, 112, 114, 101, 115, 115, 105, 110, 103, 32, 97, 110, 100, 32, 114, 101, 108, 101, 97, 115, 105, 110, 103, 32, 69
-    .byt 83, 67, 10, 97, 110, 100, 32, 116, 104, 101, 110, 32, 97, 32, 100, 105, 103, 105, 116, 32, 40, 49, 46, 46, 57, 41, 32, 114, 101, 112
-    .byt 114, 101, 115, 101, 110, 116, 105, 110, 103, 32, 116, 104, 101, 32, 119, 105, 100, 116, 104, 46, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10
-    .byt 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
-    .byt 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
-    .byt 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 10, 88, 49, 54, 32, 69, 100, 105, 116, 44
-    .byt 32, 67, 111, 112, 121, 114, 105, 103, 104, 116, 32, 50, 48, 50, 48, 44, 32, 83, 116, 101, 102, 97, 110, 32, 74, 97, 107, 111, 98, 115
-    .byt 115, 111, 110, 46, 10, 10, 84, 104, 105, 115, 32, 112, 114, 111, 103, 114, 97, 109, 32, 105, 115, 32, 102, 114, 101, 101, 32, 115, 111, 102
-    .byt 116, 119, 97, 114, 101, 32, 97, 110, 100, 32, 99, 111, 109, 101, 115, 32, 119, 105, 116, 104, 32, 65, 66, 83, 79, 76, 85, 84, 69, 76
-    .byt 89, 32, 78, 79, 32, 87, 65, 82, 82, 65, 78, 84, 89, 46, 32, 89, 111, 117, 32, 109, 97, 121, 10, 114, 101, 100, 105, 115, 116, 114
-    .byt 105, 98, 117, 116, 101, 32, 97, 110, 100, 47, 111, 114, 32, 109, 111, 100, 105, 102, 121, 32, 105, 116, 32, 117, 110, 100, 101, 114, 32, 116
-    .byt 104, 101, 32, 116, 101, 114, 109, 115, 32, 111, 102, 32, 116, 104, 101, 32, 71, 78, 85, 32, 71, 101, 110, 101, 114, 97, 108, 32, 80, 117
-    .byt 98, 108, 105, 99, 32, 76, 105, 99, 101, 110, 115, 101, 10, 97, 115, 32, 112, 117, 98, 108, 105, 115, 104, 101, 100, 32, 98, 121, 32, 116
-    .byt 104, 101, 32, 70, 114, 101, 101, 32, 83, 111, 102, 116, 119, 97, 114, 101, 32, 70, 111, 117, 110, 100, 97, 116, 105, 111, 110, 44, 32, 101
-    .byt 105, 116, 104, 101, 114, 32, 118, 101, 114, 115, 105, 111, 110, 32, 51, 32, 111, 102, 32, 116, 104, 101, 32, 76, 105, 99, 101, 110, 115, 101
-    .byt 44, 10, 111, 114, 44, 32, 97, 116, 32, 121, 111, 117, 114, 32, 111, 112, 116, 105, 111, 110, 44, 32, 97, 110, 121, 32, 108, 97, 116, 101
-    .byt 114, 32, 118, 101, 114, 115, 105, 111, 110, 46, 32, 70, 111, 114, 32, 100, 101, 116, 97, 105, 108, 101, 100, 32, 116, 101, 114, 109, 115, 32
-    .byt 115, 101, 101, 32, 115, 117, 112, 112, 108, 101, 109, 101, 110, 116, 101, 100, 32, 102, 105, 108, 101, 10, 34, 108, 105, 99, 101, 110, 115, 101
-    .byt 34, 46, 32, 65, 108, 115, 111, 32, 97, 118, 97, 105, 108, 97, 98, 108, 101, 32, 102, 114, 111, 109, 32, 60, 104, 116, 116, 112, 115, 58
-    .byt 47, 47, 119, 119, 119, 46, 103, 110, 117, 46, 111, 114, 103, 47, 108, 105, 99, 101, 110, 115, 101, 115, 62, 46, 10, 45, 45, 45, 45, 45
-    .byt 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
-    .byt 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
-    .byt 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45,  0
+    .byt 72, 69, 76, 80, 10, 10, 10, 88, 49, 54, 32, 69, 100, 105, 116, 32, 105, 115, 32, 97, 32, 116, 101, 120, 116, 32, 101, 100, 105, 116
+    .byt 111, 114, 32, 102, 111, 114, 32, 116, 104, 101, 32, 67, 111, 109, 109, 97, 110, 100, 101, 114, 32, 88, 49, 54, 32, 112, 108, 97, 116, 102
+    .byt 111, 114, 109, 32, 119, 105, 116, 104, 32, 97, 32, 108, 111, 111, 107, 32, 97, 110, 100, 32, 102, 101, 101, 108, 10, 105, 110, 115, 112, 105
+    .byt 114, 101, 100, 32, 98, 121, 32, 71, 78, 85, 32, 78, 97, 110, 111, 46, 10, 10, 84, 104, 101, 32, 101, 100, 105, 116, 111, 114, 32, 105
+    .byt 115, 32, 109, 111, 100, 101, 108, 101, 115, 115, 46, 32, 67, 111, 109, 109, 97, 110, 100, 115, 32, 97, 114, 101, 32, 115, 101, 108, 101, 99
+    .byt 116, 101, 100, 32, 98, 121, 32, 67, 116, 114, 108, 43, 107, 101, 121, 32, 115, 101, 113, 117, 101, 110, 99, 101, 115, 46, 32, 89, 111, 117
+    .byt 32, 109, 97, 121, 10, 97, 108, 116, 101, 114, 110, 97, 116, 105, 118, 101, 108, 121, 32, 112, 114, 101, 115, 115, 32, 97, 110, 100, 32, 114
+    .byt 101, 108, 101, 97, 115, 101, 32, 69, 83, 67, 44, 32, 97, 110, 100, 32, 116, 104, 101, 32, 110, 101, 120, 116, 32, 107, 101, 121, 32, 119
+    .byt 105, 108, 108, 32, 98, 101, 32, 105, 110, 116, 101, 114, 112, 114, 101, 116, 101, 100, 32, 97, 115, 10, 97, 32, 99, 111, 109, 109, 97, 110
+    .byt 100, 46, 32, 83, 111, 109, 101, 32, 102, 117, 110, 99, 116, 105, 111, 110, 115, 32, 97, 114, 101, 32, 97, 108, 115, 111, 32, 97, 118, 97
+    .byt 105, 108, 97, 98, 108, 101, 32, 118, 105, 97, 32, 97, 32, 102, 117, 110, 99, 116, 105, 111, 110, 32, 107, 101, 121, 46, 10, 10, 94, 71
+    .byt 32, 32, 40, 70, 49, 41, 32, 32, 68, 105, 115, 112, 108, 97, 121, 32, 98, 117, 105, 108, 116, 45, 105, 110, 32, 104, 101, 108, 112, 32
+    .byt 115, 99, 114, 101, 101, 110, 10, 94, 88, 32, 32, 40, 70, 50, 41, 32, 32, 69, 120, 105, 116, 32, 112, 114, 111, 103, 114, 97, 109, 10
+    .byt 94, 79, 32, 32, 40, 70, 51, 41, 32, 32, 87, 114, 105, 116, 101, 32, 116, 101, 120, 116, 32, 98, 117, 102, 102, 101, 114, 32, 116, 111
+    .byt 32, 102, 105, 108, 101, 10, 94, 82, 32, 32, 40, 70, 53, 41, 32, 32, 79, 112, 101, 110, 32, 97, 110, 100, 32, 114, 101, 97, 100, 32
+    .byt 102, 105, 108, 101, 32, 105, 110, 116, 111, 32, 116, 101, 120, 116, 32, 98, 117, 102, 102, 101, 114, 10, 94, 78, 32, 32, 32, 32, 32, 32
+    .byt 32, 32, 67, 114, 101, 97, 116, 101, 32, 110, 101, 119, 32, 116, 101, 120, 116, 32, 98, 117, 102, 102, 101, 114, 10, 94, 89, 32, 32, 40
+    .byt 70, 55, 41, 32, 32, 80, 97, 103, 101, 85, 112, 10, 94, 86, 32, 32, 40, 70, 56, 41, 32, 32, 80, 97, 103, 101, 68, 111, 119, 110
+    .byt 10, 94, 75, 32, 32, 32, 32, 32, 32, 32, 32, 67, 117, 116, 32, 99, 117, 114, 114, 101, 110, 116, 32, 108, 105, 110, 101, 32, 116, 111
+    .byt 32, 99, 108, 105, 112, 98, 111, 97, 114, 100, 10, 94, 80, 32, 32, 32, 32, 32, 32, 32, 32, 67, 111, 112, 121, 32, 99, 117, 114, 114
+    .byt 101, 110, 116, 32, 108, 105, 110, 101, 32, 116, 111, 32, 99, 108, 105, 112, 98, 111, 97, 114, 100, 10, 94, 85, 32, 32, 32, 32, 32, 32
+    .byt 32, 32, 85, 110, 99, 117, 116, 32, 40, 112, 97, 115, 116, 101, 41, 32, 97, 108, 108, 32, 99, 111, 110, 116, 101, 110, 116, 32, 102, 114
+    .byt 111, 109, 32, 99, 108, 105, 112, 98, 111, 97, 114, 100, 32, 116, 111, 32, 116, 101, 120, 116, 32, 98, 117, 102, 102, 101, 114, 10, 94, 67
+    .byt 32, 32, 32, 32, 32, 32, 32, 32, 83, 104, 111, 119, 32, 99, 117, 114, 114, 101, 110, 116, 32, 112, 111, 115, 105, 116, 105, 111, 110, 32
+    .byt 40, 108, 105, 110, 101, 47, 99, 111, 108, 117, 109, 110, 41, 10, 94, 87, 32, 32, 40, 70, 54, 41, 32, 32, 83, 101, 97, 114, 99, 104
+    .byt 32, 97, 110, 100, 32, 102, 105, 110, 100, 32, 116, 101, 120, 116, 32, 40, 99, 97, 115, 101, 32, 115, 101, 110, 115, 105, 116, 105, 118, 101
+    .byt 41, 10, 94, 83, 32, 32, 32, 32, 32, 32, 32, 32, 82, 101, 112, 108, 97, 99, 101, 32, 111, 110, 101, 32, 111, 114, 32, 97, 108, 108
+    .byt 32, 111, 99, 99, 117, 114, 101, 110, 99, 101, 115, 32, 111, 102, 32, 97, 32, 115, 116, 114, 105, 110, 103, 32, 40, 99, 97, 115, 101, 32
+    .byt 115, 101, 110, 115, 105, 116, 105, 118, 101, 41, 10, 94, 76, 32, 32, 32, 32, 32, 32, 32, 32, 71, 111, 32, 116, 111, 32, 108, 105, 110
+    .byt 101, 32, 110, 117, 109, 98, 101, 114, 10, 94, 65, 32, 32, 32, 32, 32, 32, 32, 32, 84, 111, 103, 103, 108, 101, 32, 97, 117, 116, 111
+    .byt 32, 105, 110, 100, 101, 110, 116, 32, 111, 110, 47, 111, 102, 102, 10, 94, 90, 32, 32, 32, 32, 32, 32, 32, 32, 84, 111, 103, 103, 108
+    .byt 101, 32, 119, 111, 114, 100, 32, 119, 114, 97, 112, 32, 111, 110, 47, 111, 102, 102, 10, 94, 69, 32, 32, 32, 32, 32, 32, 32, 32, 67
+    .byt 104, 97, 110, 103, 101, 32, 99, 104, 97, 114, 115, 101, 116, 10, 94, 68, 32, 32, 32, 32, 32, 32, 32, 32, 83, 101, 116, 32, 102, 105
+    .byt 108, 101, 32, 115, 116, 111, 114, 97, 103, 101, 32, 100, 101, 118, 105, 99, 101, 32, 110, 117, 109, 98, 101, 114, 10, 94, 84, 32, 32, 32
+    .byt 32, 32, 32, 32, 32, 83, 101, 116, 32, 116, 101, 120, 116, 32, 99, 111, 108, 111, 114, 32, 40, 100, 101, 102, 97, 117, 108, 116, 32, 119
+    .byt 104, 105, 116, 101, 41, 10, 94, 66, 32, 32, 32, 32, 32, 32, 32, 32, 83, 101, 116, 32, 98, 97, 99, 107, 103, 114, 111, 117, 110, 100
+    .byt 32, 99, 111, 108, 111, 114, 32, 40, 100, 101, 102, 97, 117, 108, 116, 32, 98, 108, 117, 101, 41, 10, 94, 77, 32, 32, 32, 32, 32, 32
+    .byt 32, 32, 83, 104, 111, 119, 32, 109, 101, 109, 111, 114, 121, 32, 117, 115, 97, 103, 101, 32, 40, 49, 32, 98, 97, 110, 107, 61, 50, 53
+    .byt 49, 32, 98, 121, 116, 101, 115, 32, 111, 102, 32, 116, 101, 120, 116, 41, 10, 94, 83, 80, 65, 67, 69, 32, 32, 32, 32, 73, 110, 115
+    .byt 101, 114, 116, 32, 110, 111, 110, 45, 98, 114, 101, 97, 107, 105, 110, 103, 32, 115, 112, 97, 99, 101, 10, 10, 84, 97, 98, 32, 119, 105
+    .byt 100, 116, 104, 44, 32, 97, 115, 32, 110, 117, 109, 98, 101, 114, 32, 111, 102, 32, 99, 104, 97, 114, 97, 99, 116, 101, 114, 115, 44, 32
+    .byt 105, 115, 32, 115, 101, 116, 32, 98, 121, 32, 102, 105, 114, 115, 116, 32, 112, 114, 101, 115, 115, 105, 110, 103, 32, 97, 110, 100, 32, 114
+    .byt 101, 108, 101, 97, 115, 105, 110, 103, 32, 69, 83, 67, 10, 97, 110, 100, 32, 116, 104, 101, 110, 32, 97, 32, 100, 105, 103, 105, 116, 32
+    .byt 40, 49, 46, 46, 57, 41, 32, 114, 101, 112, 114, 101, 115, 101, 110, 116, 105, 110, 103, 32, 116, 104, 101, 32, 119, 105, 100, 116, 104, 46
+    .byt 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 88, 49, 54, 32, 69, 100, 105, 116, 44, 32, 67, 111, 112, 121, 114, 105, 103, 104, 116
+    .byt 32, 50, 48, 50, 48, 45, 50, 48, 50, 49, 44, 32, 83, 116, 101, 102, 97, 110, 32, 74, 97, 107, 111, 98, 115, 115, 111, 110, 46, 10
+    .byt 10, 84, 104, 105, 115, 32, 112, 114, 111, 103, 114, 97, 109, 32, 105, 115, 32, 102, 114, 101, 101, 32, 115, 111, 102, 116, 119, 97, 114, 101
+    .byt 32, 97, 110, 100, 32, 99, 111, 109, 101, 115, 32, 119, 105, 116, 104, 32, 65, 66, 83, 79, 76, 85, 84, 69, 76, 89, 32, 78, 79, 32
+    .byt 87, 65, 82, 82, 65, 78, 84, 89, 46, 32, 89, 111, 117, 32, 109, 97, 121, 10, 114, 101, 100, 105, 115, 116, 114, 105, 98, 117, 116, 101
+    .byt 32, 97, 110, 100, 47, 111, 114, 32, 109, 111, 100, 105, 102, 121, 32, 105, 116, 32, 117, 110, 100, 101, 114, 32, 116, 104, 101, 32, 116, 101
+    .byt 114, 109, 115, 32, 111, 102, 32, 116, 104, 101, 32, 71, 78, 85, 32, 71, 101, 110, 101, 114, 97, 108, 32, 80, 117, 98, 108, 105, 99, 32
+    .byt 76, 105, 99, 101, 110, 115, 101, 10, 97, 115, 32, 112, 117, 98, 108, 105, 115, 104, 101, 100, 32, 98, 121, 32, 116, 104, 101, 32, 70, 114
+    .byt 101, 101, 32, 83, 111, 102, 116, 119, 97, 114, 101, 32, 70, 111, 117, 110, 100, 97, 116, 105, 111, 110, 44, 32, 101, 105, 116, 104, 101, 114
+    .byt 32, 118, 101, 114, 115, 105, 111, 110, 32, 51, 32, 111, 102, 32, 116, 104, 101, 32, 76, 105, 99, 101, 110, 115, 101, 44, 10, 111, 114, 44
+    .byt 32, 97, 116, 32, 121, 111, 117, 114, 32, 111, 112, 116, 105, 111, 110, 44, 32, 97, 110, 121, 32, 108, 97, 116, 101, 114, 32, 118, 101, 114
+    .byt 115, 105, 111, 110, 46, 32, 70, 111, 114, 32, 100, 101, 116, 97, 105, 108, 101, 100, 32, 116, 101, 114, 109, 115, 32, 115, 101, 101, 32, 115
+    .byt 117, 112, 112, 108, 101, 109, 101, 110, 116, 101, 100, 32, 102, 105, 108, 101, 10, 34, 108, 105, 99, 101, 110, 115, 101, 34, 46, 32, 65, 108
+    .byt 115, 111, 32, 97, 118, 97, 105, 108, 97, 98, 108, 101, 32, 102, 114, 111, 109, 32, 60, 104, 116, 116, 112, 115, 58, 47, 47, 119, 119, 119
+    .byt 46, 103, 110, 117, 46, 111, 114, 103, 47, 108, 105, 99, 101, 110, 115, 101, 115, 62, 46,  0
 .endproc
 
 ;******************************************************************************
@@ -876,32 +778,13 @@ print_loop:
     cpy page_len
     bcs next_page
 
-    ;Select ISO or PETSCII mode
-    lda screen_mode
-    bne petscii
-
     ;Get char to print
     lda (TMP1_ADR),y
     cmp #LF                 ;Abort if we get lf
     bne :+ 
     jmp clean_line
 
-:   sta VERA_D0             ;Otherwise output char
-
-    dec counter            
-    beq clean_line          ;If counter = 0, we're done
-
-    iny
-    jmp print_loop
-
-petscii:
-    ;Get char to print
-    lda (TMP1_ADR),y
-    cmp #LF                 ;Abort if we get lf
-    beq clean_line
-
-    charset_petscii_to_scrcode
-    sta VERA_D0             ;Otherwise output char
+:   jsr screen_put_char     ;Otherwise output char
 
     dec counter            
     beq clean_line          ;If counter = 0, we're done
@@ -972,25 +855,28 @@ exit:
     sta VERA_L
     lda #2
     sta VERA_M
-    lda #(2<<4)
+    lda #(1<<4)
     sta VERA_H
 
-    ;Pepare printing (A=space char, X=columns, Y=rows)
-    lda #32
-    ldx #80
-    ldy #54
-
+    ;Pepare printing
+    lda #32     ;Blank space
+    ldx #80     ;Columns
+    ldy #54     ;Rows
+    sty tempvars
+    ldy screen_color
 loop:
     sta VERA_D0
+    sty VERA_D0
     dex
     bne loop
     stz VERA_L
     inc VERA_M
     ldx #80
-    dey
+    dec tempvars
     bne loop
 
     rts
+rows = tempvars     ;1 byte
 .endproc
 
 ;******************************************************************************
@@ -1003,25 +889,18 @@ loop:
     ;Set temp zero page vector to message
     stx TMP1_ADR
     sty TMP1_ADR+1
+    
+    ;Get string len
+    jsr util_strlen
+    cpy #80
+    bcc :+
+    ldy #80   
+:   sty len
 
     ;Clear status line
     jsr screen_clear_status
 
-    ;Get message len
-    stz len
-
-    ldy #0
-:   lda (TMP1_ADR),y
-    cmp #0
-    beq continue
-    iny
-    cpy #80
-    beq continue    ;Don't allow messages over 80 chars long
-    jmp :-
-
 continue:
-    sty len         ;Store len for later
-
     ;Set VERA address to start printing at (this will center the output)
     lda #80
     sec
@@ -1037,59 +916,20 @@ continue:
     ldy #0
     ldx #160
 
-    ;Select printing loop based on screen mode
-    lda screen_mode
-    beq loop_iso
-    cmp #1
-    beq loop_petscii_uc
-    jmp loop_petscii_lc
-
-loop_iso:
-    ;Exit print loop if we have printed all chars
+    ;Print loop
     lda len
     beq exit
 
+print_loop:
     lda (TMP1_ADR),y
-    sta VERA_D0         ;Char
+    jsr screen_put_uc_char
     stx VERA_D0         ;Color
     iny
     dec len
-    bne loop_iso
+    bne print_loop
 
 exit:
     rts
-
-loop_petscii_uc:
-    ;Exit printing loop if we have printed all chars
-    lda len
-    beq exit
-
-    lda (TMP1_ADR),y
-    .scope 
-        charset_ascii_to_petscii_ucase
-    .endscope
-    sta VERA_D0         ;Char
-    stx VERA_D0         ;Color
-    iny
-    dec len
-    bne loop_petscii_uc
-    jmp exit
-
-loop_petscii_lc:
-    ;Exit printing loop if we have printed all chars
-    lda len
-    beq exit
-
-    lda (TMP1_ADR),y
-    .scope
-        charset_ascii_to_petscii_lcase
-    .endscope
-    sta VERA_D0         ;Char
-    stx VERA_D0         ;Color
-    iny
-    dec len
-    bne loop_petscii_lc
-    jmp exit
 
 len = tempvars          ;1 byte
 start_at = tempvars+1   ;1 byte
@@ -1150,6 +990,59 @@ start_at = tempvars+1   ;1 byte
     bne :--
 
     rts
+.endproc
+
+;******************************************************************************
+;Function name.......: screen_put_char
+;Purpose.............: Inserts value of A register at the current 
+;                      VERA_L-M-H position. If in PETSCII mode, the char is 
+;                      first converted to screen code
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_put_char
+    ldx screen_mode
+    beq put
+    charset_petscii_to_scrcode
+put:
+    sta VERA_D0
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: screen_put_uc_char
+;Purpose.............: Inserts value of A register at the current VERA_L-M-H
+;                      position. If in PETSCII mode, the char is first
+;                      converted to upper case.
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_put_uc_char
+    phx
+
+    ldx screen_mode
+    cpx #1
+    beq puc
+    cpx #2
+    beq plc
+
+put:
+    sta VERA_D0
+    plx
+    rts
+
+puc:
+    .scope
+        charset_ascii_to_petscii_ucase
+    .endscope
+    bra put
+
+plc:
+    .scope
+        charset_ascii_to_petscii_lcase
+    .endscope
+    bra put
+    
 .endproc
 
 screen_scrcodes:

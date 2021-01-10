@@ -24,14 +24,20 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_file_save_prompt
+    ;Set app mode
     lda #4
-    sta APP_MOD     ;mode_file_save
+    sta APP_MOD
 
+    ;Show context footer
+    jsr screen_print_file_ctx_footer
+
+    ;Show prompt
     ldx #<msg
     ldy #>msg
     lda #250        ;maxlen
     jsr prompt_init
 
+    ;Set current file name as default prompt input
     ldx #<file_cur_filename
     ldy #>file_cur_filename
     lda file_cur_filename_len
@@ -45,40 +51,91 @@ msg:
 ;Function name.......: cmd_file_save
 ;Purpose.............: Writes buffer to file. If file exists the operation will 
 ;                      fail, and the user is prompted to confirm overwriting.
-;Input...............: Nothing
+;Input...............: Pointer to file name, X=AddressL and Y=AddressH
+;                      A=File name length
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_file_save
+    ;Store file name params
+    stx filename
+    sty filename+1
+    sta filelen
+
+    ;Close prompt and disable cursor
+    jsr prompt_close
     jsr cursor_disable
 
-    lda prompt_len
-    ldx #<prompt_input
-    ldy #>prompt_input
-    jsr file_write          ;Write file
-
-    jsr prompt_close
+    ;Write buffer to file
+    ldx filename
+    ldy filename+1
+    lda filelen
+    jsr file_write
     
-    lda file_io_err         ;Check for Kernal I/O errors
-    bne show_io_err
+    ;Look for Kernal I/O error
+    lda file_io_err
+    bne show_io_err     ;I/O error exists
     
+    ;Read disk status
     jsr file_read_disk_status
-    beq :+                  ;Do not set current file name if we had a disk error
-    cmp #$63                ;File exists error
-    beq confirm_overwrite
-    jmp :++
+    beq noerr               ;No error
+    cmp #$63                ;File exists...
+    beq confirm_overwrite   ;...ask user for permission to overwrite
+    jmp show_status         ;Other disk error, show it
+
+noerr:
+    ;Set buffer status as not modified
+    stz mem_modified
     
-:   stz mem_modified
+    ;Set current file name
+    lda filename
+    sta TMP1_ADR
+    lda filename+1
+    sta TMP1_ADR+1
     
-    ldx #<prompt_input
-    ldy #>prompt_input
-    lda prompt_len
+    ;If first char is @ or :, skip that value
+    ldy #0
+    lda (TMP1_ADR),y
+    cmp #'@'
+    beq ignore
+    cmp #':'
+    beq ignore
+    ldx filename
+    ldy filename+1
+    bra setfilename
+
+ignore:
+    dec filelen
+
+    iny
+    lda (TMP1_ADR),y
+    cmp #':'            ;If second char is colon, ignore that too
+    beq :+
+
+    ldx filename
+    ldy filename+1
+    inx
+    bne setfilename
+    iny
+    bra setfilename
+
+:   dec filelen
+    clc
+    lda filename
+    adc #2
+    tax
+    lda filename+1
+    adc #0
+    tay
+
+setfilename:
+    lda filelen
     jsr file_set_filename
     jsr screen_print_header
 
-:   ldx #<file_disk_status
+show_status:
+    ldx #<file_disk_status
     ldy #>file_disk_status
     jsr screen_print_status ;Print disk status message
-
     jmp exit
 
 show_io_err:
@@ -107,6 +164,11 @@ confirm_overwrite:
 
 overwrite_msg:
     .byt "file exists. overwrite (y/n)?", 0
+
+.segment "VARS"
+    filename: .res 2
+    filelen: .res 1
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -123,93 +185,31 @@ overwrite_msg:
     jsr prompt_insert
     inc prompt_curpos
 
-    ;Insert colon if doesn't already exist in path
+    ;Insert a colon if doesn't already exist in path
     lda #<prompt_input
     sta TMP1_ADR
     lda #>prompt_input
     sta TMP1_ADR+1
+    
     ldy #1
-
 :   cpy prompt_len
-    beq colonnotfound
+    beq no_colon
     lda (TMP1_ADR),y
     cmp #':'
-    beq foundcolon
+    beq write           ;Colon found
     iny
     jmp :-
 
-colonnotfound:
+no_colon:
     lda #':'
     jsr prompt_insert
-    lda #2
-    pha
-    jmp :+
-
-foundcolon:
-    lda #1
-    pha
-    
+  
     ;Write file
-:   lda prompt_len
+write:
     ldx #<prompt_input
     ldy #>prompt_input
-    jsr file_write
-
-    jsr screen_clear_status
-    
-    lda file_io_err         ;Check for Kernal I/O errors
-    bne show_io_err
-    
-    jsr file_read_disk_status
-    bne :+                  ;Skip setting current file name if we had a disk error
-    
-    stz mem_modified
-
-    pla
-    cmp #2
-    beq colonwasadded
-
-colonwasnotadded:    
-    ldx #<(prompt_input+1)
-    ldy #>(prompt_input+1)
-    sec
     lda prompt_len
-    sbc #1
-    jmp setfilename
-
-colonwasadded:
-    ldx #<(prompt_input+2)
-    ldy #>(prompt_input+2)
-    sec
-    lda prompt_len
-    sbc #2
-
-setfilename:
-    jsr file_set_filename
-    jsr screen_print_header
-
- printdiskstatus:
-    ldx #<file_disk_status
-    ldy #>file_disk_status
-    jsr screen_print_status ;Print disk status message
-
-    jmp exit
-
-show_io_err:
-    ldx file_io_err
-    dex
-    lda file_ioerr_H,x
-    tay
-    lda file_ioerr_L,x
-    tax
-    jsr screen_print_status
-
-exit:
-    jsr cursor_activate
-    jsr screen_refresh
-    lda #2                  ;mode_statusmessage
-    sta APP_MOD
-    rts
+    jmp cmd_file_save
 .endproc
 
 ;******************************************************************************
@@ -223,17 +223,20 @@ exit:
     lda mem_modified
     beq :+
     
+    ;Buffer modified, prompt to save before opening a new file
     lda #7
     sta APP_MOD
     
     ldx #<msg2
     ldy #>msg2
-    jsr screen_print_status
+    jmp screen_print_status
 
-    rts
-
+    ;Buffer not modified
 :   lda #5
-    sta APP_MOD     ;mode_file_open
+    sta APP_MOD
+
+    jsr screen_clear_footer
+    jsr screen_print_file_ctx_footer
 
     ldx #<msg
     ldy #>msg
@@ -249,18 +252,22 @@ msg2:
 ;Function name.......: cmd_file_open
 ;Purpose.............: Reads file into buffer
 ;Preparatory routines: None
-;Input...............: Nothing
+;Input...............: Pointer to file name, X=AddressL, Y=AddressH
+;                      A=File name length
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_file_open
-    jsr cursor_disable
-
-    lda prompt_len
-    ldx #<prompt_input
-    ldy #>prompt_input
-    jsr file_read               ;Read file from disk
+    stx filename
+    sty filename+1
+    sta filelen
 
     jsr prompt_close
+    jsr cursor_disable
+
+    ldx filename
+    ldy filename+1
+    lda filelen
+    jsr file_read               ;Read file from disk
 
     lda file_io_err
     bne io_error
@@ -284,9 +291,9 @@ msg2:
 
     stz mem_modified
 
-    ldx #<prompt_input
-    ldy #>prompt_input
-    lda prompt_len
+    ldx filename
+    ldy filename+1
+    lda filelen
     jsr file_set_filename
     jsr screen_print_header
     
@@ -310,8 +317,19 @@ exit:
     sta APP_MOD
 
     rts
+
+.segment "VARS"
+    filename: .res 2
+    filelen: .res 1
+.CODE
 .endproc
 
+;******************************************************************************
+;Function name.......: cmd_file_set_device
+;Purpose.............: Prompts user for device number
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
 .proc cmd_file_set_device
     lda #17
     sta APP_MOD
@@ -323,19 +341,12 @@ exit:
 
     ldx file_cur_device
     ldy #0
-    lda #0
+    tya
     jsr util_bin_to_bcd
     jsr util_bcd_to_str
-
     stx TMP1_ADR
     sty TMP1_ADR+1
-    ldy #0
-:   lda (TMP1_ADR),y
-    beq foundend
-    iny
-    jmp :-
-
-foundend:
+    jsr util_strlen
     tya
     ldx TMP1_ADR
     ldy TMP1_ADR+1
@@ -345,22 +356,24 @@ msg:
     .byt "set file storage device number (8-30):",0
 .endproc
 
+;******************************************************************************
+;Function name.......: cmd_file_do_set_device
+;Purpose.............: Sets device number
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
 .proc cmd_file_do_set_device
-    ;Copy prompt val
-    ldx #0
-:   cpx prompt_len
-    beq copydone
-    lda prompt_input,x
-    sta promptval,x
-    inx
-    jmp :-
+    ;Close prompt
+    jsr prompt_close
 
-copydone:
-    stz promptval,x
+    ;Terminate prompt input with 0, needed for string to bcd conversion
+    ldy prompt_len
+    lda #0
+    sta prompt_input,y
 
     ;Convert to binary val
-    ldx #<promptval
-    ldy #>promptval
+    ldx #<prompt_input
+    ldy #>prompt_input
     jsr util_str_to_bcd
     bcs invalid
     jsr util_bcd_to_bin
@@ -371,14 +384,10 @@ copydone:
 
 valid:    
     stx file_cur_device
-
     stz APP_MOD
-    jmp prompt_close
-
     rts
 
 invalid:
-    jsr prompt_close
     ldx #<msg
     ldy #>msg
     lda #2
@@ -388,9 +397,4 @@ invalid:
 msg:
     .byt "invalid device number, must be in range 8-30",0
 
-.segment "VARS"
-    promptval: .res 3        ;3 bytes
-.CODE
-
 .endproc
-

@@ -77,6 +77,8 @@ jmptbl_L:
     .byt <keyboard_mode_word_wrap_prompt
     .byt <cmd_refresh_after_encoding_changed
     .byt <keyboard_mode_set_device
+    .byt <keyboard_mode_file_dir
+    .byt <keyboard_mode_file_dir
 
 jmptbl_H:
     .byt >keyboard_mode_default
@@ -97,6 +99,8 @@ jmptbl_H:
     .byt >keyboard_mode_word_wrap_prompt
     .byt >cmd_refresh_after_encoding_changed
     .byt >keyboard_mode_set_device
+    .byt >keyboard_mode_file_dir
+    .byt >keyboard_mode_file_dir
 .endproc
 
 ;******************************************************************************
@@ -209,7 +213,7 @@ modifier_none:
     jmp cmd_file_save_prompt
 
     ;F5
-:   cmp #$87
+:   cmp #$8a
     bne :+
     jmp cmd_file_open_prompt
 
@@ -284,7 +288,7 @@ modifier_ctrl:
     jmp cmd_cut
 
     ;Ctrl+P
-    cmp #$10
+:   cmp #$10
     bne :+
     jmp cmd_copy
 
@@ -637,17 +641,44 @@ abort:
     ;ESC key
     cmp #$03
     beq abort
+
+    ;Ctrl+T
+    cmp #$14
+    bne :+
+
+    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
+    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
+    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
+    tax
+    lda #$14
+    cpx #KBD_MODIFIER_CTRL
+    beq tofiles
     
     ;Default, send key to prompt
-    jmp prompt_keypress
+:   jmp prompt_keypress
 
 abort:
     jsr prompt_close
     stz APP_MOD
-    rts
+    jsr screen_clear_footer
+    jmp screen_print_default_footer
 
 write_file:
+    jsr screen_clear_footer
+    jsr screen_print_default_footer
+    ldx #<prompt_input
+    ldy #>prompt_input
+    lda prompt_len
     jmp cmd_file_save
+
+tofiles:
+    lda #19
+    sta APP_MOD
+    jsr cursor_disable
+    jsr screen_print_dir_ctx_footer
+    ldx #1
+    ldy #0
+    jmp dir_show
 .endproc
 
 ;******************************************************************************
@@ -682,6 +713,7 @@ abort:
     jmp screen_clear_status
 
 write_file:
+
     jmp cmd_file_save_overwrite
 
 .endproc
@@ -702,18 +734,173 @@ write_file:
     cmp #$03
     beq abort
 
+    ;Ctrl+T
+    cmp #$14
+    bne :+
+
+    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
+    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
+    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
+    tax
+    lda #$14
+    cpx #KBD_MODIFIER_CTRL
+    beq tofiles
+
     ;Default, send key to prompt
-    jmp prompt_keypress
+:   jmp prompt_keypress
 
 abort:
     jsr prompt_close
     stz APP_MOD
-    rts
+    jsr screen_clear_footer
+    jmp screen_print_default_footer
 
 read_file:
+    jsr screen_clear_footer
+    jsr screen_print_default_footer
+    ldx #<prompt_input
+    ldy #>prompt_input
+    lda prompt_len
     jmp cmd_file_open
 
+tofiles:
+    lda #18
+    sta APP_MOD
+    jsr cursor_disable
+    jsr screen_print_dir_ctx_footer
+    ldx #1
+    ldy #0
+    jmp dir_show
+
 .endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_file_dir
+;Purpose.............: Key dispatcher: Showing directory listing
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_file_dir
+    ;Enter key
+    cmp #13
+    bne :+
+    jmp enterkey
+
+    ;ESC key
+:   cmp #$03
+    bne :+
+    jmp abort
+
+    ;Up arrow key
+:   cmp #$91
+    bne :+
+    jmp uparrow
+
+    ;Down arrow key
+:   cmp #$11
+    bne :+
+    jmp downarrow
+
+    ;Ctrl+Y
+:   cmp #$19
+    bne :+
+    jmp prevpage
+    
+    ;Ctrl+V
+:   cmp #$16
+    bne :+
+    jmp nextpage
+
+    ;Default, no action
+:   rts
+
+enterkey:
+    clc
+    lda dir_first
+    adc dir_selected
+    tax
+    lda dir_first+1
+    adc #0
+    tay
+    jsr dir_getitem
+
+    lda dir_type
+    cmp #'d'
+    bne :+
+    ldx #<dir_entry
+    ldy #>dir_entry
+    lda dir_filename_len
+    jmp dir_change
+
+:   jsr screen_clear
+    jsr prompt_close
+
+    ldx #<dir_entry
+    ldy #>dir_entry
+    lda dir_filename_len
+    jsr prompt_default_input
+    jsr prompt_refresh
+    
+    lda APP_MOD
+    cmp #18
+    beq open
+save:
+    jsr screen_clear_footer
+    jsr screen_print_default_footer
+    jsr cursor_activate
+    ldx #<prompt_input
+    ldy #>prompt_input
+    lda prompt_len
+    jmp cmd_file_save
+
+open:
+    stz APP_MOD
+    jsr screen_clear_footer
+    jsr screen_print_default_footer
+    jsr cursor_activate
+    ldx #<prompt_input
+    ldy #>prompt_input
+    lda prompt_len
+    jmp cmd_file_open
+
+abort:
+    lda APP_MOD
+    cmp #18
+    beq abortopen
+abortsave:
+    jsr screen_clear_footer
+    jsr screen_print_file_ctx_footer
+    jsr cursor_activate
+    lda #4
+    sta APP_MOD
+    jmp :+
+abortopen:
+    jsr screen_clear_footer
+    jsr screen_print_file_ctx_footer
+    jsr cursor_activate
+    lda #5
+    sta APP_MOD
+:   jsr screen_clear
+    jmp screen_refresh
+
+uparrow:
+    ldx dir_selected
+    dex
+    jmp dir_select
+
+downarrow:
+    ldx dir_selected
+    inx
+    jmp dir_select
+
+nextpage:
+    jmp dir_nextpage
+
+prevpage:
+    jmp dir_prevpage
+
+.endproc
+
 
 ;******************************************************************************
 ;Function name.......: keyboard_mode_file_open_save_before

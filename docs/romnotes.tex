@@ -6,6 +6,8 @@
 \usepackage{longtable}
 \usepackage{graphicx}
 \usepackage{wrapfig}
+\usepackage{tabto}
+\usepackage{hanging}
 
 \begin{document}
 \maketitle
@@ -16,7 +18,7 @@
 
     \begin{itemize}
         \item Prepare a custom ROM image
-        \item Enter startup code in RAM
+        \item Create startup code using the X16 Edit API
     \end{itemize}
 
     \noindent The methods described herein are tested on emulator version R38.
@@ -68,39 +70,84 @@
         xemu -rom customrom.bin
     \end{verbatim}
 
-\section{Startup code}
+\section{Create startup code using the X16 Edit API}
 
-    Starting the X16 Editor ROM version requires a small startup program stored in RAM.
+    Running the X16 Edit ROM version requires that you enter a small startup
+    routine in RAM.
 
-    The startup program should do the following:
+    The startup code must use the public API of the program, which currently
+    consists of the two entry points described below.
 
-    \begin{itemize}
-        \item Switch to the ROM bank where X16 Edit is stored, which will be bank 7 if you follow the ROM image preparation instructions above.
+    \subsection{Default entry point}
 
-        \item Set the part of banked RAM available to the editor---load the start bank in the X register and the last bank in the Y register.
-        Bank 0 is used by the Kernal, so you should not specify a start bank number lower than 1.
+        \begin{hangparas}{3cm}{1}
 
-        \item Call the editor ROM entry point, \$C000.
+            \textbf{Description:} \tabto{3cm} The program's default entry point, opens the editor with an empty new buffer
 
-        \item On returning from the editor, restore the ROM bank select to its original value.
-    \end{itemize}
+            \textbf{Call address:} \tabto{3cm}\$C000
 
-    \noindent An example of such a startup code typed in the built-in monitor could look like this (don't type in the comments after semicolons):
+            \textbf{Params:} \tabto{3cm}.X = First RAM bank used by the program
+        
+            \tabto{3cm}.Y = Last RAM bank used by the program
 
-    \begin{verbatim}
-        .A 9E00 LDA $9F60       ;Get current ROM bank...
-        .A 9E03 PHA             ;... and store it on the stack
-        .A 9E04 LDA #$07        ;Store bank 7...
-        .A 9E06 STA $9F60       ;...in the ROM select
-        .A 9E09 LDX #$01        ;Set first RAM bank used to 1
-        .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
-        .A 9E0D JSR $C000       ;Call editor entry point
-        .A 9E10 PLA             ;Retrieve original ROM bank...
-        .A 9E11 STA $9F60       ;...and write it to ROM select
-        .A 9E14 RTS
-    \end{verbatim}
+        \end{hangparas}
 
-    \noindent Run this startup code with SYS \$9E00.
+        \vspace{1em}Example startup code entered into the builtin monitor:
+
+        \begin{verbatim}
+            .A 9E00 LDA $9F60       ;Get current ROM bank...
+            .A 9E03 PHA             ;... and store it on the stack
+            .A 9E04 LDA #$07        ;Store bank 7...
+            .A 9E06 STA $9F60       ;...in the ROM select
+            .A 9E09 LDX #$01        ;Set first RAM bank used to 1
+            .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
+            .A 9E0D JSR $C000       ;Call editor entry point
+            .A 9E10 PLA             ;Retrieve original ROM bank...
+            .A 9E11 STA $9F60       ;...and write it to ROM select
+            .A 9E14 RTS
+        \end{verbatim}
+
+    \subsection{Load text file entry point}
+
+        \begin{hangparas}{3cm}{1}
+
+            \textbf{Description:} \tabto{3cm} Loads a text file into the editor on startup
+
+            \textbf{Call address:} \tabto{3cm}\$C003
+
+            \textbf{Params:} \tabto{3cm}.X = First RAM bank used by the program
+        
+            \tabto{3cm} .Y = Last RAM bank used by the program
+
+            \tabto{3cm} R0 (\$02--\$03) = Pointer to file name, least significant byte first
+
+            \tabto{3cm} R1 (\$04) = File name length
+
+        \end{hangparas}
+
+        \vspace{1em}Example startup code entered into the builtin monitor:
+
+        \begin{verbatim}
+            .A 9E00 LDA $9F60       ;Get current ROM bank...
+            .A 9E03 PHA             ;... and store it on the stack
+            .A 9E04 LDA #$07        ;Store bank 7...
+            .A 9E06 STA $9F60       ;...in the ROM select
+            .A 9E09 LDX #$01        ;Set first RAM bank used to 1
+            .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
+            .A 9EOD LDA #$23        ;Get filename AddressL...
+            .A 9E10 STA $02         ;...and store in $02
+            .A 9E12 LDA #$9E        ;Get filename AddressH...
+            .A 9E15 STA $03         ;...and store in $03
+            .A 9E17 LDA #$05        ;Get filename length...
+            .A 9E19 STA $04         ;...and store in $04
+            .A 9E1B JSR $C003       ;Call editor entry point
+            .A 9E1E PLA             ;Retrieve original ROM bank...
+            .A 9E1F STA $9F60       ;...and write it to ROM select
+            .A 9E22 RTS
+
+            .M 9E23 <FILE NAME DATA, 5 BYTES IN THIS EXAMPLE>
+        \end{verbatim}    
+
 
 \section{Final comments}
 

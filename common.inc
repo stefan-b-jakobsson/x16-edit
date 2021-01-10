@@ -70,9 +70,28 @@ KBD_MODIFIER_CAPS  = 16; C128: Caps
 .define VERA_L1_TILEBASE $9f36
 
 ;*****************************************************************************
+;ZERO PAGE "REGISTERS"
+;*****************************************************************************
+r0 = $02
+r1 = $04
+r2 = $06
+r3 = $08
+r4 = $0a
+r5 = $0c
+r6 = $0e
+r7 = $10
+r8 = $12
+r9 = $14
+r10 = $16
+r11 = $18
+r12 = $1a
+r13 = $1c
+r14 = $1e
+r15 = $20
+
+;*****************************************************************************
 ;ZERO PAGE VECTORS AND VARIABLES
 ;*****************************************************************************
-
 .segment "ZEROPAGE"
 
 ;Pointer to memory location: Cursor position
@@ -124,15 +143,16 @@ cmd_display_msg:        .res 59
 prompt_input:           .res 256
 file_cur_filename:      .res 256
 file_disk_status:       .res 127
-bridge_code:            .res 127
+bridge_code:            .res 40
 
 .CODE
 
 ;*****************************************************************************
-;VARIABLES STORED IN RAM BANK 1
+;VARIABLES/BUFFERS STORED IN RAM BANK 1
 ;*****************************************************************************
 mem_map                                 = $a000               ;1024 bytes ($a000-$a3ff)
 clipboard_mem                           = $a400               ;3072 bytes ($a400-$afff)
+dir_entry                               = $b500               ;256 bytes
 
 ;*****************************************************************************
 ;CONSTANTS

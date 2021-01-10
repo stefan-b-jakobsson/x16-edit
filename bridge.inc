@@ -25,11 +25,10 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc bridge_copy
-    ldx #0
-:   lda bridge_kernal,x
-    sta bridge_code,x
-    inx
-    cpx #(bridge_end-bridge_kernal)
+    ldx #bridge_end-bridge_kernal
+:   lda bridge_kernal-1,x
+    sta bridge_code-1,x
+    dex
     bne :-
     rts
 .endproc
@@ -42,15 +41,20 @@
 ;                      to call before using this function
 ;Returns.............: Nothing
 ;Error returns.......: None
+
+;Bridge for Kernal function calls
 bridge_kernal:
-    stz ROM_SEL
-    jsr $ffff            ;$ffff is just placeholder
+    stz ROM_SEL        ;Kernal is ROM bank 0
+    jsr $ffff          ;$ffff is just placeholder
     pha
-    lda #ROM_BNK
+    lda #ROM_BNK       ;Set ROM select to our bank again
     sta ROM_SEL
     pla
-    rts
+    rts                 ;14 bytes
 
+;Bridge for interrupt handling, called by the Kernal
+;on interrupt, switches to X16 Edit's ROM bank and then
+;calls the custom interrupt handler stored in ROM
 bridge_irq:
     lda ROM_SEL
     pha
@@ -59,12 +63,11 @@ bridge_irq:
     jsr irq_handler
     pla
     sta ROM_SEL
-    jmp (irq_default_handler)
+    jmp (irq_default_handler)   ;19 bytes
 
 bridge_end:
+
 
 .segment "IRQ"
     .byt $ff, $ff, $ff, $ff, $8b, $03
 .CODE
-
-

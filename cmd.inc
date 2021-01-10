@@ -336,7 +336,6 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc cmd_insert_tab
-    stz $6000
     ;Find next tab stop by adding the tab width until we pass the current column index
     lda #1
     sta counter
@@ -364,12 +363,10 @@ loop:
     lda counter
     adc keyboard_tabwidth
     sta counter
-    sta $6000
     
     lda counter+1
     adc #0
     sta counter+1
-    sta $6001
 
     lda counter+2
     adc #0
@@ -1066,108 +1063,22 @@ msg:
 ;Error returns.......: None
 .proc cmd_cut
     ;Backup pointers, should we need to restore on mem full
-    lda CRS_BNK
-    pha
-    lda CRS_ADR+1
-    pha
-    lda CRS_IDX
-    pha
-
-    lda SCR_BNK
-    pha
-    lda SCR_ADR+1
-    pha
-    lda SCR_IDX
-    pha
-
-    lda LNV_BNK
-    pha
-    lda LNV_ADR+1
-    pha
-    lda LNV_IDX
-    pha
-
-    lda mem_cur_col
-    pha
-    lda mem_cur_col+1
-    pha
-    lda mem_cur_col+2
-    pha
-
-    lda mem_cur_line
-    pha
-    lda mem_cur_line+1
-    pha
-    lda mem_cur_line+2
-    pha
-
-    lda CRS_X
-    pha
-    lda CRS_Y
-    pha
+    jsr cmd_backup_pointers
 
     ;Cut line
     jsr clipboard_cut
     bcs mem_full
 
     ;Restore stack (17 bytes)
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-
+    ldx #17
+:   pla
+    dex
+    bne :-
+    
     jmp screen_refresh
 
 mem_full:
-    ;Restore pointers
-    pla
-    sta CRS_Y
-    pla
-    sta CRS_X
-    
-    pla
-    sta mem_cur_line+2
-    pla
-    sta mem_cur_line+1
-    pla
-    sta mem_cur_line
-    pla
-    sta mem_cur_col+2
-    pla
-    sta mem_cur_col+1
-    pla
-    sta mem_cur_col
-    pla
-    sta LNV_IDX
-    pla
-    sta LNV_ADR+1
-    pla
-    sta LNV_BNK
-    pla
-    sta SCR_IDX
-    pla
-    sta SCR_ADR+1
-    pla
-    sta SCR_BNK
-    pla
-    sta CRS_IDX
-    pla
-    sta CRS_ADR+1
-    pla
-    sta CRS_BNK
+    jsr cmd_restore_pointers    
 
     ldx CRS_X
     ldy CRS_Y
@@ -1195,108 +1106,22 @@ msg:
 ;Error returns.......: None
 .proc cmd_copy
     ;Backup pointers, should we need to restore on mem full
-    lda CRS_BNK
-    pha
-    lda CRS_ADR+1
-    pha
-    lda CRS_IDX
-    pha
-
-    lda SCR_BNK
-    pha
-    lda SCR_ADR+1
-    pha
-    lda SCR_IDX
-    pha
-
-    lda LNV_BNK
-    pha
-    lda LNV_ADR+1
-    pha
-    lda LNV_IDX
-    pha
-
-    lda mem_cur_col
-    pha
-    lda mem_cur_col+1
-    pha
-    lda mem_cur_col+2
-    pha
-
-    lda mem_cur_line
-    pha
-    lda mem_cur_line+1
-    pha
-    lda mem_cur_line+2
-    pha
-
-    lda CRS_X
-    pha
-    lda CRS_Y
-    pha
+    jsr cmd_backup_pointers
 
     ;Copy
     jsr clipboard_copy
     bcs mem_full
 
     ;Restore stack (17 bytes)
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
+    ldx #17
+:   pla
+    dex
+    bne :-
 
     jmp screen_refresh
 
 mem_full:
-    ;Restore pointers
-    pla
-    sta CRS_Y
-    pla
-    sta CRS_X
-    
-    pla
-    sta mem_cur_line+2
-    pla
-    sta mem_cur_line+1
-    pla
-    sta mem_cur_line
-    pla
-    sta mem_cur_col+2
-    pla
-    sta mem_cur_col+1
-    pla
-    sta mem_cur_col
-    pla
-    sta LNV_IDX
-    pla
-    sta LNV_ADR+1
-    pla
-    sta LNV_BNK
-    pla
-    sta SCR_IDX
-    pla
-    sta SCR_ADR+1
-    pla
-    sta SCR_BNK
-    pla
-    sta CRS_IDX
-    pla
-    sta CRS_ADR+1
-    pla
-    sta CRS_BNK
+    jsr cmd_restore_pointers
 
     ldx CRS_X
     ldy CRS_Y
@@ -1479,47 +1304,7 @@ msg:
     ;Init & backup pointers if they need to be restored
     stz match
 
-    ;Backup pointers
-    lda CRS_BNK
-    sta BNK_SEL
-    pha
-    lda CRS_ADR+1
-    pha
-    lda CRS_IDX
-    pha
-
-    lda LNV_BNK
-    pha
-    lda LNV_ADR+1
-    pha
-    lda LNV_IDX
-    pha
-
-    lda SCR_BNK
-    pha
-    lda SCR_ADR+1
-    pha
-    lda SCR_IDX
-    pha
-
-    lda mem_cur_col
-    pha
-    lda mem_cur_col+1
-    pha
-    lda mem_cur_col+2
-    pha
-
-    lda mem_cur_line
-    pha
-    lda mem_cur_line+1
-    pha
-    lda mem_cur_line+2
-    pha
-
-    lda CRS_X
-    pha
-    lda CRS_Y
-    pha
+    jsr cmd_backup_pointers
 
 ;Now search for that string
 
@@ -1558,65 +1343,17 @@ goto_match:
     jmp :-
 
 :   ;Restore stack (17 bytes)
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
-    pla
+    ldx #17
+:   pla
+    dex
+    bne :-
 
     ;Return value
     clc
     rts
 
 eof:
-    ;Restore pointers
-    pla
-    sta CRS_Y
-    pla
-    sta CRS_X
-    
-    pla
-    sta mem_cur_line+2
-    pla
-    sta mem_cur_line+1
-    pla
-    sta mem_cur_line
-    pla
-    sta mem_cur_col+2
-    pla
-    sta mem_cur_col+1
-    pla
-    sta mem_cur_col
-    pla
-    sta SCR_IDX
-    pla
-    sta SCR_ADR+1
-    pla
-    sta SCR_BNK
-    pla
-    sta LNV_IDX
-    pla
-    sta LNV_ADR+1
-    pla
-    sta LNV_BNK
-    pla
-    sta CRS_IDX
-    pla
-    sta CRS_ADR+1
-    pla
-    sta CRS_BNK
+    jsr cmd_restore_pointers
 
     ldx CRS_X
     ldy CRS_Y
@@ -2186,7 +1923,7 @@ exit:
 .proc cmd_refresh_after_encoding_changed
     jsr screen_clearall
     jsr screen_print_header
-    jsr screen_print_footer
+    jsr screen_print_default_footer
     jsr screen_refresh
     jsr screen_println
     
@@ -2245,7 +1982,7 @@ msg_plc:
 
     jsr screen_clearall
     jsr screen_print_header
-    jsr screen_print_footer
+    jsr screen_print_default_footer
     jsr screen_refresh
     jmp screen_println
 
@@ -2276,7 +2013,7 @@ bgcolor = tempvars      ;1 bytes
 
     jsr screen_clearall
     jsr screen_print_header
-    jsr screen_print_footer
+    jsr screen_print_default_footer
     jsr screen_refresh
     jmp screen_println
 
@@ -2388,6 +2125,126 @@ msg_off:
 msg_illegal:
     .byt "invalid value, column must be in range 10..250",0
 
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_backup_pointers
+;Purpose.............: Backups the following pointers to the stack:
+;                      CRS_XXX, SCR_XXX, LNV_XXX, mem_cur_col, mem_cur_line,
+;                      CRS_X, CRS_Y
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_backup_pointers
+    ;Pull return address from stack
+    plx
+    ply
+
+    ;Backup pointers
+    lda CRS_BNK
+    pha
+    lda CRS_ADR+1
+    pha
+    lda CRS_IDX
+    pha
+
+    lda SCR_BNK
+    pha
+    lda SCR_ADR+1
+    pha
+    lda SCR_IDX
+    pha
+
+    lda LNV_BNK
+    pha
+    lda LNV_ADR+1
+    pha
+    lda LNV_IDX
+    pha
+
+    lda mem_cur_col
+    pha
+    lda mem_cur_col+1
+    pha
+    lda mem_cur_col+2
+    pha
+
+    lda mem_cur_line
+    pha
+    lda mem_cur_line+1
+    pha
+    lda mem_cur_line+2
+    pha
+
+    lda CRS_X
+    pha
+    lda CRS_Y
+    pha
+
+    ;Restore return address
+    phy
+    phx
+    
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_restore_pointers
+;Purpose.............: Restores the pointers backup by cmd_backup_pointers
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_restore_pointers
+    ;Pull return address from stack
+    plx
+    ply
+
+    ;Restore pointers
+    pla
+    sta CRS_Y
+    pla
+    sta CRS_X
+    
+    pla
+    sta mem_cur_line+2
+    pla
+    sta mem_cur_line+1
+    pla
+    sta mem_cur_line
+    
+    pla
+    sta mem_cur_col+2
+    pla
+    sta mem_cur_col+1
+    pla
+    sta mem_cur_col
+    
+    pla
+    sta LNV_IDX
+    pla
+    sta LNV_ADR+1
+    pla
+    sta LNV_BNK
+
+    pla
+    sta SCR_IDX
+    pla
+    sta SCR_ADR+1
+    pla
+    sta SCR_BNK
+    
+    pla
+    sta CRS_IDX
+    pla
+    sta CRS_ADR+1
+    pla
+    sta CRS_BNK
+
+    ;Restore return address
+    phy
+    phx
+
+    rts
 .endproc
 
 .segment "VARS"

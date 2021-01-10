@@ -17,6 +17,8 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
+CLIPBOARD_SIZE = 12     ;In pages each of 256 bytes
+
 ;******************************************************************************
 ;Function name.......: clipboard_init
 ;Purpose.............: Initializes and clears clipboard memory
@@ -38,8 +40,8 @@
 ;Function name.......: clipboard_insert
 ;Purpose.............: Inserts a char into clipboard memory
 ;Input...............: A=char
-;Returns.............: Nothing
-;Error returns.......: C=1 if clipboard mem is full
+;Returns.............: C=1 if clipboard mem is full
+;Error returns.......: None
 .proc clipboard_insert
     ;Save char in X until we need it
     tax
@@ -48,7 +50,7 @@
     sec
     lda clipboard_pointer
     sbc #>clipboard_mem
-    cmp #12                  ;Allow clipboard mem to be max 12x256 bytes = 3K
+    cmp #CLIPBOARD_SIZE
     bcc mem_not_full
 
 mem_full:
@@ -56,25 +58,27 @@ mem_full:
     rts
 
 mem_not_full:
-    ;Set vector to clipboard mem
+    ;Prepare to insert char in clipboard mem
     lda #<clipboard_mem
     sta TMP1_ADR
     lda clipboard_pointer
     sta TMP1_ADR+1
     ldy clipboard_pointer+1
-
-    ;Get char from X and save it in clipboard mem
-    txa
     
-    ldx BNK_SEL         ;Save current RAM bank on stack
-    phx
+    ;Save current RAM bank on stack
+    lda BNK_SEL
+    pha
 
-    ldx mem_start
-    stx BNK_SEL
+    ;Select RAM bank stack for clipboard mem
+    lda mem_start
+    sta BNK_SEL
+
+    ;Store char
+    txa
     sta (TMP1_ADR),y
     
-    plx                 ;Restore RAM bank
-    stx BNK_SEL
+    pla                 ;Restore RAM bank
+    sta BNK_SEL
     
     ;Increase clipboard pointer
     inc clipboard_pointer+1
@@ -120,28 +124,32 @@ exit:
     ;Move cursor to start of line
     jsr cmd_go_home
 
-    ;Copy line loop
+    ;Copy line
 loop:
-    ;Setup vectors
+    ;Prepare reading a char from the text buffer
     lda CRS_BNK
     sta BNK_SEL
     ldy CRS_IDX
     lda #5
     sta CRS_ADR
     
-    ;Get char from text and store it in clipboard mem
+    ;Get char from buffer and push it on the stack
     lda (CRS_ADR),y
+    pha
     stz CRS_ADR
-    jsr clipboard_insert
-    bcs mem_full
 
     ;Move cursor right, exit if at end of line (C=1) or EOF (X=1)
     jsr cmd_go_right
     bcs eol
     cpx #1
-    beq eof
+    beq eol
 
-    ;Increase counter
+    ;Insert char
+    pla
+    jsr clipboard_insert
+    bcs full
+
+    ;Increase char counter
     inc count
     bne :+
     inc count+1
@@ -151,46 +159,35 @@ loop:
 :   jmp loop
 
 eol:
-    ;End of line
-    inc count
-    bne :+
-    inc count+1
-    bne :+
-    inc count+2
-:   jmp exit
+    ;Pull last char from the stack, we will not use it though
+    pla
 
-eof:
-    ;At EOF, replace last char in clipboard mem with a LF
-    lda #<clipboard_mem
-    sta TMP1_ADR
-    lda clipboard_end
-    sta TMP1_ADR+1
-    ldy clipboard_end+1
-    dey
-    cpy #$ff
-    bne :+
-    dec TMP1_ADR+1
-
-:   lda mem_start
-    sta BNK_SEL
+    ;Insert LF
     lda #LF
-    sta (TMP1_ADR),y
+    jsr clipboard_insert
+
+    ;Increase char counter
+    inc count
+    bne exit
+    inc count+1
+    bne exit
+    inc count+2
 
 exit:
-    ;Restore stack
+    ;Clean stack
     pla
     pla
     pla
     pla
 
-    ;Return values
-    clc
+    ;Set return values
     ldx count
     ldy count+1
     lda count+2
+    clc             ;C=0, mem not full
     rts
 
-mem_full:
+full:
     ;Restore pointers
     pla
     sta clipboard_end+1
@@ -219,17 +216,19 @@ mem_full:
 .proc clipboard_cut
     ;Copy line, return with C=1 if clipboard mem is full
     jsr clipboard_copy
-    bcc prepare
+    bcc prepare_delete
+
+mem_full:
     rts             ;No need to set C=1 if we reach this, it's already set!
 
-prepare:
+prepare_delete:
     ;Set counter to number of chars copied
     stx count
     sty count+1
     sta count+2
 
+;Loop to delete the line
 loop:
-    ;Loop to delete the line
     ;First check if we are done, i.e. that the number of copied chars have been deleted
     lda count
     bne delete
@@ -243,15 +242,13 @@ delete:
     jsr cmd_delete
     
     ;Decrease counter
-    dec count
     lda count
-    cmp #$ff
-    bne loop
-    dec count+1
+    bne :++
     lda count+1
-    cmp #$ff
-    bne loop
+    bne :+
     dec count+2
+:   dec count+1
+:   dec count
     jmp loop
 
 exit:

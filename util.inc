@@ -340,3 +340,24 @@ len = tempvars          ;1 byte
 bcd_val = tempvars+1    ;4 bytes
 
 .endproc
+
+;******************************************************************************
+;Function name.......: util_strlen
+;Purpose.............: Returns length of null terminated strind
+;Input...............: Pointer to null terminated string, X=AddressL, Y=AddressH
+;Returns.............: Y=String len
+;Error returns.......: Nothing
+.proc util_strlen
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    ldy #0
+
+:   lda (TMP1_ADR),y
+    beq done
+    iny
+    jmp :-
+
+done:
+    rts
+.endproc
+

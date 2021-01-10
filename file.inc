@@ -403,14 +403,20 @@ msg:
 ;                      Status message in file_disk_status
 ;Error returns.......: None
 .proc file_read_disk_status
+    lda #0
+    ldx #0
+    ldy #0
+    jmp file_disk_cmd
+.endproc
+
+.proc file_disk_cmd
     ;Set default = no kernal error
     stz file_io_err
 
     ;Close file #15, and open file #15, secondary address 15
+    pha
     bridge_setaddr KERNAL_SETNAM
-    lda #0
-    ldx #0
-    ldy #0
+    pla
     bridge_call KERNAL_SETNAM
 
     bridge_setaddr KERNAL_CLOSE
@@ -442,14 +448,13 @@ read_loop:
     bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
     cmp #$20
-    bcc read_loop       ;Ignore contron chars
+    bcc read_loop       ;Ignore control chars
     ldy index
     sta file_disk_status+13, y
     cpy #113            ;Last index = 127 - 13 - 1, where 13 is length of ingress "disk status: " and 1 byte is reserved for end of string marker (a zero)
     beq eof
     inc index
     jmp read_loop
-
 
 io_error:
     ldy #13

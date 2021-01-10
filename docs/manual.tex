@@ -90,15 +90,15 @@
             G    & F1    & Display built-in help screen \\
             X    & F2    & Exit from the program \\
             O    & F3    & Write text buffer to file \\
-            R    & F4    & Open and read a file into the buffer \\
+            R    & F5    & Open and read a file into the buffer \\
             N    & ---   & Create new text buffer \\
-            Y    & ---   & Page up \\
-            V    & ---   & Page down \\
-            K    & F5    & Cut current line and save it to clipboard \\
+            Y    & F7    & Page up \\
+            V    & F8    & Page down \\
+            K    & ---    & Cut current line and save it to clipboard \\
             P    & ---   & Copy current line to clipboard \\
-            U    & F6    & Paste (uncut) all content from clipboard \\
-            C    & F7    & Display current cursor position (line and column) \\
-            W    & F8    & Search and find string in buffer (case sensitive) \\
+            U    & ---   & Paste (uncut) all content from clipboard \\
+            C    & ---   & Display current cursor position (line and column) \\
+            W    & F6    & Search and find string in buffer (case sensitive) \\
             S    & ---   & Replace one or all occurrences of a string in buffer (case sensitive) \\
             L    & ---   & Goto line number \\
             A    & ---   & Toggle auto indent on/off \\
@@ -283,11 +283,19 @@
        
 \section{File handling}
 
-    X16 Edit supports no other file handling functions than reading (Ctrl+R) and writing files (Ctrl+O).
+    X16 Edit supports file handling functions for reading (Ctrl+R) and writing files (Ctrl+O).
 
-    In order to simplify the program, there are no functions to show directory listings,
-    or to rename, move or delete files. These operations need to be handled at the
-    Basic prompt or with other specialized programs.
+    After selecting Ctrl+R (open/read) or Ctrl+O (write out/save) you may type a file name at the
+    prompt. Alternatively you may press Ctrl+T to show the current directory listing. Use arrow up and down to highlight a 
+    file or folder, and press enter to select the 
+    highlighted item. If the selected item is a folder, the program will change the current directory, and 
+    show its content. If all items fit on the screen, the listing is ended with
+    "--- END ---". If there are more files in the directory, the programs prints "--- MORE ---" instead. In case
+    the directory items are spread over several pages, you may go to next page with Ctrl+V and back to a 
+    previous page with Ctrl+Y.
+
+    The program does not support other file handling functions, such as deleting or renaming files or
+    folders.
 
     By default the program uses device \#8. The device
     number may be changed by pressing Ctrl+D.
@@ -295,7 +303,7 @@
 
 \section{License}
 
-	Copyright 2020, Stefan Jakobsson.
+	Copyright 2020--2021, Stefan Jakobsson.
 
 	The X16 Edit program, including this manual, is released under the GNU General Public License version 3 or later.
     The program is free software and comes with ABSOLUTELY NO WARRANTY. You may redistribute and/or modify it under the 

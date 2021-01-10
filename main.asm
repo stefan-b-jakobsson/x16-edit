@@ -17,7 +17,11 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-;Build target
+.export main_default_entry
+.export main_loadfile_entry
+
+;******************************************************************************
+;Check build target
 .define target_ram 1
 .define target_rom 2
 
@@ -29,23 +33,64 @@
     .error "target_mem invalid value (1=RAM, 2=ROM)"
 .endif
 
-
+;******************************************************************************
 ;Include global defines
 .include "common.inc"
 .include "charset.inc"
 .include "bridge_macro.inc"
 
 ;******************************************************************************
-;Function name.......: main
-;Purpose.............: Program entry function
-;Preparatory routines: None
-;Input...............: None
+;Description.........: Entry points
+jmp main_default_entry
+jmp main_loadfile_entry
+
+;******************************************************************************
+;Function name.......: main_default_entry
+;Purpose.............: Default entry function; starts the editor with an
+;                      empty buffer
+;Input...............: First RAM bank used by the program in X and last RAM
+;                      bank used by the program in Y.
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc main
+.proc main_default_entry
+    jsr main_init
+    bcs exit
+    jmp main_loop
+exit:
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: main_loadfile_entry
+;Purpose.............: Program entry function
+;Input...............: First RAM bank used by the program in X and last RAM
+;                      bank used by the program in Y
+;Returns.............: Nothing
+;Error returns.......: None
+.proc main_loadfile_entry
+    jsr main_init
+    bcs exit
+    ldx r0
+    ldy r0+1
+    lda r1
+    jsr cmd_file_open
+    jmp main_loop
+exit:
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: main_init
+;Purpose.............: Initializes the program
+;Input...............: First RAM bank used by the program in X and last RAM
+;                      bank used by the program in Y. If building the RAM version
+;                      the values are ignored and replaced with X=1 and Y=255.
+;Returns.............: C=1 if program initialization failed
+;Error returns.......: None
+.proc main_init
     ;Ensure we are in binary mode
     cld
-
+    
     ;Save content of mem_start and mem_top on stack before the values are changed
     ;These values are to be picked up by the ram_backup function
     ;Not the cleanest solution, but there's nothing else to do if RAM is to be preserved
@@ -62,33 +107,36 @@
     stx mem_start
     sty mem_top
 
-    cpy mem_start
-    bcs rambackup
-
-;Error: mem_top < mem_start => exit program
-    bridge_setaddr KERNAL_CHROUT
-    ldx #0
-printerrloop:
-    lda errormsg,x
-    beq exit
-    bridge_call KERNAL_CHROUT
-    inx
-    jmp printerrloop
-
-    ;Backup ZP page and $0400-$07FF data so it can be restored on program exit
-rambackup:
-    jsr ram_backup
-
     ;Copy Kernal bridge code to RAM
     .if (::target_mem=target_rom)
         jsr bridge_copy
     .endif
 
+    ;Check if banked RAM start<=top
+    ldy mem_top
+    cpy mem_start
+    bcs rambackup
+
+    ;Error: mem_top < mem_start
+    bridge_setaddr KERNAL_CHROUT
+    ldx #0
+print_error:
+    lda errormsg,x
+    beq print_error_done
+    bridge_call KERNAL_CHROUT
+    inx
+    jmp print_error
+
+print_error_done:
+    sec
+    rts
+
+    ;Backup ZP and low RAM, so we can restore on program exit
+rambackup:
+    jsr ram_backup
+
     ;Set program mode to default
     stz APP_MOD
-
-    ;Set program in running state
-    stz APP_QUIT
 
     ;Initialize base functions
     jsr mem_init
@@ -97,19 +145,38 @@ rambackup:
     jsr cursor_init
     jsr clipboard_init
     jsr cmd_init
+
+    clc
+    rts
+
+errormsg:
+    .byt "error: banked ram top less than banked ram start",0
+.endproc
+
+;******************************************************************************
+;Function name.......: main_loop
+;Purpose.............: Initializes custom interrupt handler and then goes
+;                      to the program main loop that just waits for program
+;                      to terminate.
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc main_loop
+    ;Init IRQ
     jsr irq_init
-    
+
+    ;Set program in running state
+    stz APP_QUIT
+
     ;Wait for the program to terminate    
 :   lda APP_QUIT        ;0=running, 1=closing down, 2=close now
     cmp #2
     bne :-
 
-    jsr ram_restore     ;Restore ZP and $0400-$07FF
+    jsr ram_restore     ;Restore ZP and low RAM used by the program
+
 exit:
     rts
-
-errormsg:
-    .byt "error: banked ram top less than banked ram start",0
 .endproc
 
 .include "screen.inc"
@@ -124,6 +191,7 @@ errormsg:
 .include "clipboard.inc"
 .include "mem.inc"
 .include "ram.inc"
+.include "dir.inc"
 
 .if target_mem=target_rom
     .include "bridge.inc"
