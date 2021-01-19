@@ -179,6 +179,7 @@ exit:
     rts
 .endproc
 
+.include "appversion.inc"
 .include "screen.inc"
 .include "keyboard.inc"
 .include "cmd.inc"

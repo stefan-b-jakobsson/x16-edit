@@ -214,7 +214,7 @@ nb_loop:
     rts
 
 program_name:
-    .byt "x16 edit 0.3.3", 0
+    .byt .sprintf("x16 edit %u.%u.%u", appversion_major, appversion_minor, appversion_patch), 0
 
 new_buffer_msg:
     .byt "new buffer"
