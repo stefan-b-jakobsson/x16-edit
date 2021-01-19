@@ -289,6 +289,7 @@ err:
     sta APP_MOD
 
     ldx file_io_err
+    dex                     ;Decrease, err no 1 is index 0 in error msg list
     lda file_ioerr_H,x
     tay
     lda file_ioerr_L,x
