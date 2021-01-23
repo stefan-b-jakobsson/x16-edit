@@ -559,11 +559,20 @@ unknown:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_statusmessage
-    ;Any key press will close the status message. 
-    ;Set program to default mode (0) and clear status message
+    pha
+
+    ;Any key press will close the status message
     stz APP_MOD
     jsr screen_clear_status
-    jmp cursor_activate
+    jsr cursor_activate
+
+    ;If other than Esc key, send it to default handler
+    pla
+    cmp #3
+    beq :+
+    jmp keyboard_mode_default
+:   rts
+
 .endproc
 
 ;******************************************************************************
