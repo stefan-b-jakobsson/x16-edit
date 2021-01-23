@@ -1070,6 +1070,7 @@ last_char = tempvars+2  ;1 byte
     ;Exit
 :   lda #1
     sta mem_modified
+    clc
     rts
 
 pushforward:
