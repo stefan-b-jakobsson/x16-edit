@@ -74,6 +74,11 @@ exit:
     ldy r0+1
     lda r1
     jsr cmd_file_open
+    
+    ldx #0
+    ldy #2
+    jsr cursor_move
+
     jmp main_loop
 exit:
     rts
