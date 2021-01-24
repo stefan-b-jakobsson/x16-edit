@@ -164,4 +164,4 @@ dir_entry                               = $b500               ;256 bytes
 .define LF 10
 .define CR 13          
 .define SCREEN_WIDTH 80
-.define SCREEN_HEIGHT 54
+.define SCREEN_HEIGHT 60

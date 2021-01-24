@@ -20,7 +20,7 @@
 
 ;******************************************************************************
 ;Function name.......: cursor_init
-;Purpose.............: Initializes the cursor
+;Purpose.............: Initializes the cursor sprite
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -33,21 +33,21 @@
     lda #(1<<4)
     sta VERA_H
 
-    ;First write 6 blank lines (48 bytes) with color 0
+    ;First write 6 blank lines (48 bytes) with color 0 (transparent)
     lda #$00
     ldx #48
     :   sta VERA_D0
         dex
         bne :-
     
-    ;Then write 2 lines (16 bytes) with color 1 (=white)
+    ;Then write 2 lines (16 bytes) with color 1 (white)
     lda #$01
     ldx #16
     :   sta VERA_D0
         dex
         bne :-
     
-    ;Prepare writing attributes for sprite #0 (VERA address 01fc00) + autoincrement +1
+    ;Prepare writing attributes for sprite #0 (VERA address 01fc00)
     lda #$00
     sta VERA_L
     lda #$fc
@@ -95,7 +95,6 @@
     sta cursor_toggle_counter
 
     rts
-
 .endproc
 
 ;******************************************************************************
@@ -144,7 +143,7 @@
 
 ;******************************************************************************
 ;Function name.......: cursor_move
-;Purpose.............: Moves the cursor
+;Purpose.............: Moves the cursor to specified column and row
 ;Input...............: X=cursor column, Y=cursor row
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -189,7 +188,7 @@
     lsr
     sta VERA_D0
 
-    ;Finally, save position to zero page vectors
+    ;Finally, save new position
     stx CRS_X
     sty CRS_Y
 
@@ -204,12 +203,11 @@
 ;Returns.............: C=1 if at rightmost position of screen, else C=0
 ;Error returns.......: None
 .proc cursor_move_right
-    lda CRS_X
-    cmp #(SCREEN_WIDTH-1)
+    ldx CRS_X
+    cpx #(SCREEN_WIDTH-1)
     bcs rightmost
 
-    inc CRS_X
-    ldx CRS_X
+    inx
     ldy CRS_Y
     jsr cursor_move
 
@@ -230,13 +228,11 @@ rightmost:
 ;Returns.............: C=1 if at leftmost position of screen, else C=0
 ;Error returns.......: None
 .proc cursor_move_left
-    lda CRS_X
-    cmp #0
+    ldx CRS_X
+    cpx #0
     beq leftmost
 
-    dec CRS_X
-
-    ldx CRS_X
+    dex
     ldy CRS_Y
     jsr cursor_move
 
@@ -281,7 +277,7 @@ top:
 ;Error returns.......: None
 .proc cursor_move_down
     ldy CRS_Y
-    cpy #(SCREEN_HEIGHT+1)  ;The last editable row
+    cpy #(SCREEN_HEIGHT-5)  ;The last editable row
     beq bottom
 
     iny
@@ -306,7 +302,7 @@ bottom:
 ;Error returns.......: None
 .proc cursor_move_crlf
     ldy CRS_Y
-    cpy #(SCREEN_HEIGHT+1)         ;The last editable row
+    cpy #(SCREEN_HEIGHT-5)         ;The last editable row
     beq bottom
     iny
     ldx #0
@@ -354,7 +350,7 @@ active:
 
 hide:
     jsr cursor_hide
-    lda #60                 ;Restore counter to start value
+    lda #60                 ;Restart counter
     sta cursor_toggle_counter
     rts
     
