@@ -858,7 +858,7 @@ exit:
 
     ;Pepare printing
     lda #32                 ;Blank space
-    ldx #SCREEN_WITDH       ;Columns
+    ldx #SCREEN_WIDTH       ;Columns
     ldy #SCREEN_HEIGHT-6    ;Rows
     sty tempvars
     ldy screen_color
