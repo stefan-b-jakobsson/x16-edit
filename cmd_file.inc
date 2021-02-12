@@ -325,6 +325,46 @@ exit:
 .endproc
 
 ;******************************************************************************
+;Function name.......: cmd_file_dos_command_prompt
+;Purpose.............: Prompts user to enter dos command
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_file_dos_command_prompt
+    lda #20
+    sta APP_MOD
+
+    ldx #<msg
+    ldy #>msg
+    lda #250
+    jmp prompt_init
+msg:
+    .byt "dos command:",0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_file_dos_command_exec
+;Purpose.............: Executes a dos command and displays a status message
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_file_dos_command_exec
+    lda prompt_len
+    ldx #<prompt_input
+    ldy #>prompt_input
+    jsr file_disk_cmd
+
+    lda #1
+    sta APP_MOD
+    jsr prompt_close
+    ldx #<file_disk_status
+    ldy #>file_disk_status
+    jmp screen_print_status
+.endproc
+
+;******************************************************************************
 ;Function name.......: cmd_file_set_device
 ;Purpose.............: Prompts user for device number
 ;Input...............: Nothing

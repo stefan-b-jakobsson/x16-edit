@@ -409,6 +409,13 @@ msg:
     jmp file_disk_cmd
 .endproc
 
+;******************************************************************************
+;Function name.......: file_disk_cmd
+;Purpose.............: Invoke dos command
+;Input...............: Nothing
+;Returns.............: A=error code in decimal mode style
+;                      Status message in file_disk_status
+;Error returns.......: None
 .proc file_disk_cmd
     ;Set default = no kernal error
     stz file_io_err

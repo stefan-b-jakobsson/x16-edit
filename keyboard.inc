@@ -79,6 +79,7 @@ jmptbl_L:
     .byt <keyboard_mode_set_device
     .byt <keyboard_mode_file_dir
     .byt <keyboard_mode_file_dir
+    .byt <keyboard_mode_dos_cmd
 
 jmptbl_H:
     .byt >keyboard_mode_default
@@ -101,6 +102,7 @@ jmptbl_H:
     .byt >keyboard_mode_set_device
     .byt >keyboard_mode_file_dir
     .byt >keyboard_mode_file_dir
+    .byt >keyboard_mode_dos_cmd
 .endproc
 
 ;******************************************************************************
@@ -250,6 +252,11 @@ modifier_ctrl:
     cmp #$07
     bne :+
     jmp cmd_show_help
+
+    ;Ctrl+I
+:   cmp #$09
+    bne :+
+    jmp cmd_file_dos_command_prompt
 
     ;Ctrl+X
 :   cmp #$18
@@ -419,6 +426,12 @@ modifier_ctrl:
     bne :+
     stz APP_MOD
     jmp cmd_show_help
+
+    ;i
+:   cmp #$49
+    bne :+
+    jsr cursor_activate
+    jmp cmd_file_dos_command_prompt
 
     ;x
 :   cmp #$58
@@ -951,6 +964,34 @@ abort:
     jsr screen_clear_status
     rts
 
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_file_dos_cmd
+;Purpose.............: Key dispatcher: Prompting the user to enter dos command
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_dos_cmd
+    ;Enter key
+    cmp #13
+    bne :+
+    jmp enterkey
+
+    ;ESC key
+:   cmp #$03
+    bne :+
+    jmp abort
+
+    ;Default
+:   jmp prompt_keypress
+
+enterkey:
+    jmp cmd_file_dos_command_exec
+
+abort:
+    stz APP_MOD
+    jmp prompt_close
 .endproc
 
 ;******************************************************************************
