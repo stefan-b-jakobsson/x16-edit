@@ -25,7 +25,7 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_init
-    ;Set zero page vector
+    ;Set pointer to prompt message
     stx TMP1_ADR
     sty TMP1_ADR+1
     
@@ -41,64 +41,31 @@
     lda CRS_Y
     sta prompt_cursor_backup+1
     
-    ;Print prompt message at row 57
+    ;Print prompt message at third row from bottom of screen
     stz VERA_L
-    lda #57
+    lda #SCREEN_HEIGHT-3
     sta VERA_M
     lda #(2<<4)
     sta VERA_H
 
     ldy #0
-
-    lda screen_mode
-    beq loop_iso
-    cmp #1
-    beq loop_petscii_uc
-    jmp loop_petscii_lc
-
-loop_iso:
-    lda (TMP1_ADR),y
-    beq loop_iso_exit
-    sta VERA_D0
-    iny
-    jmp loop_iso
-
-loop_iso_exit:
-    jmp set_bgcolor
-
-loop_petscii_uc:
-    lda (TMP1_ADR),y
-    beq loop_petscii_uc_exit
-    .scope
-        charset_ascii_to_petscii_ucase
-    .endscope
-    sta VERA_D0
-    iny
-    jmp loop_petscii_uc
-
-loop_petscii_uc_exit:
-    jmp set_bgcolor
-
-loop_petscii_lc:
+msg_loop:
     lda (TMP1_ADR),y
     beq set_bgcolor
-    .scope
-        charset_ascii_to_petscii_lcase
-    .endscope
-    sta VERA_D0
+    jsr screen_put_uc_char
     iny
-    jmp loop_petscii_lc
+    bra msg_loop
     
 set_bgcolor:
     ;Before we set background color, set column where user input starts (prompt message len+1)
     iny
     sty prompt_start
 
-    ;Set background color
+    ;Prepapre writing color data
     lda #1
     sta VERA_L
     
-    ldx #80     ;Column count
+    ldx #SCREEN_WIDTH
     lda #160    ;Color
 
 :   sta VERA_D0
@@ -110,9 +77,9 @@ set_bgcolor:
     stz prompt_fvc
     stz prompt_len
 
-    ;Move cursor
+    ;Move cursor to prompt line
     ldx prompt_start
-    ldy #57
+    ldy #SCREEN_HEIGHT-3
     jmp cursor_move
 
 .endproc
@@ -125,7 +92,7 @@ set_bgcolor:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_default_input
-    ;Setup zero page vector to input string
+    ;Set pointer to input string
     stx TMP1_ADR
     sty TMP1_ADR+1
     sta prompt_len
@@ -133,10 +100,10 @@ set_bgcolor:
     ldy #0
     sty index
 loop:
-    ;This loop copies default input string to prompt input
+    ;Copy default input string to prompt input buffer
     ldy index
     cpy prompt_len
-    beq exit
+    beq exit            
     cpy prompt_maxlen
     beq exit
 
@@ -145,7 +112,7 @@ loop:
     jsr prompt_go_right
     
     inc index
-    jmp loop
+    bra loop
 
 exit:
     jmp prompt_refresh
@@ -167,7 +134,7 @@ exit:
     lda prompt_start
     asl
     sta VERA_L
-    lda #57
+    lda #SCREEN_HEIGHT-3
     sta VERA_M
     lda #(2<<4)
     sta VERA_H
@@ -176,56 +143,17 @@ exit:
     ldy prompt_fvc
     ldx prompt_start
 
-    ;Select printing routine for active charset
-    lda screen_mode
-    beq loop_iso
-    cmp #1
-    beq loop_petscii_uc
-    jmp loop_petscii_lc
-
-loop_iso:
+loop:
     cpy prompt_len              ;Exit if we are at end of user input
-    bcs loop_iso_exit
+    bcs clear_line
     lda prompt_input,y
-    sta VERA_D0
+    phx
+    jsr screen_put_char
+    plx
     iny
     inx
     cpx #SCREEN_WIDTH           ;Also exit if we are at right border, rest of user input not visible
-    bne loop_iso
-    rts
-
-loop_iso_exit:
-    jmp clear_line
-
-loop_petscii_uc:
-    cpy prompt_len
-    bcs loop_petscii_uc_exit
-    lda prompt_input,y
-    .scope
-        charset_ascii_to_petscii_ucase
-    .endscope
-    sta VERA_D0
-    iny
-    inx
-    cpx #SCREEN_WIDTH
-    bne loop_petscii_uc
-    rts
-
-loop_petscii_uc_exit:
-    jmp clear_line
-
-loop_petscii_lc:
-    cpy prompt_len
-    bcs clear_line
-    lda prompt_input,y
-    .scope
-        charset_petscii_to_scrcode
-    .endscope
-    sta VERA_D0
-    iny
-    inx
-    cpx #SCREEN_WIDTH
-    bne loop_petscii_lc
+    bne loop
     rts
 
 clear_line:
@@ -252,9 +180,7 @@ clear_line:
     ;Restore cursor pos
     ldx prompt_cursor_backup
     ldy prompt_cursor_backup+1
-    jsr cursor_move
-
-    rts
+    jmp cursor_move
 .endproc
 
 ;******************************************************************************
@@ -340,7 +266,7 @@ exit:
     cpy prompt_curpos
     beq insert
     dey
-    jmp :-
+    bra :-
 
 insert:
     pla
@@ -394,7 +320,7 @@ exit:
     cmp #SCREEN_WIDTH-1
     beq scroll
     inc CRS_X
-    ldy #57
+    ldy #SCREEN_HEIGHT-3
     ldx CRS_X
     jmp cursor_move
 
