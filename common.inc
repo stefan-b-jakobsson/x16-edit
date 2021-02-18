@@ -61,6 +61,7 @@ KBD_MODIFIER_CAPS  = 16; C128: Caps
 .define VERA_D1 $9f24
 
 .define VERA_CTRL $9f25
+.define VERA_ISR $9F27
 .define VERA_VIDEO $9f29
 
 .define VERA_L0_CONFIG $9f2d

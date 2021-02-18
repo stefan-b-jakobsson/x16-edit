@@ -79,12 +79,22 @@
     lda APP_QUIT
     bne shutdown
 
+    ;Verify vblank interrupt
+    lda VERA_ISR
+    and #$01
+    beq exit
+
     ;Main loop
     jsr keyboard_read_and_dispatch
     jsr cursor_toggle
     jsr screen_print_mod_status
 
-    ;Return
+    ;Clear vblank flag
+    lda VERA_ISR
+    and #%11111111
+    sta VERA_ISR
+
+exit:
     jmp (irq_default_handler)
 
 shutdown:
@@ -118,12 +128,22 @@ shutdown:
     lda APP_QUIT
     bne shutdown
 
+    ;Verify vblank interrupt
+    lda VERA_ISR
+    and #$01
+    beq exit
+
     ;Main loop
     jsr keyboard_read_and_dispatch
     jsr cursor_toggle
     jsr screen_print_mod_status
 
-    ;Return
+    ;Clear vblank flag
+    lda VERA_ISR
+    and #%11111111
+    sta VERA_ISR
+
+exit:
     rts
 
 shutdown:
