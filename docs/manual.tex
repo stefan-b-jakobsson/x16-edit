@@ -99,11 +99,12 @@
             U    & ---   & Paste (uncut) all content from clipboard \\
             C    & ---   & Display current cursor position (line and column) \\
             W    & F6    & Search and find string in buffer (case sensitive) \\
-            S    & ---   & Replace one or all occurrences of a string in buffer (case sensitive) \\
+            S    & ---   & Replace string (case sensitive) \\
             L    & ---   & Goto line number \\
             A    & ---   & Toggle auto indent on/off \\
             Z    & ---   & Toggle word wrap on/off \\
-            E    & ---   & Change charset, cycles through the three supported charsets\\
+            E    & ---   & Change charset\\
+            I    & ---   & Invoke DOS command\\
             D    & ---   & Set file storage device number, default is 8 \\
             T    &  ---  & Cycle through text colors \\
             B    &  ---  & Cycle through background colors \\
@@ -285,20 +286,27 @@
 
     X16 Edit supports file handling functions for reading (Ctrl+R) and writing files (Ctrl+O).
 
-    After selecting Ctrl+R (open/read) or Ctrl+O (write out/save) you may type a file name at the
-    prompt. Alternatively you may press Ctrl+T to show the current directory listing. Use arrow up and down to highlight a 
-    file or folder, and press enter to select the 
-    highlighted item. If the selected item is a folder, the program will change the current directory, and 
-    show its content. If all items fit on the screen, the listing is ended with
-    "--- END ---". If there are more files in the directory, the programs prints "--- MORE ---" instead. In case
-    the directory items are spread over several pages, you may go to next page with Ctrl+V and back to a 
-    previous page with Ctrl+Y.
+    The file name to read or write may be typed in directly at the prompt.
 
-    The program does not support other file handling functions, such as deleting or renaming files or
-    folders.
+    Files may alternatively be selected in a file browser view that you enter by pressing Ctrl+T. 
+    In the file browser view, you highlight items by pressing the up or down arrow keys.
+    The highlighted file is selected by pressing Enter. If the highlighted item is a directory,
+    it will be made the new current directory. If all items in the current directory fits on the screen, 
+    the listing is ended with "--- END ---".
+    If there are more items, the program prints "--- MORE ---" instead. In case
+    the items are spread over several pages, you may go to next page with Ctrl+V and back to a 
+    previous page with Ctrl+Y.
 
     By default the program uses device \#8. The device
     number may be changed by pressing Ctrl+D.
+
+    It is possible to send commands to the disk by pressing Ctrl+I. You may type any valid
+    CBM DOS command at the prompt. As an example, "S:filename" deletes ("scratches") a file.
+    Be careful, as there is nothing stopping you from deleting files or even formatting the
+    disk. You find a list of available commands at 
+    \href{https://github.com/commanderx16/x16-rom/tree/master/dos}{github.com/commanderx16/x16-rom/tree/master/dos}.
+
+
 
 
 \section{License}
