@@ -91,7 +91,7 @@
 
     ;Clear vblank flag
     lda VERA_ISR
-    and #%11111111
+    ora #%00000001
     sta VERA_ISR
 
 exit:
@@ -140,7 +140,7 @@ shutdown:
 
     ;Clear vblank flag
     lda VERA_ISR
-    and #%11111111
+    ora #%00000001
     sta VERA_ISR
 
 exit:

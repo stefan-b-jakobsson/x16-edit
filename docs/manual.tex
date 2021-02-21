@@ -75,7 +75,7 @@
             \item Press and hold down the Ctrl key at the same time as you press a command key. This is the
             preferred way of selecting commands.
             
-            \item Alternatively you may press and release the Esc key. The progam is now ready to receive
+            \item Alternatively you may press and release the Esc key. The program is now ready to receive
             a command key, and a message stating this is displayed in the status bar. 
             Press a command key, without holding down Ctrl, or Esc to abort. This option is mostly
             made as a backup, in case the Ctrl+key sequence does not work. 
@@ -149,7 +149,7 @@
         By default, the Commander X16 interprets Shift+space as a non-breaking space. 
         
         To prevent typing errors, the editor will, however, insert a normal space character even if the Shift key is held down.
-        Non-breaking spaces are rarely used when you edit raw text files. And it is quite easy to type them by mistake,
+        Non-breaking spaces are rarely used when you edit plain text files. And it is quite easy to type them by mistake,
         especially if the character immediately before or after the space requires the Shift key.
 
         If you actually want to insert a non-breaking space you may type Ctrl+space.
@@ -199,6 +199,8 @@
         at the right margin. If you delete characters from a line or if you insert characters at the beginning of a line,
         the line breaks are not recalculated. The feature works well as you type in text, but if you go back and edit that text you
         may have to redo line breaks manually.
+
+        The word wrap function is what I'm least satisfied with. I might come back and reimplement it from the ground in the future.
 
     \subsection{Cut, copy and paste}
 
@@ -284,29 +286,59 @@
        
 \section{File handling}
 
-    X16 Edit supports file handling functions for reading (Ctrl+R) and writing files (Ctrl+O).
+    \subsection{Reading and writing files}
 
-    The file name to read or write may be typed in directly at the prompt.
+    X16 Edit file handling is centered around functions for reading a file into the text buffer and writing
+    the text buffer to a file.
 
-    Files may alternatively be selected in a file browser view that you enter by pressing Ctrl+T. 
-    In the file browser view, you highlight items by pressing the up or down arrow keys.
-    The highlighted file is selected by pressing Enter. If the highlighted item is a directory,
-    it will be made the new current directory. If all items in the current directory fits on the screen, 
-    the listing is ended with "--- END ---".
-    If there are more items, the program prints "--- MORE ---" instead. In case
-    the items are spread over several pages, you may go to next page with Ctrl+V and back to a 
-    previous page with Ctrl+Y.
+    Press Ctrl+R to read from a file or Ctrl+O to write to a file. The file name may 
+    be typed in at the prompt that is displayed. File names may 
+    be just the name of the file or complete CBM DOS paths.
 
-    By default the program uses device \#8. The device
+    If you are in ISO mode, it's recommended to type file names in upper case. Otherwise file names will
+    probably not make sense when you list the directory in one of the PETSCII modes.
+
+
+    \subsection{File browser}
+
+    At the prompt where a file name is typed in you may press Ctrl+T to show the
+    built-in file browser. The file browser lists the content of the current directory. To select a file,
+    first highlight it with the up or down arrow keys, and then press Enter.
+
+    If the selected item is a directory, it will be made the new current directory, and its content will
+    be displayed in the file browser.
+
+    The file browser shows at most 50 files or directories on one page. If not all items fit on one page 
+    the listing is ended with "--- MORE ---". In case the items are spread over several pages, you may go to 
+    the next page with Ctrl+V and back to a previous page with Ctrl+Y.
+
+    If there are no more items to show the listing is ended with "--- END ---".
+
+
+    \subsection{Send disk commands}
+
+    X16 Edit lets you send commands to the disk. To invoke a command, press Ctrl+I, and then enter
+    the command at the prompt.
+
+    Any valid command may be sent. You find a list of commands at 
+    \href{https://github.com/commanderx16/x16-rom/tree/master/dos}{X16 DOS}. Some of the most useful commands are:
+
+     \begin{itemize} 
+            \item "C:dst=src", copy src file to dst file
+            \item "R:dst=src", rename src file to dst file
+            \item "S:filename", delete filename
+            \item "CD:dirname", change current directory
+            \item "RD:dirname", remove directory
+    \end{itemize}
+    
+    Please be careful though. There is nothing stopping you from deleting files or even formatting the
+    disk.
+
+
+    \subsection{Change device number}
+
+    By default the file handling functions use device \#8. The device
     number may be changed by pressing Ctrl+D.
-
-    It is possible to send commands to the disk by pressing Ctrl+I. You may type any valid
-    CBM DOS command at the prompt. As an example, "S:filename" deletes ("scratches") a file.
-    Be careful, as there is nothing stopping you from deleting files or even formatting the
-    disk. You find a list of available commands at 
-    \href{https://github.com/commanderx16/x16-rom/tree/master/dos}{github.com/commanderx16/x16-rom/tree/master/dos}.
-
-
 
 
 \section{License}
