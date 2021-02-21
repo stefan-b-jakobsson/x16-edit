@@ -351,14 +351,30 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_file_dos_command_exec
+    ;Execute DOS command
     lda prompt_len
     ldx #<prompt_input
     ldy #>prompt_input
     jsr file_disk_cmd
 
+    ;Close prompt
     lda #1
     sta APP_MOD
     jsr prompt_close
+
+    ;Check if Kernal I/O error occurred
+    lda file_io_err
+    beq no_kernal_err
+    
+kernal_err:
+    tax
+    dex
+    ldy file_ioerr_H,x
+    lda file_ioerr_L,x
+    tax
+    jmp screen_print_status
+
+no_kernal_err:
     ldx #<file_disk_status
     ldy #>file_disk_status
     jmp screen_print_status

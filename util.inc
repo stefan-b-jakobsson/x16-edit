@@ -355,7 +355,7 @@ bcd_val = tempvars+1    ;4 bytes
 :   lda (TMP1_ADR),y
     beq done
     iny
-    jmp :-
+    bra :-
 
 done:
     rts

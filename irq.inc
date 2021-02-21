@@ -88,12 +88,7 @@
     jsr keyboard_read_and_dispatch
     jsr cursor_toggle
     jsr screen_print_mod_status
-
-    ;Clear vblank flag
-    lda VERA_ISR
-    ora #%00000001
-    sta VERA_ISR
-
+    
 exit:
     jmp (irq_default_handler)
 
@@ -137,11 +132,6 @@ shutdown:
     jsr keyboard_read_and_dispatch
     jsr cursor_toggle
     jsr screen_print_mod_status
-
-    ;Clear vblank flag
-    lda VERA_ISR
-    ora #%00000001
-    sta VERA_ISR
 
 exit:
     rts

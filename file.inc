@@ -31,7 +31,7 @@
     beq :+
     sta file_disk_status,x
     inx
-    jmp :-
+    bra :-
 
     ;Reset file name
 :   stz file_cur_filename_len
@@ -96,7 +96,7 @@ msg:
     ldy #3
     bridge_call KERNAL_SETLFS
     bcc :+
-    jmp io_err
+    bra io_err
 
 :   bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
@@ -139,9 +139,9 @@ write_loop:
     lda #CR
 
 :   bridge_call KERNAL_CHROUT
-    bcs io_err
+    bra io_err
     iny
-    jmp write_loop
+    bra write_loop
 
 get_next_page:
     ;Reset to get page metadata
@@ -171,7 +171,7 @@ get_next_page:
     sta TMP1_ADR
 
     ldy #0
-    jmp write_loop
+    bra write_loop
 
 io_err:
     sta file_io_err
@@ -295,7 +295,7 @@ read_loop:
 
     sta (CRS_ADR),y
     inc curpage_len
-    jmp read_loop
+    bra read_loop
 
 alloc_new_page:
     pha             ;Save char to insert on stack
@@ -341,12 +341,12 @@ alloc_new_page:
     ldy #1          ;Set page len = 1
     sty curpage_len
 
-    jmp read_loop
+    bra read_loop
 
 io_err:
     ;Set kernal error
     sta file_io_err
-    jmp close
+    bra close
 
 eof:
     stz CRS_ADR
@@ -382,7 +382,7 @@ mem_full:
     jsr eof
 
     lda #10         ;Set memory full error
-    jmp io_err      
+    bra io_err      
 
 .segment "VARS"
     first_char: .res 1
@@ -413,8 +413,9 @@ msg:
 ;Function name.......: file_disk_cmd
 ;Purpose.............: Invoke dos command
 ;Input...............: Nothing
-;Returns.............: A=error code in decimal mode style
-;                      Status message in file_disk_status
+;Returns.............: Kernal I/O Error returned in variable file_io_err
+;                      Disk status code returned in A
+;                      Status message returned in variable file_disk_status
 ;Error returns.......: None
 .proc file_disk_cmd
     ;Set default = no kernal error
@@ -452,8 +453,10 @@ read_loop:
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     bne eof
+    
     bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
+    
     cmp #$20
     bcc read_loop       ;Ignore control chars
     ldy index
@@ -461,13 +464,12 @@ read_loop:
     cpy #113            ;Last index = 127 - 13 - 1, where 13 is length of ingress "disk status: " and 1 byte is reserved for end of string marker (a zero)
     beq eof
     inc index
-    jmp read_loop
+    bra read_loop
 
 io_error:
-    ldy #13
-    lda #0
-    sta file_disk_status,y
-    jmp close
+    sta file_io_err
+    stz file_disk_status+13
+    bra close
 
 eof:
     iny
