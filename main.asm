@@ -130,7 +130,7 @@ print_error:
     beq print_error_done
     bridge_call KERNAL_CHROUT
     inx
-    jmp print_error
+    bra print_error
 
 print_error_done:
     sec

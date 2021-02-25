@@ -72,12 +72,12 @@ charset_ascii_to_petscii_ucase_exit:
     cmp #123
     bcc charset_ascii_to_petscii_lcase_sub32
 
-    jmp charset_ascii_to_petscii_lcase_exit
+    bra charset_ascii_to_petscii_lcase_exit
 
 charset_ascii_to_petscii_lcase_add32:
     clc
     adc #32
-    jmp charset_ascii_to_petscii_lcase_exit
+    bra charset_ascii_to_petscii_lcase_exit
 
 charset_ascii_to_petscii_lcase_sub32:
     sec

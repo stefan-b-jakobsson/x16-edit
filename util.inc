@@ -279,7 +279,7 @@ output = tempvars+4         ;9 bytes
 :   lda (TMP1_ADR),y
     beq prepare
     iny
-    jmp :-
+    bra :-
 
 prepare:
     dey         ;Decrease Y to step back to the last digit. Y was at null char before this.

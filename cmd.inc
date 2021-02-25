@@ -56,7 +56,7 @@
     ;Store char in mem
 :   jsr mem_insert
     bcc :+
-    jmp mem_full
+    bra mem_full
 
     ;Increase current columm index
 :   jsr mem_cur_col_inc
@@ -64,7 +64,7 @@
     ;Move cursor one step right
     jsr cursor_move_right
     bcs :+
-    jmp wrap
+    bra wrap
 
     ;Carry set, cursor at rightmost position, need to scroll
 :   jsr mem_lnv_step_right
@@ -131,8 +131,7 @@ wrap_step_back:
     lda prevblank
     bne :+
     lda prevblank+1
-    bne :+
-    jmp wrap_done
+    beq wrap_done
 
 :   jsr cmd_go_right
     
@@ -141,7 +140,7 @@ wrap_step_back:
     cmp #$ff
     bne wrap_step_back
     dec prevblank+1
-    jmp wrap_step_back
+    bra wrap_step_back
 
 wrap_done:
     ;Restore stack
@@ -237,7 +236,7 @@ auto_indent_loop:
     inc counter2+1
     bne auto_indent_loop
     inc counter2+2
-    jmp auto_indent_loop
+    bra auto_indent_loop
 
 auto_indent_stop:
     ;Restore mem pointer from stack
@@ -293,7 +292,7 @@ auto_indent_insert_blanks:
     bne auto_indent_insert_blanks
     
     dec counter2+2
-    jmp auto_indent_insert_blanks
+    bra auto_indent_insert_blanks
 
 linefeed_exit:
     sec
@@ -372,7 +371,7 @@ loop:
     adc #0
     sta counter+2
 
-    jmp loop
+    bra loop
     
 
 at_tab_stop:
@@ -508,7 +507,7 @@ continue:
 
     dec counter+2
 
-    jmp loop
+    bra loop
     
 linebreak_deleted_exit:
     clc
@@ -729,7 +728,7 @@ stepto_column:
     ;Move cursor, if at rightmost position (but not end of line), need to scroll line
     jsr cursor_move_right
     bcs :+
-    jmp dec_count
+    bra dec_count
 :   ;C=1, need to scroll
     jsr mem_lnv_step_right
 
@@ -745,7 +744,7 @@ dec_count:
     bne stepto_column
 
     dec count+2
-    jmp stepto_column
+    bra stepto_column
 
 exit:
     stz CRS_ADR         ;Restore to default value, so that we don't mess up other functions use of this pointer
@@ -880,7 +879,7 @@ loop_3:
     bne loop
 
     dec count+2
-    jmp loop
+    bra loop
 
 exit:
     ;Restore stack, remove 6 bytes pushed there at start
@@ -993,7 +992,7 @@ loop:
 
     dec counter+2
 
-    jmp loop
+    bra loop
 
 exit:
     rts
@@ -1188,7 +1187,7 @@ msg:
     beq :+
     sta msg,x
     inx
-    jmp :-
+    bra :-
 
     ;Prepare index
 :   lda #23
@@ -1211,7 +1210,7 @@ msg:
     sta msg,x
     inc index
     iny
-    jmp :-
+    bra :-
 
     ;Print msg_col
 :   ldy #0
@@ -1222,7 +1221,7 @@ msg:
     sta msg,x
     iny
     inc index
-    jmp :-
+    bra :-
 
     ;Print column
 :   ldx mem_cur_col
@@ -1242,7 +1241,7 @@ msg:
     sta msg,x
     inc index
     iny
-    jmp :-
+    bra :-
 
     ;Terminate string
 :   ldx index
@@ -1319,7 +1318,7 @@ search_loop:
 
     ;No match, restore match counter
     stz match
-    jmp next_char
+    bra next_char
 
 char_match:
     inc match
@@ -1332,7 +1331,7 @@ next_char:
     jsr cmd_go_right
     cpx #1
     beq eof
-    jmp search_loop
+    bra search_loop
 
 goto_match:
     stz CRS_ADR
@@ -1340,7 +1339,7 @@ goto_match:
 :   dec match
     beq :+
     jsr cmd_go_left
-    jmp :-
+    bra :-
 
 :   ;Restore stack (17 bytes)
     ldx #17
@@ -1408,7 +1407,7 @@ prompt_replace:
     lda prompt_input,y
     sta searchfor,y
     iny
-    jmp :-
+    bra :-
 
 :   lda #0
     sta searchfor,y
@@ -1470,7 +1469,7 @@ execute_loop:
     beq :+
     dec counter
     jsr cmd_go_right
-    jmp :-
+    bra :-
 
 :   lda searchfor_len
     sta counter
@@ -1479,7 +1478,7 @@ execute_loop:
     beq :+
     dec counter
     jsr cmd_delete
-    jmp :-
+    bra :-
 
 :   ldx #0
     stx counter
@@ -1490,7 +1489,7 @@ execute_loop:
     lda prompt_input,x
     jsr cmd_insert
     inc counter
-    jmp :-
+    bra :-
 
 execute_done:
     inc replaced_count
@@ -1519,7 +1518,7 @@ execute_done:
     beq :+
     sta msg4,x
     inx
-    jmp :-
+    bra :-
 
 :   ldx replaced_count
     ldy replaced_count+1
@@ -1534,7 +1533,7 @@ execute_done:
     beq :+
     sta msg4+9,y
     iny
-    jmp :-
+    bra :-
 
 :   ldx #0
 :   lda msg4_e,x
@@ -1543,7 +1542,7 @@ execute_done:
     beq :+
     iny
     inx
-    jmp :-
+    bra :-
 
 :   ldx #<msg4
     ldy #>msg4
@@ -1649,7 +1648,7 @@ msg:
     beq :+
     sta cmd_display_msg,x
     inx
-    jmp :-
+    bra :-
 
     ;Get free mem
 :   ldx mem_blocks_free
@@ -1669,7 +1668,7 @@ msg:
     sta msg,x
     iny
     inx
-    jmp :-
+    bra :-
 
 insert_msg_end:
     ldy #0
@@ -1678,7 +1677,7 @@ insert_msg_end:
     sta msg,x
     iny
     inx
-    jmp :-
+    bra :-
 
 exit:
     sta msg,x
@@ -1764,19 +1763,19 @@ msg:
     cmp line+2
     bcc go_down
     beq :+
-    jmp go_up
+    bra go_up
 
 :   lda mem_cur_line+1
     cmp line+1
     bcc go_down
     beq :+
-    jmp go_up
+    bra go_up
 
 :   lda mem_cur_line
     cmp line
     bcc go_down
     beq :+
-    jmp go_up
+    bra go_up
 
 :   rts         ;Already at that line
 
@@ -1892,7 +1891,7 @@ iso:
     bridge_setaddr KERNAL_CHROUT
     lda #$0f
     bridge_call KERNAL_CHROUT
-    jmp exit
+    bra exit
 
 petscii_uc:
     bridge_setaddr KERNAL_CHROUT
@@ -1900,7 +1899,7 @@ petscii_uc:
     bridge_call KERNAL_CHROUT
     lda #$8e
     bridge_call KERNAL_CHROUT
-    jmp exit
+    bra exit
 
 petscii_lc:
     bridge_setaddr KERNAL_CHROUT
@@ -2093,7 +2092,7 @@ showprompt:
 :   lda (TMP1_ADR),y
     beq :+
     iny
-    jmp :-
+    bra :-
 
 :   tya
     ldx TMP1_ADR

@@ -156,7 +156,7 @@ loop:
     bne :+
     inc count+2
 
-:   jmp loop
+:   bra loop
 
 eol:
     ;Pull last char from the stack, we will not use it though
@@ -249,7 +249,7 @@ delete:
     dec count+2
 :   dec count+1
 :   dec count
-    jmp loop
+    bra loop
 
 exit:
     clc
@@ -299,7 +299,7 @@ loop:
     inc clipboard_pointer+1
     bne loop
     inc clipboard_pointer
-    jmp loop
+    bra loop
 
 paste_done:
     ;We're done. Clear clipboard memory and exit

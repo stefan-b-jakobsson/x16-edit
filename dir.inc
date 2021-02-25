@@ -49,18 +49,18 @@
     ldy #0
     bridge_call KERNAL_SETLFS
     bcc :+
-    jmp io_error
+    bra io_error
 
 :   bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
     bcc :+
-    jmp io_error
+    bra io_error
 
 :   bridge_setaddr KERNAL_CHKIN
     ldx #1
     bridge_call KERNAL_CHKIN
     bcc :+
-    jmp io_error
+    bra io_error
 
 :   clc
     rts
@@ -104,7 +104,7 @@ read_loop:
     bridge_call KERNAL_READST
     cmp #0
     beq :+
-    jmp eof
+    bra eof
 
 :   pla
 
@@ -123,34 +123,34 @@ read_loop:
     beq state5      ;State 5: Search for double quote, marking the end of the file/dir name
     cpy #6
     beq state6      ;State 6: Search for first non blank space char and save it as file type (eg d=dir, p=prg ...)
-    jmp state7      ;State 7: Search for null char terminating the line, and return
+    bra state7      ;State 7: Search for null char terminating the line, and return
 
 state0:
     inc state
-    jmp read_loop
+    bra read_loop
 
 state2:
     sta dir_size
     inc state
-    jmp read_loop
+    bra read_loop
 
 state3:
     sta dir_size+1
     inc state
-    jmp read_loop
+    bra read_loop
 
 state4:
     cmp #$22
     bne read_loop
     inc state
-    jmp read_loop
+    bra read_loop
 
 state5:
     cmp #$22
     bne :+
 
     inc state
-    jmp read_loop
+    bra read_loop
 
 :   ldy dir_filename_len
     cpy #255
@@ -159,21 +159,21 @@ state5:
     sta dir_entry,y
     inc dir_filename_len
 
-:   jmp read_loop
+:   bra read_loop
 
 state6:
     cmp #$20
     bne :+
-    jmp read_loop
+    bra read_loop
 
 :   sta dir_type
     inc state
-    jmp read_loop
+    bra read_loop
 
 state7:
     cmp #0
     beq endofitem
-    jmp read_loop
+    bra read_loop
 
 endofitem:
     lda dir_type
@@ -310,7 +310,7 @@ skip_loop:
     bne :+
     lda skip+1
     bne :+
-    jmp loop
+    bra loop
 
 :   jsr dir_next
     bcc :+
@@ -320,7 +320,7 @@ skip_loop:
     cmp #$ff
     bne skip_loop
     dec skip+1
-    jmp skip_loop
+    bra skip_loop
 
 loop:
     jsr dir_next
@@ -337,7 +337,7 @@ print_dir:
     beq print_filename
     jsr screen_put_uc_char
     iny
-    jmp :-
+    bra :-
 
 print_size:
     lda #6*2+4*2
@@ -386,7 +386,7 @@ nextitem:
     lda dir_itemcount
     cmp #dir_entries_per_page
     bcs more
-    jmp loop
+    bra loop
 
 more:
     stz VERA_L

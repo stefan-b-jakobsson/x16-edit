@@ -73,7 +73,7 @@
 layer0:
     ;Get VERA tile base for layer 0
     lda VERA_L0_TILEBASE
-    jmp detect
+    bra detect
 
 layer1:
     ;Get VERA tile base for layer 1
@@ -600,7 +600,7 @@ iso_loop:
     cmp #LF             ;end of line, prepare for next line
     bne :+
     jsr next_line
-    jmp iso_loop
+    bra iso_loop
 
 :   ldx columns         ;If 0 we have printed all visible columns, skip_char
     beq iso_next_char
@@ -681,7 +681,7 @@ next_line:
     bne :+
     pla             ;Pull return address from stack, so next rts won't go to the printing loop that called next_line
     pla
-    jmp exit
+    bra exit
 
     ;Set VERA address to start off next line
 :   inc VERA_M

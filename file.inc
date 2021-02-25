@@ -332,7 +332,7 @@ alloc_new_page:
     
     lda #5          ;Offset to skip mem page metadata
     sta CRS_ADR
-    
+
     ldy #0
     
     pla             ;Insert the char that was read from memory
@@ -406,7 +406,7 @@ msg:
     lda #0
     ldx #0
     ldy #0
-    jmp file_disk_cmd
+    bra file_disk_cmd
 .endproc
 
 ;******************************************************************************

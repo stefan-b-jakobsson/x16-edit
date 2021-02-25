@@ -975,16 +975,14 @@ abort:
 .proc keyboard_mode_dos_cmd
     ;Enter key
     cmp #13
-    bne :+
-    jmp enterkey
+    beq enterkey
 
     ;ESC key
-:   cmp #$03
-    bne :+
-    jmp abort
+    cmp #$03
+    beq abort
 
     ;Default
-:   jmp prompt_keypress
+    jmp prompt_keypress
 
 enterkey:
     jmp cmd_file_dos_command_exec

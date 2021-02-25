@@ -488,7 +488,7 @@ free_mem_found:
     and bitmask,x
     beq mark_page_allocated
     inx
-    jmp :-
+    bra :-
 
 mark_page_allocated:
     lda value
@@ -760,7 +760,7 @@ bitmask:
     lda (TMP1_ADR),y
     cmp SCR_ADR+1
     bne :+
-    jmp exit
+    bra exit
 
     ;First visible char of line at page after page to defrag - Pointer to first char could be lost
 :   ldy #2
@@ -771,7 +771,7 @@ bitmask:
     lda (TMP1_ADR),y
     cmp LNV_ADR+1
     bne :+
-    jmp exit
+    bra exit
 
     ;Cursor at page after page to defrag - Pointer to cursor could be lost
 :   ldy #2
@@ -782,7 +782,7 @@ bitmask:
     lda (TMP1_ADR),y
     cmp CRS_ADR+1
     bne :+
-    jmp exit
+    bra exit
 
     ;Cursor at page to defrag - Not effective, as we're typing here
 :   lda mem_run_defrag_page
@@ -791,7 +791,7 @@ bitmask:
     lda mem_run_defrag_page+1
     cmp CRS_ADR+1
     bne :+
-    jmp exit
+    bra exit
 
     ;Cursor at page before page to defrag - Not effective, as we're typing here
 :   lda CRS_BNK
@@ -805,7 +805,7 @@ bitmask:
     lda (CRS_ADR),y
     cmp mem_run_defrag_page+1
     bne :+
-    jmp exit
+    bra exit
 
     ;All checks passed, go on and run the defrag
 :   ldy mem_run_defrag_page
@@ -888,7 +888,7 @@ eof:
     ldy #4
     lda (TMP2_ADR),y
     bne :+
-    jmp free                ;Next page len = 0, free it
+    bra free                ;Next page len = 0, free it
 :   sta nextpage_len
 
     ;Prepare copy to page to defrag
@@ -919,7 +919,7 @@ copy:
     inc nextpage_index
     inc page_len
 
-    jmp copy
+    bra copy
 
 copy_done:
     ;Set len of page to defrag after copy done
@@ -959,7 +959,7 @@ move_nextpage:
     sta (TMP2_ADR),y
     inc nextpage_index
     inc nextpage_index2
-    jmp :-
+    bra :-
 
 exit:
     rts
@@ -1015,7 +1015,7 @@ nextpage_index2 = tempvars +3   ;1 byte
     lda start
     cmp #250
     bcc :+
-    jmp setlen
+    bra setlen
     
     ;Set offset used when pushing data
 :   lda #5
@@ -1032,7 +1032,7 @@ loop:
     cpy start
     beq setlen
     dey
-    jmp loop
+    bra loop
 
 setlen:
     ;Restore to default value
@@ -1190,7 +1190,7 @@ pushforward:
     ldy #5
     stz TMP1_ADR
     sta (TMP1_ADR),y
-    jmp insert
+    bra insert
 
 alloc:
     jsr mem_alloc
@@ -1614,7 +1614,7 @@ check_first_char:
     bne loop
     
     inc counter
-    jmp found
+    bra found
 
 loop:
     ldy CRS_IDX
@@ -1633,7 +1633,7 @@ loop:
 :   lda CRS_IDX
     beq prevpage
     dec CRS_IDX
-    jmp loop
+    bra loop
 
 prevpage:
     stz CRS_ADR
@@ -1660,7 +1660,7 @@ prevpage:
 
     lda #5
     sta CRS_ADR
-    jmp loop
+    bra loop
 
 
 notfound:

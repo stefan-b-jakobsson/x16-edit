@@ -135,8 +135,8 @@ setfilename:
 show_status:
     ldx #<file_disk_status
     ldy #>file_disk_status
-    jsr screen_print_status ;Print disk status message
-    jmp exit
+    jsr screen_print_status ;Print disk status messag
+    bra exit
 
 show_io_err:
     ldx file_io_err
@@ -198,7 +198,7 @@ overwrite_msg:
     cmp #':'
     beq write           ;Colon found
     iny
-    jmp :-
+    bra :-
 
 no_colon:
     lda #':'
@@ -297,7 +297,7 @@ msg2:
     jsr file_set_filename
     jsr screen_print_header
     
-    jmp exit
+    bra exit
     
 io_error:
     ;Display error message
