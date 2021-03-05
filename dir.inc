@@ -168,12 +168,12 @@ state6:
 
 :   sta dir_type
     inc state
-    bra read_loop
+    jmp read_loop
 
 state7:
     cmp #0
     beq endofitem
-    bra read_loop
+    jmp read_loop
 
 endofitem:
     lda dir_type
