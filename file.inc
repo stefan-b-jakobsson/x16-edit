@@ -139,7 +139,7 @@ write_loop:
     lda #CR
 
 :   bridge_call KERNAL_CHROUT
-    bra io_err
+    bcs io_err
     iny
     bra write_loop
 
