@@ -215,7 +215,7 @@ modifier_none:
     jmp cmd_file_save_prompt
 
     ;F5
-:   cmp #$8a
+:   cmp #$87
     bne :+
     jmp cmd_file_open_prompt
 
