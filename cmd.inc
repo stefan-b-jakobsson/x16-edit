@@ -410,12 +410,14 @@ setup:
     stz indent
     rts
 
+.segment "VARS"
 flags:          .res 1
 stream_lf:      .res 1
 stream_bs:      .res 1
 indent:         .res 1
 indent_prev:    .res 1
 word_boundary:  .res 3
+.CODE
 
 FLAG_CONTENT_FOUND =   %10000000
 FLAG_WORD_BOUNDARY =   %01000000
