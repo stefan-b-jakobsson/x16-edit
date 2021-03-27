@@ -342,6 +342,9 @@ split_loop:
     jsr mem_insert
     jsr mem_cur_col_ret
 
+    lda cmd_auto_indent_status
+    beq :++
+
     lda indent
     sta indent_prev
 :   lda indent_prev
