@@ -214,6 +214,11 @@ modifier_none:
     bne :+
     jmp cmd_file_save_prompt
 
+    ;F4
+:   cmp #$8a
+    bne :+
+    jmp cmd_wrap_buffer
+
     ;F5
 :   cmp #$87
     bne :+
@@ -257,6 +262,11 @@ modifier_ctrl:
 :   cmp #$09
     bne :+
     jmp cmd_file_dos_command_prompt
+
+    ;Ctrl+J
+:   cmp #$0a
+    bne :+
+    jmp cmd_wrap_buffer
 
     ;Ctrl+X
 :   cmp #$18
@@ -432,6 +442,12 @@ modifier_ctrl:
     bne :+
     jsr cursor_activate
     jmp cmd_file_dos_command_prompt
+
+:   ;j
+    cmp #$4a
+    bne :+
+    stz APP_MOD
+    jsr cmd_wrap_buffer
 
     ;x
 :   cmp #$58
@@ -1357,10 +1373,10 @@ exit:
 ;Error returns.......: None
 .proc keyboard_leftarrow_key
     jsr cmd_go_left
-    bcs :+
+    bcc :+
     
-    jmp screen_println
-:   jmp screen_refresh
+    jsr screen_refresh
+:   jmp screen_println
 .endproc
 
 ;******************************************************************************

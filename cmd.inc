@@ -176,6 +176,255 @@ bs_not_found:
 .endproc
 
 ;******************************************************************************
+;Function name.......: cmd_wrap_buffer
+;Purpose.............: Recalculates line wrapping for the whole buffer. Lines are
+;                      wrapped at the column set by the line wrap feature.
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_wrap_buffer
+    jsr cmd_go_start
+
+merge:
+    jsr setup
+
+merge_loop:
+    jsr get_char                ;Fetch next char
+    bcc :+ 
+    jmp split
+
+:   lda stream_lf               ;Char=LF?
+    and #%00000001
+    beq :++
+    ldx #FLAG_NOT_FIRST_LINE
+    lda flags
+    and #FLAG_CONTENT_FOUND
+    beq :+
+    ldx #FLAG_NOT_FIRST_LINE+FLAG_EMPTY_PREV_LINE
+:   stx flags
+    lda indent
+    sta indent_prev
+    stz indent
+    bra merge_loop
+
+:   lda stream_lf               ;After double LF? Keep line break, treated as new paragraph
+    and #%00000110
+    cmp #%00000110
+    beq merge_loop
+
+    lda cmd_auto_indent_status
+    bne merge_ai_on
+
+    lda stream_lf               ;After single LF?
+    and #%00000010
+    beq merge_loop              ;No, keep lookin'
+    
+    lda stream_bs               ;Line starts with blank space: Keep line break, treated as new paragraph
+    and #%00000001
+    beq merge_del
+    bra merge_loop
+
+merge_del:
+    jsr mem_delete              ;Delete line break
+    bcs :+
+    cpx #1
+    bne merge_del
+
+:   jsr mem_crs_step_left       ;Check if previous line ended with a blank space
+    lda #5
+    sta CRS_ADR
+    lda CRS_BNK
+    sta BNK_SEL
+    ldy CRS_IDX
+    lda (CRS_ADR),y
+    stz CRS_ADR
+    cmp #32
+    beq :+
+    jsr mem_crs_step_right
+    lda #32                     ;It didn't, need to insert blank space
+    jsr mem_insert
+    bra merge_loop
+
+:   jsr mem_crs_step_right
+    bra merge_loop
+
+merge_ai_on:
+    lda flags                   ;Content (other than blank spaces) previously found on this line?
+    and #FLAG_CONTENT_FOUND
+    bne merge_loop
+
+    lda stream_bs               ;No. Char=Blank space?
+    and #%00000001
+    beq :+
+    inc indent
+    jmp merge_loop
+
+:   lda flags                   ;No, set content found now
+    ora #FLAG_CONTENT_FOUND
+    sta flags
+    
+    lda flags
+    and #FLAG_NOT_FIRST_LINE
+    bne :+
+    jmp merge_loop
+
+:   lda indent                  ;Same level of indent as previous line?
+    cmp indent_prev
+    beq :+
+    jmp merge_loop              ;No, keep line break, treated as new paragraph
+
+:   lda flags
+    and #FLAG_EMPTY_PREV_LINE
+    bne merge_del               
+    
+    jmp merge_loop
+
+split:
+    jsr cmd_go_start
+    jsr setup
+
+split_loop:
+    jsr get_char                    ;Fetch char
+    bcc :+
+    jmp eof
+
+:   lda stream_lf                   ;Char=LF?
+    and #%00000001
+    beq :+
+    jsr mem_cur_col_ret
+    stz flags
+    stz indent
+    bra split_loop
+
+:   lda stream_bs
+    and #%00000001
+    beq :+
+    lda flags
+    and #FLAG_CONTENT_FOUND
+    bne :++
+    inc indent
+    bra :++
+
+:   lda flags
+    ora #FLAG_CONTENT_FOUND
+    sta flags
+
+    lda stream_bs                   ;At word boundary?
+    and #%00000011
+    cmp #%00000010
+    bne :+
+    lda CRS_BNK
+    sta word_boundary
+    lda CRS_ADR+1
+    sta word_boundary+1
+    lda CRS_IDX
+    sta word_boundary+2
+    lda flags
+    ora #FLAG_WORD_BOUNDARY
+    sta flags
+
+:   lda cmd_wordwrap_pos            ;Beyond wrap column?
+    cmp mem_cur_col
+    bcs split_loop
+
+    lda flags                       ;Yes, split
+    and #FLAG_WORD_BOUNDARY
+    beq split_loop                  ;No word boundary found, keep lookin'
+
+    lda word_boundary
+    sta CRS_BNK
+    lda word_boundary+1
+    sta CRS_ADR+1
+    lda word_boundary+2
+    sta CRS_IDX
+    
+    lda #LF
+    jsr mem_insert
+    jsr mem_cur_col_ret
+
+    lda indent
+    sta indent_prev
+:   lda indent_prev
+    beq :+
+    lda #32
+    jsr mem_insert
+    jsr mem_cur_col_inc
+    dec indent_prev
+    bra :-
+
+:   stz stream_lf
+    stz stream_bs
+    lda #FLAG_CONTENT_FOUND
+    sta flags
+    jmp split_loop
+
+eof:
+    jsr cmd_go_start
+    jmp screen_refresh
+
+get_char:
+    jsr mem_crs_step_right
+    bcc :+
+    rts
+
+:   jsr mem_cur_col_inc
+
+    lda CRS_BNK            ;Get char
+    sta BNK_SEL
+    lda #5
+    sta CRS_ADR
+    ldy CRS_IDX
+    lda (CRS_ADR),y
+    stz CRS_ADR
+
+    cmp #LF                 ;If char=LF
+    bne :+
+    sec
+    rol stream_lf
+    clc
+    rol stream_bs
+    clc
+    rts
+
+:   cmp #32                 ;If char=blank space
+    bne :+
+
+    clc
+    rol stream_lf
+    sec
+    rol stream_bs
+    clc
+    rts
+
+:   clc                     ;Else
+    rol stream_lf
+    clc
+    rol stream_bs
+    clc
+    rts
+
+setup:
+    stz flags
+    stz stream_lf
+    stz stream_bs
+    stz indent
+    rts
+
+flags:          .res 1
+stream_lf:      .res 1
+stream_bs:      .res 1
+indent:         .res 1
+indent_prev:    .res 1
+word_boundary:  .res 3
+
+FLAG_CONTENT_FOUND =   %10000000
+FLAG_WORD_BOUNDARY =   %01000000
+FLAG_NOT_FIRST_LINE =  %00100000
+FLAG_EMPTY_PREV_LINE = %00010000
+
+.endproc
+
+;******************************************************************************
 ;Function name.......: cmd_insert_lf
 ;Purpose.............: Inserts line break char at cursor position and moves the 
 ;                      cursor one step right. Does not refresh screen; users of 
@@ -517,6 +766,55 @@ linebreak_deleted_exit:
 .segment "VARS"
     counter: .res 3
 .CODE
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_go_start
+;Purpose.............: Moves cursor to start of buffer
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_go_start
+    ;Set bank
+    lda mem_start
+    ina             ;The head of buffer is the bank after mem_start (mem_start used for internal data storage)
+    sta BNK_SEL
+    sta CRS_BNK     ;Cursor
+    sta LNV_BNK     ;Line first visible char
+    sta SCR_BNK     ;Screen first visible char
+
+    ;Set address
+    lda #$a0
+    sta CRS_ADR+1   ;Cursor
+    sta LNV_ADR+1   ;Line first visible char
+    sta SCR_ADR+1   ;Screen first visible char
+
+    stz CRS_ADR     ;Cursor
+    stz LNV_ADR     ;Line first visible char
+    stz SCR_ADR     ;Screen first visible char
+
+    ;Set memory offset values
+    stz CRS_IDX     ;Cursor
+    stz LNV_IDX     ;Line first visible char
+    stz SCR_IDX     ;Screen first visible char
+
+    ;Set column and line
+    lda #1
+
+    sta mem_cur_col
+    stz mem_cur_col+1
+    stz mem_cur_col+2
+    
+    sta mem_cur_line
+    stz mem_cur_line+1
+    stz mem_cur_line+2
+
+    ;Move cursor
+    ldx #0
+    ldy #2
+    jsr cursor_move
+    
+    rts
 .endproc
 
 ;******************************************************************************
