@@ -40,7 +40,7 @@
 
 ;Keyboard
 .define KERNAL_GETIN $ffe4
-.define KERNAL_KBDBUF_GET_MODIFIERS $ca64
+.define KERNAL_KBDBUF_GET_MODIFIERS $ca58
 KBD_MODIFIER_SHIFT = 1 ; C64:  Shift
 KBD_MODIFIER_ALT   = 2 ; C64:  Commodore
 KBD_MODIFIER_CTRL  = 4 ; C64:  Ctrl
@@ -158,8 +158,8 @@ dir_entry                               = $b500               ;256 bytes
 ;*****************************************************************************
 ;CONSTANTS
 ;*****************************************************************************
-.define BNK_SEL $9f61 
-.define ROM_SEL $9f60
+.define BNK_SEL $00 
+.define ROM_SEL $01
 .define ROM_BNK 7
 
 .define LF 10
