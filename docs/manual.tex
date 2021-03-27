@@ -62,7 +62,7 @@
         The computer does not recognize the standard page up and down keys. Those operations
         are, however, supported by pressing Ctrl+Y (page up) or Ctrl+V (page down).
         
-        Finally, it is also possible to move the cursor to a specified line number 
+        Finally, it is also possible to move the cursor to a specific line number 
         with the go to line feature (Ctrl+L).
 
     \subsection{Commands}
@@ -92,9 +92,10 @@
             O    & F3    & Write text buffer to file \\
             R    & F5    & Open and read a file into the buffer \\
             N    & ---   & Create new text buffer \\
+            J    & F4    & Justify text buffer \\
             Y    & F7    & Page up \\
             V    & F8    & Page down \\
-            K    & ---    & Cut current line and save it to clipboard \\
+            K    & ---   & Cut current line and save it to clipboard \\
             P    & ---   & Copy current line to clipboard \\
             U    & ---   & Paste (uncut) all content from clipboard \\
             C    & ---   & Display current cursor position (line and column) \\
@@ -131,7 +132,7 @@
 	since last saved to file.
 	
 	The \textit{status bar} is the line third from the bottom of the screen. All messages from the program are displayed in
-	the status bar. Press Esc to hide a message. If the program needs to prompt you for input, the prompt is also shown in the status bar. 
+	the status bar. Press any key to hide a message. If the program needs to prompt you for input, the prompt is also shown in the status bar. 
 	Press Enter to confirm input or Esc to abort the operation.
 	
 	The last two lines at the bottom of the screen contain the \textit{shortcut list}. The most frequently used commands are
@@ -185,22 +186,38 @@
 
         Auto indent is turned off when the editor starts. To toggle the feature on or off, press Ctrl+A.
     
-    \subsection{Automatic word wrap}
+    \subsection{Word wrap and text justification}
     \label{wordwrap}
 
         By default, automatic word wrap is turned off. If you type a line longer than the width of the screen, the line
         is scrolled horizontally.
 
         Automatic word wrap is toggled on or off with Ctrl+Z. When turned on, you are prompted for the column where
-        to wrap.
-
-        The feature works in a simplified way. When you reach the right margin, the editor breaks the
+        to wrap. The feature works in a simplified way. When you reach the right margin, the editor breaks the
         line after the previous blank space. If there is no blank space on the line, the line break is inserted
         at the right margin. If you delete characters from a line or if you insert characters at the beginning of a line,
-        the line breaks are not recalculated. The feature works well as you type in text, but if you go back and edit that text you
-        may have to redo line breaks manually.
+        the line breaks are not recalculated.
 
-        The word wrap function is what I'm least satisfied with. I might come back and reimplement it from the ground in the future.
+        There is, however, a command to justify the whole text buffer (Ctrl+J). The justify command breaks the text buffer into
+        paragraphs, and recalculates the word wrap using the line length set by the the word wrap function (default 80). The
+        word wrap function need not be enabled to run the justify function.
+
+        The justify command interprets the start of a new paragraph the same way as GNU Nano. 
+        
+        When auto indent is turned off a new paragraph is considered to begin
+
+        \begin{itemize}
+		    \item if two or more consequtive line breaks are found, or
+		    \item if a line starts with one or more blank spaces.
+	    \end{itemize}
+
+        If auto indent is turned on, a new paragraph is considered to begin
+
+        \begin{itemize}
+		    \item if two or more consequtive line breaks are found, 
+            \item if a line contains only blank space characters, or
+		    \item if the level of indent is different from the previous line.
+	    \end{itemize}      
 
     \subsection{Cut, copy and paste}
 
@@ -292,16 +309,16 @@
     the text buffer to a file.
 
     Press Ctrl+R to read from a file or Ctrl+O to write to a file. The file name may 
-    be typed in at the prompt that is displayed. File names may 
-    be just the name of the file or complete CBM DOS paths.
+    be typed in at the prompt that is displayed. A file name may 
+    be just the name of the file or a complete CBM DOS path.
 
-    If you are in ISO mode, it's recommended to type file names in upper case. Otherwise file names will
-    probably not make sense when you list the directory in one of the PETSCII modes.
+    If you are in ISO mode, it's recommended to type file names in upper case. Otherwise file names will not
+    be readable when listed in PETSCII upper case/graphics mode.
 
 
     \subsection{File browser}
 
-    At the prompt where a file name is typed in you may press Ctrl+T to show the
+    At the prompt where a file name is typed in you may alternatively press Ctrl+T to show the
     built-in file browser. The file browser lists the content of the current directory. To select a file,
     first highlight it with the up or down arrow keys, and then press Enter.
 
@@ -315,7 +332,7 @@
     If there are no more items to show the listing is ended with "--- END ---".
 
 
-    \subsection{Send disk commands}
+    \subsection{Disk commands}
 
     X16 Edit lets you send commands to the disk. To invoke a command, press Ctrl+I, and then enter
     the command at the prompt.
