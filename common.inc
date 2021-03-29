@@ -24,6 +24,10 @@
 ;KERNAL VECTORS
 ;*****************************************************************************
 
+;RAM and ROM select
+.define BNK_SEL $00 
+.define ROM_SEL $01
+
 ;File management
 .define KERNAL_CLALL $ffe7
 .define KERNAL_CLOSE $ffc3
@@ -40,12 +44,6 @@
 
 ;Keyboard
 .define KERNAL_GETIN $ffe4
-.define KERNAL_KBDBUF_GET_MODIFIERS $ca58
-KBD_MODIFIER_SHIFT = 1 ; C64:  Shift
-KBD_MODIFIER_ALT   = 2 ; C64:  Commodore
-KBD_MODIFIER_CTRL  = 4 ; C64:  Ctrl
-KBD_MODIFIER_WIN   = 8 ; C128: Alt
-KBD_MODIFIER_CAPS  = 16; C128: Caps
 
 ;Other
 .define KERNAL_SCREEN_SET_CHARSET $ff62
@@ -132,6 +130,7 @@ APP_MOD:                .res 1              ;1 byte, application mode
 APP_QUIT:               .res 1              ;1 byte, used to signal program exit
 tempvars:               .res 16             ;Temporary variables
 cmd_display_msg:        .res 59
+scancode_modifiers:     .res 1
 
 .CODE
 
@@ -158,8 +157,6 @@ dir_entry                               = $b500               ;256 bytes
 ;*****************************************************************************
 ;CONSTANTS
 ;*****************************************************************************
-.define BNK_SEL $00 
-.define ROM_SEL $01
 .define ROM_BNK 7
 
 .define LF 10

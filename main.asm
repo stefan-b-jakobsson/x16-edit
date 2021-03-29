@@ -150,6 +150,7 @@ rambackup:
     jsr cursor_init
     jsr clipboard_init
     jsr cmd_init
+    jsr scancode_init
     
     clc
     rts
@@ -191,6 +192,7 @@ exit:
 .include "cmd_file.inc"
 .include "prompt.inc"
 .include "irq.inc"
+.include "scancode.inc"
 .include "cursor.inc"
 .include "file.inc"
 .include "util.inc"

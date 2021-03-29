@@ -111,39 +111,10 @@ jmptbl_H:
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
-;Keyboard shordcuts..: ^G=$07 Get Help
-;                      ^X=$18 Exit Program
-;                      ^O=$0f Write Out
-;                      ^R=$12 Read file
-;                      ^N=$0e New buffer
-;                      ^Y=$19 PageUp
-;                      ^V=$16 PageDown
-;                      ^K=$0b Cut
-;                      ^P=$10 Copy
-;                      ^U=$15 Uncut (paste)
-;                      ^C=$03 Show cursor position
-;                      ^W=$17 WhereIs
-;                      ^S=$13 Replace
-;                      ^L=$0c Go to line
-;                      ^A=$01 Auto indent on/off
-;                      ^Z=$1a Word wrap on/off
-;                      ^E=$05 Change character encoding
-;                      ^D=$04 Set device number
-;                      ^T=$14 Change text color
-;                      ^B=$02 Change background color
-;                      ^M=$0d Show memory usage
-;                      ^SPACE=$a0 Insert non-breaking space
 .proc keyboard_mode_default
-    ;Store key in Y
-    tay
-
     ;Get key modifiers
-    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
-    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
-    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
-    tax
-    tya
-
+    ldx scancode_modifiers
+    
     cpx #KBD_MODIFIER_CTRL
     bne modifier_none
     jmp modifier_ctrl
@@ -684,8 +655,9 @@ abort:
     cmp #$14
     bne :+
 
-    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
-    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
+    ;bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
+    ;bridge_call KERNAL_KBDBUF_GET_MODIFIERS
+    lda scancode_modifiers
     and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
     tax
     lda #$14
@@ -776,8 +748,9 @@ write_file:
     cmp #$14
     bne :+
 
-    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
-    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
+    ;bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
+    ;bridge_call KERNAL_KBDBUF_GET_MODIFIERS
+    lda scancode_modifiers
     and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
     tax
     lda #$14
