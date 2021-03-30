@@ -18,7 +18,7 @@
 ;******************************************************************************
 
 .import __ZP_START__, __ZP_LAST__, __VARS_LOAD__
-.export bridge_code
+.export bridge_code, bridge_kernal, bridge_scancode, bridge_end, scancode_modifiers
 
 ;*****************************************************************************
 ;KERNAL VECTORS
@@ -143,7 +143,7 @@ scancode_modifiers:     .res 1
 prompt_input:           .res 256
 file_cur_filename:      .res 256
 file_disk_status:       .res 127
-bridge_code:            .res 40
+bridge_code:            .res 55
 
 .CODE
 

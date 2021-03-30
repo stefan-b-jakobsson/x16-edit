@@ -18,7 +18,7 @@
 ;******************************************************************************
 
 bridge_call = bridge_code
-bridge_addr = bridge_call+4
+bridge_addr = bridge_call+3
 
 .if target_mem=target_rom
     .macro bridge_setaddr addr

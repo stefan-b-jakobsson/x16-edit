@@ -50,7 +50,7 @@ bridge_kernal:
     lda #ROM_BNK       ;Set ROM select to our bank again
     sta ROM_SEL
     pla
-    rts                 ;14 bytes
+    rts                
 
 ;Bridge for interrupt handling, called by the Kernal
 ;on interrupt, switches to X16 Edit's ROM bank and then
@@ -63,10 +63,36 @@ bridge_irq:
     jsr irq_handler
     pla
     sta ROM_SEL
-    jmp (irq_default_handler)   ;19 bytes
+    jmp (irq_default_handler) 
+
+;Bridge for custom keyboard scan code handler
+bridge_scancode:
+    php
+    pha
+
+    lda ROM_SEL
+    sta bridge_temp
+    lda #ROM_BNK
+    sta ROM_SEL
+    
+    pla
+    plp
+    jsr scancode_handler
+    php
+    pha
+
+    lda bridge_temp
+    sta ROM_SEL
+
+    pla
+    plp
+    rts
 
 bridge_end:
 
+.segment "VARS"
+    bridge_temp: .res 1
+.CODE
 
 .segment "IRQ"
     .byt $ff, $ff, $ff, $ff, $8b, $03

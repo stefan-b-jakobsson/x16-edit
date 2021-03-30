@@ -179,6 +179,7 @@ errormsg:
     cmp #2
     bne :-
 
+    jsr scancode_restore
     jsr ram_restore     ;Restore ZP and low RAM used by the program
 
 exit:

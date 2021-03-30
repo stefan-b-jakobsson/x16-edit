@@ -20,17 +20,62 @@
 ;******************************************************************************
 ;Function name.......: scancode_init
 ;Purpose.............: Initializes keyboard scan code handler
-;Preparatory routines: None
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
+.if target_mem=target_ram
 .proc scancode_init
+    lda $032e
+    sta scancode_default_handler
+    lda $032f
+    sta scancode_default_handler+1
+    
+    stz scancode_modifiers
+
     sei
     lda #<scancode_handler
     sta $032e
     lda #>scancode_handler
     sta $032f
     cli
+    
+    rts
+.endproc
+.endif
+
+.if target_mem=target_rom
+.proc scancode_init
+    lda $032e
+    sta scancode_default_handler
+    lda $032f
+    sta scancode_default_handler+1
+
+    sei
+    lda #<(bridge_code+bridge_scancode-bridge_kernal)
+    sta $032e
+    lda #>(bridge_code+bridge_scancode-bridge_kernal)
+    sta $032f
+    cli
+    
+    rts
+.endproc
+.endif
+
+
+;******************************************************************************
+;Function name.......: scancode_restore
+;Purpose.............: Restores scan code handler to default value
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc scancode_restore
+    sei
+    lda scancode_default_handler
+    sta $032e
+    lda scancode_default_handler+1
+    sta $032f
+    cli
+    
     rts
 .endproc
 
@@ -80,7 +125,7 @@ keydown:
 
 keyup:
     eor #$ff
-    and scancode_modifiers
+    and bitmask-1,y
     sta scancode_modifiers
     bra exit
 
@@ -91,6 +136,11 @@ scancodes_L:
 bitmask:
     .byt KBD_MODIFIER_SHIFT, KBD_MODIFIER_SHIFT, KBD_MODIFIER_ALT, KBD_MODIFIER_ALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL, KBD_MODIFIER_WIN, KBD_MODIFIER_WIN, KBD_MODIFIER_CAPS
 .endproc
+
+
+.segment "VARS"
+scancode_default_handler: .res 2
+.CODE
 
 KBD_MODIFIER_SHIFT = 1 ; C64:  Shift
 KBD_MODIFIER_ALT   = 2 ; C64:  Commodore
