@@ -18,7 +18,7 @@
 ;******************************************************************************
 
 .import __ZP_START__, __ZP_LAST__, __VARS_LOAD__
-.export bridge_code, bridge_kernal, bridge_scancode, bridge_end, scancode_modifiers
+.export bridge_code
 
 ;*****************************************************************************
 ;KERNAL VECTORS

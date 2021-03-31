@@ -113,19 +113,19 @@ checkprefix:
 
 match:
     pla
-    lda scancode_modifiers
+    lda bitmask-1,y
     plp
     php
     bcs keyup
 
 keydown:
-    ora bitmask-1,y
+    ora scancode_modifiers
     sta scancode_modifiers
     bra exit
 
 keyup:
     eor #$ff
-    and bitmask-1,y
+    and scancode_modifiers
     sta scancode_modifiers
     bra exit
 
