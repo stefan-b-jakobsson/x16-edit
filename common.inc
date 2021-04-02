@@ -18,10 +18,9 @@
 ;******************************************************************************
 
 .import __ZP_START__, __ZP_LAST__, __VARS_LOAD__
-.export bridge_code
 
 ;*****************************************************************************
-;KERNAL VECTORS
+;KERNAL
 ;*****************************************************************************
 
 ;RAM and ROM select
@@ -49,7 +48,7 @@
 .define KERNAL_SCREEN_SET_CHARSET $ff62
 
 ;*****************************************************************************
-;VERA VECTORS
+;VERA
 ;*****************************************************************************
 .define VERA_L $9f20
 .define VERA_M $9f21
@@ -123,27 +122,12 @@ TMP2_IDX:   .res 1   ;Index
 ;*****************************************************************************
 ;Global variables not stored in zero page
 ;*****************************************************************************
-
 .segment "VARS"
 
+bridge_code:            .res 55             ;Bridge code, used by ROM version of the program
 APP_MOD:                .res 1              ;1 byte, application mode
 APP_QUIT:               .res 1              ;1 byte, used to signal program exit
 tempvars:               .res 16             ;Temporary variables
-cmd_display_msg:        .res 59
-scancode_modifiers:     .res 1
-
-.CODE
-
-;*****************************************************************************
-;Buffers
-;*****************************************************************************
-
-.segment "VARS"
-
-prompt_input:           .res 256
-file_cur_filename:      .res 256
-file_disk_status:       .res 127
-bridge_code:            .res 55
 
 .CODE
 
@@ -157,8 +141,7 @@ dir_entry                               = $b500               ;256 bytes
 ;*****************************************************************************
 ;CONSTANTS
 ;*****************************************************************************
-.define ROM_BNK 7
-
+.define ROM_BNK 7           ;The bank where ROM version of X16 Edit is stored
 .define LF 10
 .define CR 13          
 .define SCREEN_WIDTH 80

@@ -91,7 +91,7 @@ bridge_scancode:
 bridge_end:
 
 .segment "VARS"
-    bridge_temp: .res 1
+    bridge_temp:    .res 1
 .CODE
 
 .segment "IRQ"

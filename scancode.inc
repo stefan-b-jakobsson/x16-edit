@@ -139,7 +139,8 @@ bitmask:
 
 
 .segment "VARS"
-scancode_default_handler: .res 2
+    scancode_default_handler: .res 2
+    scancode_modifiers:     .res 1
 .CODE
 
 KBD_MODIFIER_SHIFT = 1 ; C64:  Shift

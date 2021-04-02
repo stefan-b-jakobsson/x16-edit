@@ -362,6 +362,7 @@ exit:
 .endproc
 
 .segment "VARS"
+    prompt_input:           .res 256
     prompt_start:           .res 1              ;1 byte
     prompt_fvc:             .res 1              ;1 byte
     prompt_curpos:          .res 1              ;1 byte

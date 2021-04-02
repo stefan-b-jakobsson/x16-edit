@@ -2550,7 +2550,8 @@ msg_illegal:
 .endproc
 
 .segment "VARS"
-    cmd_auto_indent_status: .res 1              ;1 byte
-    cmd_wordwrap_mode:      .res 1              ;1 byte
-    cmd_wordwrap_pos:       .res 1              ;1 byte
+    cmd_auto_indent_status: .res 1
+    cmd_wordwrap_mode:      .res 1       
+    cmd_wordwrap_pos:       .res 1
+    cmd_display_msg:        .res 59
 .CODE

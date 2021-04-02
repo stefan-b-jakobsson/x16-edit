@@ -558,6 +558,8 @@ file_ioerr_10:
     .byt "memory full error", 0
 
 .segment "VARS"
+    file_cur_filename:      .res 256
+    file_disk_status:       .res 127
     file_io_err:            .res 1              ;1 byte
     file_cur_filename_len:  .res 1              ;1 byte
     file_cur_device:        .res 1              ;1 byte
