@@ -370,6 +370,7 @@ exit_help:
     rts
 
 save:
+    jsr cursor_activate
     jsr screen_clear_status
     jmp cmd_file_save_prompt
 
@@ -380,6 +381,7 @@ discard:
     rts
 
 abort:
+    jsr cursor_activate
     stz APP_MOD
     jmp screen_clear_status
 .endproc
@@ -689,15 +691,18 @@ prevpage:
     rts
 
 save:
+    jsr cursor_activate
     jmp cmd_file_save_prompt
 
 discard:
+    jsr cursor_activate
     stz mem_modified
     jsr cmd_file_open_prompt
     inc mem_modified
     rts
 
 abort:
+    jsr cursor_activate
     stz APP_MOD
     jsr screen_clear_status
     rts
@@ -757,15 +762,18 @@ abort:
     rts
 
 save:
+    jsr cursor_activate
     jmp cmd_file_save_prompt
 
 discard:
+    jsr cursor_activate
     jsr screen_clear_status
     stz APP_MOD
     stz mem_modified
     jmp cmd_new_buffer
 
 abort:
+    jsr cursor_activate
     stz APP_MOD
     jmp screen_clear_status
 .endproc

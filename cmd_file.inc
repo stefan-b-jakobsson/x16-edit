@@ -63,7 +63,6 @@ msg:
 
     ;Close prompt and disable cursor
     jsr prompt_close
-    jsr cursor_disable
 
     ;Write buffer to file
     ldx filename
@@ -224,6 +223,8 @@ write:
     beq :+
     
     ;Buffer modified, prompt to save before opening a new file
+    jsr cursor_disable
+    
     lda #7
     sta APP_MOD
     
@@ -262,7 +263,6 @@ msg2:
     sta filelen
 
     jsr prompt_close
-    jsr cursor_disable
 
     ldx filename
     ldy filename+1

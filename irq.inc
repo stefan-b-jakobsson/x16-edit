@@ -101,9 +101,6 @@ shutdown:
     lda irq_default_handler+1
     sta $0315
 
-    ;Hide cursor sprite
-    jsr cursor_hide
-
     ;Clear screen
     bridge_setaddr KERNAL_CHROUT
     lda #147
@@ -144,9 +141,6 @@ shutdown:
     sta $0314
     lda irq_default_handler+1
     sta $0315
-
-    ;Hide cursor sprite
-    jsr cursor_hide
 
     ;Clear screen
     bridge_setaddr KERNAL_CHROUT

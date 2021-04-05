@@ -576,6 +576,7 @@ mem_full:
     lda #2
     sta APP_MOD
     jsr screen_print_status
+    
     rts
 
 msg:
@@ -1316,7 +1317,8 @@ exit:
     ;Check if document modified first
     lda mem_modified
     beq :+
-    
+
+    jsr cursor_disable
     ldx #<msg
     ldy #>msg
     jsr screen_print_status
@@ -1758,7 +1760,6 @@ execute:
 
 :   stx replace_all
     stz APP_MOD
-    jsr cursor_disable
     
     stz replaced_count
     stz replaced_count+1
@@ -1910,6 +1911,8 @@ searchfor = cmd_display_msg
     ;Check if document modified
     lda mem_modified
     beq :+
+
+    jsr cursor_disable
 
     ldx #<msg
     ldy #>msg
@@ -2179,6 +2182,8 @@ msg_off:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_change_encoding
+    jsr cursor_disable
+
     inc screen_mode
 
     lda screen_mode
@@ -2228,6 +2233,8 @@ exit:
     jsr screen_print_default_footer
     jsr screen_refresh
     jsr screen_println
+
+    jsr cursor_activate
     
     lda #2
     sta APP_MOD
@@ -2282,6 +2289,8 @@ msg_plc:
     ora bgcolor
     sta screen_color
 
+    stz cursor_state
+
     jsr screen_clearall
     jsr screen_print_header
     jsr screen_print_default_footer
@@ -2312,6 +2321,8 @@ bgcolor = tempvars      ;1 bytes
     and #240
     ora fgcolor
     sta screen_color
+
+    stz cursor_state
 
     jsr screen_clearall
     jsr screen_print_header

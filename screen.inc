@@ -959,6 +959,7 @@ start_at = tempvars+1   ;1 byte
     sty VERA_D0
     dex
     bne :-
+
     rts
 .endproc
 

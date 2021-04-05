@@ -180,6 +180,7 @@ clear_line:
     ;Restore cursor pos
     ldx prompt_cursor_backup
     ldy prompt_cursor_backup+1
+    stz cursor_state
     jmp cursor_move
 .endproc
 
