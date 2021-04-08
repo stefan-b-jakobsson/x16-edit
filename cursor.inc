@@ -27,15 +27,12 @@
 .proc cursor_init
     ;Set position
     stz CRS_X
-    stz cursor_last_pos
     lda #2
     sta CRS_Y
-    sta cursor_last_pos+1
 
     ;Init cursor toggle counter
     lda #30
     sta cursor_toggle_counter
-
     stz cursor_state
 
     rts
@@ -48,20 +45,33 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_invert
-    ;Update cursor state
-    inc cursor_state
+    stz VERA_H
 
-    ;Prepare reading/writing color data
-    clc
-    lda cursor_last_pos
+    lda cursor_state
+    and #%00000001
+    beq turnon
+
+turnoff:
+    lda last
     asl
     ina
     sta VERA_L
-    lda cursor_last_pos+1
+    lda last+1
     sta VERA_M
-    stz VERA_H
+    bra swap
+
+turnon:
+    lda CRS_X
+    sta last
+    asl
+    ina
+    sta VERA_L
+    lda CRS_Y
+    sta last+1
+    sta VERA_M
 
     ;Swap background/foreground colors
+swap:
     lda VERA_D0
     asl
     adc #$80
@@ -71,7 +81,14 @@
     rol
     sta VERA_D0
 
+    ;Update cursor state
+    inc cursor_state
+    
     rts
+
+.segment "VARS"
+    last: .res 2
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -88,11 +105,12 @@
 
 exit:
     stx CRS_X
-    stx cursor_last_pos
     sty CRS_Y
-    sty cursor_last_pos+1
-    jsr cursor_invert
-    rts
+    lda cursor_toggle_counter
+    beq :+
+    lda #1
+    sta cursor_toggle_counter
+:   rts
 .endproc
 
 ;******************************************************************************
@@ -260,7 +278,10 @@ exit:
     lda cursor_state
     and #%00000001
     bne :+
-    jsr cursor_invert
+    
+    lda #1
+    sta cursor_toggle_counter
+    rts
 
 :   lda #30
     sta cursor_toggle_counter
@@ -287,6 +308,5 @@ exit:
     CRS_X:                  .res 1              ;Cursor screen column position
     CRS_Y:                  .res 1              ;Cursor screen row position
     cursor_toggle_counter:  .res 1
-    cursor_last_pos:        .res 2
     cursor_state:           .res 1
 .CODE

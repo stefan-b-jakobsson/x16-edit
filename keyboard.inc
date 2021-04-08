@@ -280,6 +280,7 @@ match:
     phy
 
     stz APP_MOD
+    jsr screen_clear_status
     jsr cursor_activate
 
     pla
@@ -1102,7 +1103,11 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_leftarrow_key
+    jsr cursor_disable
     jsr cmd_go_left
+    php
+    jsr cursor_activate
+    plp
     bcc :+
     
     jsr screen_refresh
@@ -1117,7 +1122,9 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_uparrow_key
+    jsr cursor_disable
     jsr cmd_go_up
+    jsr cursor_activate
     jsr screen_refresh
     jmp screen_println
 .endproc
@@ -1129,7 +1136,9 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_downarrow_key
+    jsr cursor_disable
     jsr cmd_go_down
+    jsr cursor_activate
     jsr screen_refresh
     jmp screen_println
 .endproc

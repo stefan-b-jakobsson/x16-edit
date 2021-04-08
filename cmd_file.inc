@@ -154,6 +154,7 @@ exit:
     rts
 
 confirm_overwrite:
+    jsr cursor_disable
     lda #6
     sta APP_MOD
 
@@ -367,6 +368,8 @@ msg:
     beq no_kernal_err
     
 kernal_err:
+    lda #2
+    sta APP_MOD
     tax
     dex
     ldy file_ioerr_H,x
@@ -375,6 +378,8 @@ kernal_err:
     jmp screen_print_status
 
 no_kernal_err:
+    lda #2
+    sta APP_MOD
     ldx #<file_disk_status
     ldy #>file_disk_status
     jmp screen_print_status
