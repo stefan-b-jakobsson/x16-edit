@@ -25,16 +25,20 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_read_and_dispatch
-    ;Get char from keyboard queue. Don't read if APP_MOD=16
+    ;Don't read keyboard if APP_MOD=16 (set on charset changed)
     lda APP_MOD
     cmp #16
     beq gotachar
-    
+
+    ;Handle extra keys not supported by the Kernal
+    jsr keyboard_ext_keys
+
+    ;Handle keys supported by the Kernal
     bridge_setaddr KERNAL_GETIN
     bridge_call KERNAL_GETIN
     bne gotachar
 
-    ;No input, run memory defrag instead during this interrupt cycle
+    ;No input to handle, run memory defrag instead during this interrupt cycle
     jmp mem_run_defrag
     
 gotachar:
@@ -103,6 +107,43 @@ jmptbl_H:
     .byt >keyboard_mode_file_dir
     .byt >keyboard_mode_file_dir
     .byt >keyboard_mode_dos_cmd
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_ext_keys
+;Purpose.............: Reads status of supported extra keys that are not 
+;                      supported by the Kernal. If found dispatches program 
+;                      control accordingly.
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_ext_keys
+    ldy #3
+    lda scancode_ext
+:   cmp bitmask-1,y
+    beq match
+    dey
+    bne :-
+
+exit:
+    stz scancode_ext
+    rts
+
+match:
+    stz scancode_ext
+
+    lda jmptbl_L-1,y
+    sta tempvars
+    lda jmptbl_H-1,y
+    sta tempvars+1
+    jmp (tempvars)
+
+bitmask:
+    .byt KBD_EXT_END, KBD_EXT_PGUP, KBD_EXT_PGDN
+jmptbl_L:
+    .byt <keyboard_end_key, <keyboard_cmd_pageup, <keyboard_cmd_pagedown
+jmptbl_H:
+    .byt >keyboard_end_key, >keyboard_cmd_pageup, >keyboard_cmd_pagedown
 .endproc
 
 ;******************************************************************************
@@ -1090,7 +1131,11 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_rightarrow_key
+    jsr cursor_disable
     jsr cmd_go_right
+    php
+    jsr cursor_activate
+    plp
     bcs :+
     jmp screen_println
 :   jmp screen_refresh
@@ -1125,6 +1170,7 @@ exit:
     jsr cursor_disable
     jsr cmd_go_up
     jsr cursor_activate
+    jsr cursor_toggle
     jsr screen_refresh
     jmp screen_println
 .endproc
@@ -1139,6 +1185,7 @@ exit:
     jsr cursor_disable
     jsr cmd_go_down
     jsr cursor_activate
+    jsr cursor_toggle
     jsr screen_refresh
     jmp screen_println
 .endproc

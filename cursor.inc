@@ -17,10 +17,9 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-
 ;******************************************************************************
 ;Function name.......: cursor_init
-;Purpose.............: Initializes the cursor sprite
+;Purpose.............: Initializes the cursor
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
@@ -33,6 +32,8 @@
     ;Init cursor toggle counter
     lda #30
     sta cursor_toggle_counter
+
+    ;Set cursor state = hidden
     stz cursor_state
 
     rts
@@ -49,25 +50,25 @@
 
     lda cursor_state
     and #%00000001
-    beq turnon
+    beq show
 
-turnoff:
-    lda last
+hide:
+    lda last_shown_at
     asl
     ina
     sta VERA_L
-    lda last+1
+    lda last_shown_at+1
     sta VERA_M
     bra swap
 
-turnon:
+show:
     lda CRS_X
-    sta last
+    sta last_shown_at
     asl
     ina
     sta VERA_L
     lda CRS_Y
-    sta last+1
+    sta last_shown_at+1
     sta VERA_M
 
     ;Swap background/foreground colors
@@ -87,7 +88,7 @@ swap:
     rts
 
 .segment "VARS"
-    last: .res 2
+    last_shown_at: .res 2
 .CODE
 .endproc
 
@@ -108,7 +109,7 @@ exit:
     sty CRS_Y
     lda cursor_toggle_counter
     beq :+
-    lda #1
+    lda #1                          ;By setting counter to 1 we ensure that the cursor is toggled on during next VBLANK
     sta cursor_toggle_counter
 :   rts
 .endproc
@@ -243,18 +244,16 @@ bottom:
 ;Function name.......: cursor_toggle
 ;Purpose.............: Controls cursor toggle. The cursor will change state
 ;                      (hidden or visible) for every 30 invocations of this
-;                      function. When called once every interrupt, the cursor
+;                      function. When called once every VBLANK, the cursor
 ;                      toggle period will be 1 second.
-;Input...............: Nothing
+;Input...............: cursor_toggle_counter=0 means that the cursor is
+;                      disabled (hidden)
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_toggle
     ;Check if cursor is disabled, cursor_toggle_counter = 0
     lda cursor_toggle_counter
-    bne toggle
-    
-    ;Cursor is disabled
-    rts
+    beq exit                ;Cursor disabled
 
 toggle:
     dec cursor_toggle_counter
@@ -279,11 +278,11 @@ exit:
     and #%00000001
     bne :+
     
-    lda #1
+    lda #1                          ;By setting counter to 1 we ensure that the cursor is toggled on during next VBLANK
     sta cursor_toggle_counter
     rts
 
-:   lda #30
+:   lda #30                         ;The cursor is already visible, set counter to default start value = 30 (1/2 second)
     sta cursor_toggle_counter
     rts
 .endproc

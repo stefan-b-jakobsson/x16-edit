@@ -31,6 +31,7 @@
     sta scancode_default_handler+1
     
     stz scancode_modifiers
+    stz scancode_ext
 
     sei
     lda #<scancode_handler
@@ -87,9 +88,9 @@
 .proc scancode_handler
     pha
     phx
-    php
+    php   
 
-    ldy #9
+    ldy #14
 loop:
     cmp scancodes_L-1,y
     beq checkprefix
@@ -119,28 +120,39 @@ match:
     bcs keyup
 
 keydown:
+    cpy #10
+    bcs :+      ;y>10 => not modifier key
+
     ora scancode_modifiers
     sta scancode_modifiers
     bra exit
 
+:   ora scancode_ext
+    sta scancode_ext
+    bra exit
+
 keyup:
+    cpy #10     ;y>10 => not modifier, ignore key up
+    bcs exit
+
     eor #$ff
     and scancode_modifiers
     sta scancode_modifiers
     bra exit
 
 scancodes_H:
-    .byt  $0,  $0,  $0, $e0,  $0, $e0, $e0, $e0,  $0      ;Left Shift, Right Shift, Left Alt, Right Alt, Left Ctrl, Right Ctrl, Left Win, Right Win, Caps Lock
+    .byt  $0,  $0,  $0, $e0,  $0, $e0, $e0, $e0,  $0, $e0, $e0, $e0, $e0, $e0
 scancodes_L:
-    .byt $12, $59, $11, $11, $14, $14, $1f, $27, $58      ;Left Shift, Right Shift, Left Alt, Right Alt, Left Ctrl, Right Ctrl, Left Win, Right Win, Caps Lock
+    .byt $12, $59, $11, $11, $14, $14, $1f, $27, $58, $71, $70, $69, $7d, $7a
 bitmask:
     .byt KBD_MODIFIER_SHIFT, KBD_MODIFIER_SHIFT, KBD_MODIFIER_ALT, KBD_MODIFIER_ALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL, KBD_MODIFIER_WIN, KBD_MODIFIER_WIN, KBD_MODIFIER_CAPS
+    .byt KBD_EXT_DELETE, KBD_EXT_INSERT, KBD_EXT_END, KBD_EXT_PGUP, KBD_EXT_PGDN
 .endproc
-
 
 .segment "VARS"
     scancode_default_handler: .res 2
-    scancode_modifiers:     .res 1
+    scancode_modifiers: .res 1
+    scancode_ext: .res 1
 .CODE
 
 KBD_MODIFIER_SHIFT = 1 ; C64:  Shift
@@ -148,3 +160,9 @@ KBD_MODIFIER_ALT   = 2 ; C64:  Commodore
 KBD_MODIFIER_CTRL  = 4 ; C64:  Ctrl
 KBD_MODIFIER_WIN   = 8 ; C128: Alt
 KBD_MODIFIER_CAPS  = 16; C128: Caps
+
+KBD_EXT_DELETE     = 1
+KBD_EXT_INSERT     = 2
+KBD_EXT_END        = 4
+KBD_EXT_PGUP       = 8
+KBD_EXT_PGDN       = 16

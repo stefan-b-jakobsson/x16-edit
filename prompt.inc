@@ -174,14 +174,13 @@ clear_line:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_close
-    ;Clear status line
-    jsr screen_clear_status
-
     ;Restore cursor pos
     ldx prompt_cursor_backup
     ldy prompt_cursor_backup+1
-    stz cursor_state
-    jmp cursor_move
+    jsr cursor_move
+
+    ;Clear status line
+    jmp screen_clear_status
 .endproc
 
 ;******************************************************************************

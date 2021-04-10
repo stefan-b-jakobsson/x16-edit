@@ -2289,7 +2289,7 @@ msg_plc:
     ora bgcolor
     sta screen_color
 
-    stz cursor_state
+    stz cursor_state    ;Cursor state needs to be cleared as bakground color is reset
 
     jsr screen_clearall
     jsr screen_print_header
@@ -2322,7 +2322,7 @@ bgcolor = tempvars      ;1 bytes
     ora fgcolor
     sta screen_color
 
-    stz cursor_state
+    stz cursor_state        ;Cursor state needs to be cleared as bakground color is reset
 
     jsr screen_clearall
     jsr screen_print_header
