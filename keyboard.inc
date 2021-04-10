@@ -118,7 +118,7 @@ jmptbl_H:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_ext_keys
-    ldy #3
+    ldy #4
     lda scancode_ext
 :   cmp bitmask-1,y
     beq match
@@ -139,11 +139,11 @@ match:
     jmp (tempvars)
 
 bitmask:
-    .byt KBD_EXT_END, KBD_EXT_PGUP, KBD_EXT_PGDN
+    .byt KBD_EXT_END, KBD_EXT_PGUP, KBD_EXT_PGDN, KBD_EXT_DELETE
 jmptbl_L:
-    .byt <keyboard_end_key, <keyboard_cmd_pageup, <keyboard_cmd_pagedown
+    .byt <keyboard_end_key, <keyboard_cmd_pageup, <keyboard_cmd_pagedown, <keyboard_delete_key
 jmptbl_H:
-    .byt >keyboard_end_key, >keyboard_cmd_pageup, >keyboard_cmd_pagedown
+    .byt >keyboard_end_key, >keyboard_cmd_pageup, >keyboard_cmd_pagedown, >keyboard_delete_key
 .endproc
 
 ;******************************************************************************
@@ -197,7 +197,7 @@ no_modifier_keyval:
     .byt $85, $89, $86, $8a, $87
     .byt $8b, $88, $8c
 no_modifier_addr:
-    .word keyboard_esc_key, keyboard_enter_key, keyboard_delete_key, cmd_insert_tab, keyboard_leftarrow_key
+    .word keyboard_esc_key, keyboard_enter_key, keyboard_backspace_key, cmd_insert_tab, keyboard_leftarrow_key
     .word keyboard_rightarrow_key, keyboard_uparrow_key, keyboard_downarrow_key, keyboard_home_key, keyboard_end_key
     .word cmd_show_help, cmd_exit, cmd_file_save_prompt, cmd_wrap_buffer, cmd_file_open_prompt
     .word cmd_find, keyboard_cmd_pageup, keyboard_cmd_pagedown
@@ -1102,12 +1102,12 @@ msg:
 .endproc
 
 ;******************************************************************************
-;Function name.......: keyboard_delete_key
-;Purpose.............: Key handler: Delete
+;Function name.......: keyboard_backspace_key
+;Purpose.............: Key handler: Backspace
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc keyboard_delete_key
+.proc keyboard_backspace_key
     jsr cmd_delete
 
     bcs exit            ;C=1, at start of file
@@ -1120,6 +1120,22 @@ msg:
 update_line:
     jsr screen_println
 
+exit:
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_delete_key
+;Purpose.............: Key handler: Delete
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_delete_key
+    jsr cmd_go_right
+    cpx #1 
+    beq exit
+    
+    jmp keyboard_backspace_key
 exit:
     rts
 .endproc

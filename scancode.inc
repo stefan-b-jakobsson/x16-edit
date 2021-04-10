@@ -129,16 +129,23 @@ keydown:
 
 :   ora scancode_ext
     sta scancode_ext
-    bra exit
+    bra consume_and_exit
 
 keyup:
     cpy #10     ;y>10 => not modifier, ignore key up
-    bcs exit
+    bcs consume_and_exit
 
     eor #$ff
     and scancode_modifiers
     sta scancode_modifiers
     bra exit
+
+consume_and_exit:
+    plp
+    plx
+    pla
+    lda #0
+    rts
 
 scancodes_H:
     .byt  $0,  $0,  $0, $e0,  $0, $e0, $e0, $e0,  $0, $e0, $e0, $e0, $e0, $e0
