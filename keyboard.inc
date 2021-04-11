@@ -952,8 +952,10 @@ search:
     jsr prompt_close
     stz APP_MOD
 
+    jsr cursor_disable
     lda #2
-    jmp cmd_replace
+    jsr cmd_replace
+    jmp cursor_activate
 
 abort:
     jsr prompt_close
@@ -989,14 +991,18 @@ abort:
     rts
 
 yes:
+    jsr cursor_disable
     ldx #0
     lda #3
-    jmp cmd_replace
+    jsr cmd_replace
+    jmp cursor_activate
 
 all:
+    jsr cursor_disable
     ldx #1
     lda #3
-    jmp cmd_replace
+    jsr cmd_replace
+    jmp cursor_activate
 
 abort:
     stz APP_MOD
@@ -1213,7 +1219,9 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_home_key
+    jsr cursor_disable
     jsr cmd_go_home
+    jsr cursor_activate
     jmp screen_println
 .endproc
 
@@ -1224,7 +1232,9 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_end_key
+    jsr cursor_disable
     jsr cmd_go_end
+    jsr cursor_activate
     jmp screen_println
 .endproc
 
@@ -1235,13 +1245,17 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_cmd_pageup
+    jsr cursor_disable
+
     lda #27
     sta linecount
 
 :   jsr cmd_go_up
+    bcs :+
     dec linecount
     bne :-
 
+:   jsr cursor_activate
     jmp screen_refresh
 
 .segment "VARS"
@@ -1258,13 +1272,17 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_cmd_pagedown
+    jsr cursor_disable
+
     lda #27
     sta linecount
 
 :   jsr cmd_go_down
+    bcs :+
     dec linecount
     bne :-
 
+:   jsr cursor_activate
     jmp screen_refresh
 
 .segment "VARS"

@@ -109,7 +109,8 @@ exit:
     sty CRS_Y
     lda cursor_toggle_counter
     beq :+
-    lda #1                          ;By setting counter to 1 we ensure that the cursor is toggled on during next VBLANK
+    jsr cursor_invert
+    lda #30
     sta cursor_toggle_counter
 :   rts
 .endproc
@@ -277,10 +278,7 @@ exit:
     lda cursor_state
     and #%00000001
     bne :+
-    
-    lda #1                          ;By setting counter to 1 we ensure that the cursor is toggled on during next VBLANK
-    sta cursor_toggle_counter
-    rts
+    jsr cursor_invert
 
 :   lda #30                         ;The cursor is already visible, set counter to default start value = 30 (1/2 second)
     sta cursor_toggle_counter

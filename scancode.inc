@@ -51,6 +51,9 @@
     lda $032f
     sta scancode_default_handler+1
 
+    stz scancode_modifiers
+    stz scancode_ext
+
     sei
     lda #<(bridge_code+bridge_scancode-bridge_kernal)
     sta $032e

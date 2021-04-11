@@ -25,6 +25,17 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_init
+    ;Set layer 1 active
+    lda VERA_VIDEO
+    and #%11101111
+    ora #%00100000
+    sta VERA_VIDEO
+
+    ;Set 16 color text mode
+    lda VERA_L1_CONFIG
+    and #%11110000
+    sta VERA_L1_CONFIG
+
     ;Detect current charset mode
     jsr screen_charset_detect
     sta screen_mode
