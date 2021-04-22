@@ -17,8 +17,6 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-CLIPBOARD_SIZE = 12     ;In pages each of 256 bytes
-
 ;******************************************************************************
 ;Function name.......: clipboard_init
 ;Purpose.............: Initializes and clears clipboard memory
@@ -32,6 +30,8 @@ CLIPBOARD_SIZE = 12     ;In pages each of 256 bytes
 
     stz clipboard_pointer+1
     stz clipboard_end+1
+
+    stz clipboard_flags
 
     rts
 .endproc
@@ -106,8 +106,14 @@ exit:
 ;Returns.............: Number of chars copied, 24 bit value, X=low, Y=mid, A=high
 ;Error returns.......: C=1: Clipboard mem full
 .proc clipboard_copy
+    ;Check clipboard uncut flag, if set, clear clipboard
+    lda clipboard_flags
+    and #CLIPBOARD_UNCUT
+    beq :+
+    jsr clipboard_init
+
     ;Clear char counter
-    stz count
+:   stz count
     stz count+1
     stz count+2
 
@@ -302,12 +308,19 @@ loop:
     bra loop
 
 paste_done:
-    ;We're done. Clear clipboard memory and exit
-    jmp clipboard_init
+    ;We're done. Set uncut flag
+    lda clipboard_flags
+    ora #CLIPBOARD_UNCUT
+    sta clipboard_flags
+    rts
 
 .endproc
 
 .segment "VARS"
     clipboard_pointer:      .res 2              ;2 bytes
     clipboard_end:          .res 2              ;2 bytes
+    clipboard_flags:        .res 1
 .CODE
+
+CLIPBOARD_SIZE = 12             ;In pages each of 256 bytes
+CLIPBOARD_UNCUT = %00000001

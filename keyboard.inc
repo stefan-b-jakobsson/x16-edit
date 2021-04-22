@@ -636,7 +636,7 @@ enterkey:
     lda dir_filename_len
     jmp dir_change
 
-:   jsr screen_clear
+:   jsr screen_clear_editor
     jsr prompt_close
 
     ldx #<dir_entry
@@ -684,7 +684,7 @@ abortopen:
     jsr cursor_activate
     lda #5
     sta APP_MOD
-:   jsr screen_clear
+:   jsr screen_clear_editor
     jmp screen_refresh
 
 uparrow:
