@@ -112,11 +112,6 @@ exit:
     stx mem_start
     sty mem_top
 
-    ;Copy Kernal bridge code to RAM
-    .if (::target_mem=target_rom)
-        jsr bridge_copy
-    .endif
-
     ;Check if banked RAM start<=top
     ldy mem_top
     cpy mem_start
@@ -142,6 +137,11 @@ rambackup:
 
     ;Set program mode to default
     stz APP_MOD
+
+    ;Copy Kernal bridge code to RAM
+    .if (::target_mem=target_rom)
+        jsr bridge_copy
+    .endif
 
     ;Initialize base functions
     jsr mem_init
