@@ -118,32 +118,38 @@ jmptbl_H:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_ext_keys
-    ldy #4
-    lda scancode_ext
-:   cmp bitmask-1,y
-    beq match
-    dey
-    bne :-
+    ldy scancode_ext
+    stz scancode_ext
+
+    cpy #10
+    bcc exit        ;<10 => Exit
+
+    cpy #15         ;10-14 => Control key
+    bcc :+
+
+    cpy #32         ;>=32 => Printable extra key
+    bcs :++
 
 exit:
-    stz scancode_ext
     rts
 
-match:
-    stz scancode_ext
-
-    lda jmptbl_L-1,y
+    ;Control key
+:   lda jmptbl_L-10,y
     sta tempvars
-    lda jmptbl_H-1,y
+    lda jmptbl_H-10,y
     sta tempvars+1
     jmp (tempvars)
+
+    ;Printable extra key
+:   tya
+    jmp keyboard_mode_default
 
 bitmask:
     .byt KBD_EXT_END, KBD_EXT_PGUP, KBD_EXT_PGDN, KBD_EXT_DELETE
 jmptbl_L:
-    .byt <keyboard_end_key, <keyboard_cmd_pageup, <keyboard_cmd_pagedown, <keyboard_delete_key
+    .byt <keyboard_delete_key, <keyboard_end_key, <keyboard_cmd_pageup, <keyboard_cmd_pagedown, <keyboard_enter_key
 jmptbl_H:
-    .byt >keyboard_end_key, >keyboard_cmd_pageup, >keyboard_cmd_pagedown, >keyboard_delete_key
+    .byt >keyboard_delete_key, >keyboard_end_key, >keyboard_cmd_pageup, >keyboard_cmd_pagedown, >keyboard_enter_key
 .endproc
 
 ;******************************************************************************

@@ -93,7 +93,7 @@
     phx
     php   
 
-    ldy #14
+    ldy #(scancodes_L-scancodes_H)
 loop:
     cmp scancodes_L-1,y
     beq checkprefix
@@ -123,21 +123,29 @@ match:
     bcs keyup
 
 keydown:
+    cpy #16
+    bcs :++
     cpy #10
-    bcs :+      ;y>10 => not modifier key
+    bcs :+
 
+    ;Modifier key
     ora scancode_modifiers
     sta scancode_modifiers
     bra exit
 
-:   ora scancode_ext
-    sta scancode_ext
+    ;Control keys
+:   sty scancode_ext
     bra consume_and_exit
 
+    ;Printable keys
+:   lda printable-16,y
+    sta scancode_ext
+
 keyup:
-    cpy #10     ;y>10 => not modifier, ignore key up
+    cpy #10
     bcs consume_and_exit
 
+    ;Modifier key
     eor #$ff
     and scancode_modifiers
     sta scancode_modifiers
@@ -150,13 +158,16 @@ consume_and_exit:
     lda #0
     rts
 
-scancodes_H:
-    .byt  $0,  $0,  $0, $e0,  $0, $e0, $e0, $e0,  $0, $e0, $e0, $e0, $e0, $e0
+scancodes_H:                             
+         ;Modifier keys                                     ;Control keys                      ;Printable keys
+    .byt $00, $00, $00, $e0, $00, $e0, $e0, $e0, $00,       $e0, $e0, $e0, $e0, $e0, $e0,      $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $e0, $00, $00, $00
 scancodes_L:
-    .byt $12, $59, $11, $11, $14, $14, $1f, $27, $58, $71, $70, $69, $7d, $7a
+    .byt $12, $59, $11, $11, $14, $14, $1f, $27, $58,       $71, $69, $7d, $7a, $5a, $70,      $70, $69, $72, $7a, $6b, $73, $74, $6c, $75, $7d, $71, $4a, $7c, $7b, $79
 bitmask:
     .byt KBD_MODIFIER_SHIFT, KBD_MODIFIER_SHIFT, KBD_MODIFIER_ALT, KBD_MODIFIER_ALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL, KBD_MODIFIER_WIN, KBD_MODIFIER_WIN, KBD_MODIFIER_CAPS
-    .byt KBD_EXT_DELETE, KBD_EXT_INSERT, KBD_EXT_END, KBD_EXT_PGUP, KBD_EXT_PGDN
+printable:
+    .byt KBD_EXT_NUM0, KBD_EXT_NUM_1, KBD_EXT_NUM_2, KBD_EXT_NUM_3, KBD_EXT_NUM_4, KBD_EXT_NUM_5, KBD_EXT_NUM_6, KBD_EXT_NUM_7, KBD_EXT_NUM_8, KBD_EXT_NUM_9, KBD_EXT_NUM_DP
+    .byt KBD_EXT_NUM_DIV, KBD_EXT_NUM_MUL, KBD_EXT_NUM_MIN, KBD_EXT_NUM_PLS
 .endproc
 
 .segment "VARS"
@@ -165,14 +176,34 @@ bitmask:
     scancode_ext: .res 1
 .CODE
 
+;Modifier key bitmask
 KBD_MODIFIER_SHIFT = 1 ; C64:  Shift
 KBD_MODIFIER_ALT   = 2 ; C64:  Commodore
 KBD_MODIFIER_CTRL  = 4 ; C64:  Ctrl
 KBD_MODIFIER_WIN   = 8 ; C128: Alt
 KBD_MODIFIER_CAPS  = 16; C128: Caps
 
-KBD_EXT_DELETE     = 1
-KBD_EXT_INSERT     = 2
-KBD_EXT_END        = 4
-KBD_EXT_PGUP       = 8
-KBD_EXT_PGDN       = 16
+;Control keys: 10-15
+KBD_EXT_DELETE     = 10
+KBD_EXT_END        = 11
+KBD_EXT_PGUP       = 12
+KBD_EXT_PGDN       = 13
+KBD_EXT_ENT        = 14
+KBD_EXT_INSERT     = 15
+
+;Printable keys: ASCII value
+KBD_EXT_NUM0       = 48
+KBD_EXT_NUM_1      = 49
+KBD_EXT_NUM_2      = 50
+KBD_EXT_NUM_3      = 51
+KBD_EXT_NUM_4      = 52
+KBD_EXT_NUM_5      = 53
+KBD_EXT_NUM_6      = 54
+KBD_EXT_NUM_7      = 55
+KBD_EXT_NUM_8      = 56
+KBD_EXT_NUM_9      = 57
+KBD_EXT_NUM_DP     = 46
+KBD_EXT_NUM_DIV    = 47
+KBD_EXT_NUM_MUL    = 42
+KBD_EXT_NUM_MIN    = 45
+KBD_EXT_NUM_PLS    = 43
