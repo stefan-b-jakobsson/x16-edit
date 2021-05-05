@@ -140,6 +140,7 @@ keydown:
     ;Printable keys
 :   lda printable-16,y
     sta scancode_ext
+    bra consume_and_exit
 
 keyup:
     cpy #10
