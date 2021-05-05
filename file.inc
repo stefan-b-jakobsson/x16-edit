@@ -412,7 +412,8 @@ msg:
 ;******************************************************************************
 ;Function name.......: file_disk_cmd
 ;Purpose.............: Invoke dos command
-;Input...............: Nothing
+;Input...............: Pointer to command string, X=AddressL, Y=AddressH
+;                      A=Command string length
 ;Returns.............: Kernal I/O Error returned in variable file_io_err
 ;                      Disk status code returned in A
 ;                      Status message returned in variable file_disk_status
@@ -436,7 +437,6 @@ msg:
     ldx file_cur_device
     ldy #15
     bridge_call KERNAL_SETLFS
-    bcs io_error
 
     bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
