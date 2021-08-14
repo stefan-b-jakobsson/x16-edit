@@ -1601,14 +1601,17 @@ msg:
 ;Returns.............: C=1 if not found, else C=0
 ;Error returns.......: None
 .proc cmd_do_find
+    ;Store input params
     sta string_len
     stx TMP2_ADR
     sty TMP2_ADR+1
 
-    ;Init & backup pointers if they need to be restored
+    ;Init & backup pointers should they need to be restored later
     stz match
-
     jsr cmd_backup_pointers
+
+    ;Move cursor one step right before searching
+    jsr cmd_go_right
 
 ;Now search for that string
 
