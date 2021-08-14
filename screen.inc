@@ -35,7 +35,7 @@
 
     ;No layer active, set layer 1 active
     lda VERA_VIDEO
-    ora #%00010000
+    ora #%00100000
     sta VERA_VIDEO
 
 layer1:
