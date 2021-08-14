@@ -88,11 +88,19 @@
 ;Purpose.............: Custom keyboard scan code handler
 ;Input...............: Input set by Kernal, X=PS/2 prefix, A=PS/2 scan code,
 ;                      carry clear=keydown, and carry set=keyup
+;Returns:............: Modifier key status bits returned in 
+;                      scancode_modifiers. 
+;                      Control key or printable key press returned in 
+;                      scancode_ext; values < 32 for control keys, and
+;                      ASCII value for printable keys (> 31).
+;Error returns:......: None
 .proc scancode_handler
+    ;Save input so we can restore values before exit
     pha
     phx
     php   
 
+    ;Check scancode match with one of the supported extra keys
     ldy #(scancodes_L-scancodes_H)
 loop:
     cmp scancodes_L-1,y
@@ -102,6 +110,7 @@ loop_cont:
     bne loop
     
 exit:
+    ;No match, restore input and exit
     plp
     plx
     pla
@@ -116,6 +125,7 @@ checkprefix:
     bra loop_cont
 
 match:
+    ;Handle scancode match
     pla
     lda bitmask-1,y
     plp
@@ -123,36 +133,40 @@ match:
     bcs keyup
 
 keydown:
-    cpy #16
+    ;Key down event
+    cpy #16             ;Y>=16 => printable char
     bcs :++
-    cpy #10
+    cpy #10             ;Y>=10 => control char
     bcs :+
+                        ;Y<10 => modifier key
 
-    ;Modifier key
+    ;Modifier key       
     ora scancode_modifiers
     sta scancode_modifiers
     bra exit
 
-    ;Control keys
+    ;Control key: set control key number
 :   sty scancode_ext
     bra consume_and_exit
 
-    ;Printable keys
+    ;Printable key: set ASCII code
 :   lda printable-16,y
     sta scancode_ext
     bra consume_and_exit
 
 keyup:
-    cpy #10
+    ;Key up event
+    cpy #10                 ;Y>10 => not modifier key, just consume and exit
     bcs consume_and_exit
 
-    ;Modifier key
+    ;Modifier key, clear status bit
     eor #$ff
     and scancode_modifiers
     sta scancode_modifiers
     bra exit
 
 consume_and_exit:
+    ;Consume key event preventing the Kernal from further handling it
     plp
     plx
     pla
@@ -165,10 +179,14 @@ scancodes_H:
 scancodes_L:
     .byt $12, $59, $11, $11, $14, $14, $1f, $27, $58,       $71, $69, $7d, $7a, $5a, $70,      $70, $69, $72, $7a, $6b, $73, $74, $6c, $75, $7d, $71, $4a, $7c, $7b, $79
 bitmask:
-    .byt KBD_MODIFIER_SHIFT, KBD_MODIFIER_SHIFT, KBD_MODIFIER_ALT, KBD_MODIFIER_ALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL, KBD_MODIFIER_WIN, KBD_MODIFIER_WIN, KBD_MODIFIER_CAPS
+    .byt KBD_MODIFIER_SHIFT, KBD_MODIFIER_SHIFT, KBD_MODIFIER_ALT
+    .byt KBD_MODIFIER_ALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL
+    .byt KBD_MODIFIER_WIN, KBD_MODIFIER_WIN, KBD_MODIFIER_CAPS
 printable:
-    .byt KBD_EXT_NUM0, KBD_EXT_NUM_1, KBD_EXT_NUM_2, KBD_EXT_NUM_3, KBD_EXT_NUM_4, KBD_EXT_NUM_5, KBD_EXT_NUM_6, KBD_EXT_NUM_7, KBD_EXT_NUM_8, KBD_EXT_NUM_9, KBD_EXT_NUM_DP
-    .byt KBD_EXT_NUM_DIV, KBD_EXT_NUM_MUL, KBD_EXT_NUM_MIN, KBD_EXT_NUM_PLS
+    .byt KBD_EXT_NUM_0, KBD_EXT_NUM_1, KBD_EXT_NUM_2, KBD_EXT_NUM_3
+    .byt KBD_EXT_NUM_4, KBD_EXT_NUM_5, KBD_EXT_NUM_6, KBD_EXT_NUM_7
+    .byt KBD_EXT_NUM_8, KBD_EXT_NUM_9, KBD_EXT_NUM_DP, KBD_EXT_NUM_DIV
+    .byt KBD_EXT_NUM_MUL, KBD_EXT_NUM_MIN, KBD_EXT_NUM_PLS
 .endproc
 
 .segment "VARS"
@@ -193,7 +211,7 @@ KBD_EXT_ENT        = 14
 KBD_EXT_INSERT     = 15
 
 ;Printable keys: ASCII value
-KBD_EXT_NUM0       = 48
+KBD_EXT_NUM_0       = 48
 KBD_EXT_NUM_1      = 49
 KBD_EXT_NUM_2      = 50
 KBD_EXT_NUM_3      = 51
