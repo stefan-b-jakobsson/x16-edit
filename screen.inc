@@ -78,19 +78,28 @@ detect:
 
 ;******************************************************************************
 ;Function name.......: screen_charset_detect
-;Purpose.............: Detects current char set
+;Purpose.............: Detects current charset by reading and comparing the 
+;                      character definitions; this function may fail if the
+;                      user has defined custom characters. If the
+;                      Kernal API in the future exposes the active charset, this
+;                      function should be redesigned.
 ;Input...............: None
 ;Returns.............: A=0: ISO
 ;                      A=1: PETSCII upper case
 ;                      A=2: PETSCII lower case
 ;Error returns.......: C=1: Unknown charset
 .proc screen_charset_detect
-    ;VERA layer 0 or 1 active?
+    ;Layer 1 active?
     lda VERA_VIDEO
     and #%00100000
     bne layer1
 
 layer0:
+    ;Layer 0 active?
+    lda VERA_VIDEO
+    and #%00010000
+    beq unknown
+
     ;Get VERA tile base for layer 0
     lda VERA_L0_TILEBASE
     bra detect
@@ -112,25 +121,23 @@ detect:
 
     ;Get first byte of the char definition, and use that value to detect charset mode
     lda VERA_D0
-    bne :+
     
     ;PETSCII lower and upper case
+    bne :+
     lda #2
     clc
     rts
 
+    ;PETSCII upper case/graphics
 :   cmp #$18
     bne :+
-    
-    ;PETSCII upper case/graphics
     lda #1
     clc
     rts
 
+    ;ISO charset
 :   cmp #$ff
     bne unknown
-
-    ;ISO charset
     clc
     lda #0
     rts
