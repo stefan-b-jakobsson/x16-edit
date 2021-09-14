@@ -88,11 +88,26 @@
 ;Purpose.............: Custom keyboard scan code handler
 ;Input...............: Input set by Kernal, X=PS/2 prefix, A=PS/2 scan code,
 ;                      carry clear=keydown, and carry set=keyup
-;Returns:............: Modifier key status bits returned in 
-;                      scancode_modifiers. 
-;                      Control key or printable key press returned in 
-;                      scancode_ext; values < 32 for control keys, and
-;                      ASCII value for printable keys (> 31).
+;Returns:............: Modifier key status is stored in variable
+;                      scancode_modifier, each bit representing one key
+;                      (1=down, 0=up) as follows: Bit 0=Shift, bit 1=Alt,
+;                      bit 2=Ctrl, bit 3=Windows key, bit 4=Caps lock
+;
+;                      The scan code handler supports several extra keys
+;                      that are ignored by the Kernal. The last pressed
+;                      extra key is stored in the variable scancode_ext.
+;                      If it's a printable char the PETSCII/ASCII
+;                      value is stored. The following non-printable
+;                      keys are represented by the following non-standard
+;                      values:
+;
+;                      Key        Value
+;                      DELETE     = $15
+;                      END        = $16
+;                      PGUP       = $17
+;                      PGDN       = $18
+;                      KPD ENTER  = $19
+;                      INSERT     = $1a
 ;Error returns:......: None
 .proc scancode_handler
     ;Save input so we can restore values before exit
@@ -143,10 +158,20 @@ keydown:
     ;Modifier key       
     ora scancode_modifiers
     sta scancode_modifiers
-    bra exit
+    cpy #3              ;If index < 3 we got one of the Shift keys which is transferred to the Kernal, other modifier keys are consumed and hidden from the Kernal
+    bcc exit
+    bra consume_and_exit
 
-    ;Control key: set control key number
-:   sty scancode_ext
+    ;Control key: set non-standard ASCII value (index+11)
+:   clc
+    tya
+    adc #11
+    sta scancode_ext
+    cmp #$19
+    bne consume_and_exit
+    
+    lda #KBD_EXT_ENT
+    sta scancode_ext
     bra consume_and_exit
 
     ;Printable key: set ASCII code
@@ -163,7 +188,9 @@ keyup:
     eor #$ff
     and scancode_modifiers
     sta scancode_modifiers
-    bra exit
+    cpy #3                  ;If index < 3 we got one of the Shift keys which is transferred to the Kernal, other modifier keys are consumed and hidden from the Kernal
+    bcc exit
+    bra consume_and_exit
 
 consume_and_exit:
     ;Consume key event preventing the Kernal from further handling it
@@ -202,13 +229,13 @@ KBD_MODIFIER_CTRL  = 4 ; C64:  Ctrl
 KBD_MODIFIER_WIN   = 8 ; C128: Alt
 KBD_MODIFIER_CAPS  = 16; C128: Caps
 
-;Control keys: 10-15
-KBD_EXT_DELETE     = 10
-KBD_EXT_END        = 11
-KBD_EXT_PGUP       = 12
-KBD_EXT_PGDN       = 13
-KBD_EXT_ENT        = 14
-KBD_EXT_INSERT     = 15
+;Control keys
+KBD_EXT_DELETE     = $15
+KBD_EXT_END        = $16
+KBD_EXT_PGUP       = $17
+KBD_EXT_PGDN       = $18
+KBD_EXT_ENT        = $0d
+KBD_EXT_INSERT     = $1a
 
 ;Printable keys: ASCII value
 KBD_EXT_NUM_0       = 48

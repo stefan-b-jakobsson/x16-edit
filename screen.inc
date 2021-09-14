@@ -46,7 +46,7 @@ layer1:
     bra detect
 
 layer0:
-    ;Same for layer 0
+    ;Set 16 color text mode
     lda VERA_L0_CONFIG
     and #%11110000
     sta VERA_L0_CONFIG

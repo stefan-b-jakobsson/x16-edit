@@ -18,6 +18,43 @@
 ;******************************************************************************
 
 ;******************************************************************************
+;General information on keyboard functions
+;---------------------------------------------
+;X16 Edit uses a custom PS/2 scan code handler to read status of modifier
+;keys and to get keys not supported by the Kernal (for instance numerical key pad 
+;keys). The scan code handler is implemented in source file "scancode.inc".
+;
+;The status of each modifier key is represented by one bit (1=down, 0=up) in 
+;variable "scancode_modifiers" as follows:
+;
+;Bit #  Key   
+;0      SHIFT
+;1      ALT
+;2      CTRL
+;3      WIN
+;4      CAPS
+;
+;The scan code handler consumes all other modifier key events than Shift. This
+;means, for instance, that the Kernal function GETIN will return the same value
+;when you press A and Ctrl+A. The only way to know whether a modifier key
+;is pressed is to check the value of scancode_modifiers.
+;
+;The value of extra keys supported by the scan code handler is stored in
+;variable "scancode_ext". That variable holds the last pressed extra key.
+;
+;Printable chars have their default PETSCII/ASCII value. 
+;
+;List of non-printable extra keys:
+;
+;Key        Value
+;DELETE     = $15
+;END        = $16
+;PGUP       = $17
+;PGDN       = $18
+;ENT        = $19
+;INSERT     = $1a
+
+;******************************************************************************
 ;Function name.......: keyboard_read_and_dispatch
 ;Purpose.............: Reads one character from the keyboard buffer and
 ;                      dispatches that to proper key handler
@@ -30,11 +67,14 @@
     cmp #16
     beq gotachar
 
-    ;Handle extra keys not supported by the Kernal
-    jsr keyboard_ext_keys
+    ;Check and handle extra keys
+    lda scancode_ext
+    beq :+
+    stz scancode_ext
+    bra gotachar
 
-    ;Handle keys supported by the Kernal
-    bridge_setaddr KERNAL_GETIN
+    ;Read standard keys
+:   bridge_setaddr KERNAL_GETIN
     bridge_call KERNAL_GETIN
     bne gotachar
 
@@ -110,63 +150,20 @@ jmptbl_H:
 .endproc
 
 ;******************************************************************************
-;Function name.......: keyboard_ext_keys
-;Purpose.............: Reads status of supported extra keys that are not 
-;                      supported by the Kernal. If found dispatches program 
-;                      control accordingly.
-;Input...............: Nothing
-;Returns.............: Nothing
-;Error returns.......: None
-.proc keyboard_ext_keys
-    ldy scancode_ext
-    stz scancode_ext
-
-    cpy #10
-    bcc exit        ;<10 => Exit
-
-    cpy #15         ;10-14 => Control key
-    bcc :+
-
-    cpy #32         ;>=32 => Printable extra key
-    bcs :++
-
-exit:
-    rts
-
-    ;Control key
-:   lda jmptbl_L-10,y
-    sta tempvars
-    lda jmptbl_H-10,y
-    sta tempvars+1
-    jmp (tempvars)
-
-    ;Printable extra key
-:   tya
-    jmp keyboard_mode_default
-
-bitmask:
-    .byt KBD_EXT_END, KBD_EXT_PGUP, KBD_EXT_PGDN, KBD_EXT_DELETE
-jmptbl_L:
-    .byt <keyboard_delete_key, <keyboard_end_key, <keyboard_cmd_pageup, <keyboard_cmd_pagedown, <keyboard_enter_key
-jmptbl_H:
-    .byt >keyboard_delete_key, >keyboard_end_key, >keyboard_cmd_pageup, >keyboard_cmd_pagedown, >keyboard_enter_key
-.endproc
-
-;******************************************************************************
 ;Function name.......: keyboard_mode_default
 ;Purpose.............: Key dispatcher for the default mode, i.e. text entry
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_default
-    ;Get key modifiers
+    ;Check key modifiers
     ldx scancode_modifiers
-    
     cpx #KBD_MODIFIER_CTRL
     bne no_modifier
     jmp modifier_ctrl
 
 no_modifier:
+    ;Look for matches in the jump table
     ldy #no_modifier_addr-no_modifier_keyval
 :   cmp no_modifier_keyval-1,y
     beq no_modifier_match
@@ -178,8 +175,8 @@ no_modifier:
     bne no_modifier_default
     lda #$20
 
-    ;Default key handler
 no_modifier_default:
+    ;Default action: Insert char
     jsr cmd_insert
     bcs :+
     jmp screen_println
@@ -187,6 +184,7 @@ no_modifier_default:
     jmp screen_println
 
 no_modifier_match:
+    ;Action for special keys, for example arrow keys, function keys and so on
     tya
     clc
     asl
@@ -197,44 +195,39 @@ no_modifier_match:
     sta tempvars+1
     jmp (tempvars)
 
-no_modifier_keyval:
-    .byt $03, $0d, $14, $09, $9d
-    .byt $1d, $91, $11, $13, $93
-    .byt $85, $89, $86, $8a, $87
-    .byt $8b, $88, $8c
-no_modifier_addr:
-    .word keyboard_esc_key, keyboard_enter_key, keyboard_backspace_key, cmd_insert_tab, keyboard_leftarrow_key
-    .word keyboard_rightarrow_key, keyboard_uparrow_key, keyboard_downarrow_key, keyboard_home_key, keyboard_end_key
-    .word cmd_show_help, cmd_exit, cmd_file_save_prompt, cmd_wrap_buffer, cmd_file_open_prompt
-    .word cmd_find, keyboard_cmd_pageup, keyboard_cmd_pagedown
-
 modifier_ctrl:
+    ;Insert non-breaking space if Ctrl+Space
+    cmp #$20
+    bne :+
+    lda #$a0
+    jmp no_modifier_default
+
+    ;Convert lower case letters to upper case
+:   and #%11011111
+
+    ;Look for matches in the jump table
     ldy #ctrl_keyval_end-ctrl_keyval
 :   cmp ctrl_keyval-1,y
     beq modifier_ctrl_match
     dey
     bne :-
 
-    ;Ctrl+R
-    cmp #$12
+    ;Ctrl+R - Open file
+    cmp #$52
     bne :+
     lda #0
     jmp cmd_file_open_prompt
 
-    ;Ctrl+S
-:   cmp #$13
+    ;Ctrl+S - Replace string
+:   cmp #$53
     bne :+
     lda #0
     jmp cmd_replace
 
-    ;Ctrl+space
-:   cmp #$a0
-    bne :+
-    jmp no_modifier_default
-
 :   rts
 
 modifier_ctrl_match:
+    ;Action for Ctrl+key combinations in the jump table
     tya
     clc
     asl
@@ -245,12 +238,28 @@ modifier_ctrl_match:
     sta tempvars+1
     jmp (tempvars)
 
+no_modifier_keyval:
+    .byt $03, $0d, $14, $09, $9d
+    .byt $1d, $91, $11, $13, $93
+    .byt $85, $89, $86, $8a
+    .byt $87, $8b, $88, $8c
+    .byt $15, $16, $17, $18, $19
+    .byt $1a
+
+no_modifier_addr:
+    .word keyboard_esc_key, keyboard_enter_key, keyboard_backspace_key, cmd_insert_tab, keyboard_leftarrow_key
+    .word keyboard_rightarrow_key, keyboard_uparrow_key, keyboard_downarrow_key, keyboard_home_key, keyboard_end_key
+    .word cmd_show_help, cmd_exit, cmd_file_save_prompt, cmd_wrap_buffer
+    .word cmd_file_open_prompt, cmd_find, keyboard_cmd_pageup, keyboard_cmd_pagedown
+    .word keyboard_delete_key, keyboard_end_key, keyboard_cmd_pageup, keyboard_cmd_pagedown, keyboard_enter_key
+    .word mem_run_defrag
+
 ctrl_keyval:
-    .byt $07, $09, $0a, $18, $0f
-    .byt $0e, $16, $19, $0b, $10
-    .byt $15, $03, $17, $0c, $01
-    .byt $1a, $05, $04, $14, $02
-    .byt $0d
+    .byt $47, $49, $4a, $58, $4f
+    .byt $4e, $56, $59, $4b, $50
+    .byt $55, $43, $57, $4c, $41
+    .byt $5a, $45, $44, $54, $42
+    .byt $4d
 ctrl_keyval_end:
 .endproc
 
@@ -451,20 +460,20 @@ abort:
     beq abort
 
     ;Ctrl+T
-    cmp #$14
+    tay                                 ;Temp store char in Y
+
+    and #%11011111                      ;Clear bit 5 to make upper and lower case the same value
+    cmp #$54
     bne :+
 
-    ;bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
-    ;bridge_call KERNAL_KBDBUF_GET_MODIFIERS
     lda scancode_modifiers
     and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
-    tax
-    lda #$14
-    cpx #KBD_MODIFIER_CTRL
+    cmp #KBD_MODIFIER_CTRL
     beq tofiles
     
     ;Default, send key to prompt
-:   jmp prompt_keypress
+:   tya                                 ;Restore char                               
+    jmp prompt_keypress
 
 abort:
     jsr prompt_close
@@ -544,20 +553,20 @@ write_file:
     beq abort
 
     ;Ctrl+T
-    cmp #$14
+    tay
+
+    and #%11011111                      ;Clear bit 5 to make upper and lower case the same value
+    cmp #$54
     bne :+
 
-    ;bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
-    ;bridge_call KERNAL_KBDBUF_GET_MODIFIERS
     lda scancode_modifiers
     and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
-    tax
-    lda #$14
-    cpx #KBD_MODIFIER_CTRL
+    cmp #KBD_MODIFIER_CTRL
     beq tofiles
 
     ;Default, send key to prompt
-:   jmp prompt_keypress
+:   tya
+    jmp prompt_keypress
 
 abort:
     jsr prompt_close
@@ -611,18 +620,38 @@ tofiles:
     bne :+
     jmp downarrow
 
+    ;Page down key
+:   cmp #KBD_EXT_PGDN
+    bne :+
+    jmp nextpage
+
+    ;Page up key
+:   cmp #KBD_EXT_PGUP
+    bne :+
+    jmp prevpage
+
+    ;Ctrl down?
+:   tax                                 ;Store char temporarily
+
+    lda scancode_modifiers
+    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
+    cmp #KBD_MODIFIER_CTRL
+    bne exit
+
     ;Ctrl+Y
-:   cmp #$19
+    cmp #$59
     bne :+
     jmp prevpage
     
     ;Ctrl+V
-:   cmp #$16
-    bne :+
+:   cmp #$56
+    bne exit
     jmp nextpage
 
     ;Default, no action
-:   rts
+exit:
+    txa                                 ;Restore char
+    rts
 
 enterkey:
     clc
