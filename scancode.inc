@@ -106,7 +106,6 @@
 ;                      END        = $16
 ;                      PGUP       = $17
 ;                      PGDN       = $18
-;                      KPD ENTER  = $19
 ;                      INSERT     = $1a
 ;Error returns:......: None
 .proc scancode_handler

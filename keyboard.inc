@@ -51,7 +51,6 @@
 ;END        = $16
 ;PGUP       = $17
 ;PGDN       = $18
-;ENT        = $19
 ;INSERT     = $1a
 
 ;******************************************************************************
@@ -85,68 +84,39 @@ gotachar:
     ;Store char in Y temporarily
     tay
 
-    ;Select key handler according to program mode
-    ldx APP_MOD
-    lda jmptbl_L,x
-    sta eventhandler
-    lda jmptbl_H,x
-    sta eventhandler+1
+    ;Calculate index in jump table
+    lda APP_MOD
+    asl
+    tax
     
     ;Restore char in A
     tya
 
-    ;Jump to event handler
-    jmp (eventhandler)
+    ;Jump to APP mode event handler
+    jmp (jmptbl,x)
 
-.segment "VARS"
-    eventhandler: .res 2
-.CODE
-
-jmptbl_L:
-    .byt <keyboard_mode_default
-    .byt <keyboard_mode_helpscreen
-    .byt <keyboard_mode_statusmessage
-    .byt <keyboard_mode_command
-    .byt <keyboard_mode_file_save
-    .byt <keyboard_mode_file_open
-    .byt <keyboard_mode_file_save_overwrite
-    .byt <keyboard_mode_file_open_save_before
-    .byt <keyboard_mode_exit_save_before
-    .byt <keyboard_mode_new_buffer_save_before
-    .byt <keyboard_mode_find
-    .byt <keyboard_mode_goto_line
-    .byt <keyboard_mode_replace_0
-    .byt <keyboard_mode_replace_1
-    .byt <keyboard_mode_replace_2
-    .byt <keyboard_mode_word_wrap_prompt
-    .byt <cmd_refresh_after_encoding_changed
-    .byt <keyboard_mode_set_device
-    .byt <keyboard_mode_file_dir
-    .byt <keyboard_mode_file_dir
-    .byt <keyboard_mode_dos_cmd
-
-jmptbl_H:
-    .byt >keyboard_mode_default
-    .byt >keyboard_mode_helpscreen
-    .byt >keyboard_mode_statusmessage
-    .byt >keyboard_mode_command
-    .byt >keyboard_mode_file_save
-    .byt >keyboard_mode_file_open
-    .byt >keyboard_mode_file_save_overwrite
-    .byt >keyboard_mode_file_open_save_before
-    .byt >keyboard_mode_exit_save_before
-    .byt >keyboard_mode_new_buffer_save_before
-    .byt >keyboard_mode_find
-    .byt >keyboard_mode_goto_line
-    .byt >keyboard_mode_replace_0
-    .byt >keyboard_mode_replace_1
-    .byt >keyboard_mode_replace_2
-    .byt >keyboard_mode_word_wrap_prompt
-    .byt >cmd_refresh_after_encoding_changed
-    .byt >keyboard_mode_set_device
-    .byt >keyboard_mode_file_dir
-    .byt >keyboard_mode_file_dir
-    .byt >keyboard_mode_dos_cmd
+jmptbl:
+    .word keyboard_mode_default                 ;APP mode 0
+    .word keyboard_mode_helpscreen              ;APP mode 1
+    .word keyboard_mode_statusmessage           ;APP mode 2
+    .word keyboard_mode_command                 ;APP mode 3
+    .word keyboard_mode_file_save               ;APP mode 4
+    .word keyboard_mode_file_open               ;APP mode 5
+    .word keyboard_mode_file_save_overwrite     ;APP mode 6
+    .word keyboard_mode_file_open_save_before   ;APP mode 7
+    .word keyboard_mode_exit_save_before        ;APP mode 8
+    .word keyboard_mode_new_buffer_save_before  ;APP mode 9
+    .word keyboard_mode_find                    ;APP mode 10
+    .word keyboard_mode_goto_line               ;APP mode 11
+    .word keyboard_mode_replace_0               ;APP mode 12
+    .word keyboard_mode_replace_1               ;APP mode 13
+    .word keyboard_mode_replace_2               ;APP mode 14
+    .word keyboard_mode_word_wrap_prompt        ;APP mode 15
+    .word cmd_refresh_after_encoding_changed    ;APP mode 16
+    .word keyboard_mode_set_device              ;APP mode 17
+    .word keyboard_mode_file_dir                ;APP mode 18
+    .word keyboard_mode_file_dir                ;APP mode 19
+    .word keyboard_mode_dos_cmd                 ;APP mode 20
 .endproc
 
 ;******************************************************************************
@@ -156,60 +126,70 @@ jmptbl_H:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_default
-    ;Check key modifiers
-    ldx scancode_modifiers
-    cpx #KBD_MODIFIER_CTRL
-    bne no_modifier
-    jmp modifier_ctrl
+    ;Check modifier key status
+    tax
 
-no_modifier:
-    ;Look for matches in the jump table
-    ldy #no_modifier_addr-no_modifier_keyval
-:   cmp no_modifier_keyval-1,y
-    beq no_modifier_match
-    dey
+    lda scancode_modifiers
+    and #KBD_MODIFIER_ALT|KBD_MODIFIER_CTRL|KBD_MODIFIER_WIN|KBD_MODIFIER_CAPS
+    beq default
+
+    lda scancode_modifiers
+    cmp #KBD_MODIFIER_CTRL
+    beq ctrl
+
+    ;Modifier combination not supported, exit
+    rts
+
+default:
+    ;Restore char
+    txa
+
+    ;Search key value table for matches (control keys and other keys requiring special actions)
+    ldx #default_keyval_end-default_keyval
+:   cmp default_keyval-1,x
+    beq default_match
+    dex
     bne :-
 
-    ;Convert non-breaking space (Shift+space, ASCII 160) to normal space char
+    ;Convert non-breaking space (Shift+space, ASCII 160) to normal space char (ASCII 32)
     cmp #$a0
-    bne no_modifier_default
+    bne default_insert
     lda #$20
 
-no_modifier_default:
-    ;Default action: Insert char
+default_insert:
+    ;Insert char into buffer and update screen
     jsr cmd_insert
     bcs :+
     jmp screen_println
 :   jsr screen_refresh
     jmp screen_println
 
-no_modifier_match:
-    ;Action for special keys, for example arrow keys, function keys and so on
-    tya
-    clc
+default_match:
+    ;Action for special keys, for example arrow keys and function keys
+    dex
+    txa
     asl
-    tay
-    lda no_modifier_addr-2,y
-    sta tempvars
-    lda no_modifier_addr-1,y
-    sta tempvars+1
-    jmp (tempvars)
+    tax
+    jmp (default_jmptbl,x)
 
-modifier_ctrl:
+ctrl:
+    ;Restore char
+    txa
+
     ;Insert non-breaking space if Ctrl+Space
     cmp #$20
     bne :+
     lda #$a0
-    jmp no_modifier_default
+    jmp default_insert
 
     ;Convert lower case letters to upper case
 :   and #%11011111
 
-    ;Look for matches in the jump table
-    ldy #ctrl_keyval_end-ctrl_keyval
-:   cmp ctrl_keyval-1,y
-    beq modifier_ctrl_match
-    dey
+    ;Look for matches in key value table
+    ldx #keyboard_ctrl_keyval_end-keyboard_ctrl_keyval
+:   cmp keyboard_ctrl_keyval-1,x
+    beq ctrl_match
+    dex
     bne :-
 
     ;Ctrl+R - Open file
@@ -224,43 +204,33 @@ modifier_ctrl:
     lda #0
     jmp cmd_replace
 
+    ;Exit
 :   rts
 
-modifier_ctrl_match:
-    ;Action for Ctrl+key combinations in the jump table
-    tya
-    clc
+ctrl_match:
+    ;Action for Ctrl+key combinations
+    dex
+    txa
     asl
-    tay
-    lda keyboard_ctrl_addr-2,y
-    sta tempvars
-    lda keyboard_ctrl_addr-1,y
-    sta tempvars+1
-    jmp (tempvars)
+    tax
+    jmp (keyboard_ctrl_jmptbl,x)
 
-no_modifier_keyval:
+default_keyval:
     .byt $03, $0d, $14, $09, $9d
     .byt $1d, $91, $11, $13, $93
     .byt $85, $89, $86, $8a
     .byt $87, $8b, $88, $8c
     .byt $15, $16, $17, $18, $19
     .byt $1a
+default_keyval_end:
 
-no_modifier_addr:
+default_jmptbl:
     .word keyboard_esc_key, keyboard_enter_key, keyboard_backspace_key, cmd_insert_tab, keyboard_leftarrow_key
     .word keyboard_rightarrow_key, keyboard_uparrow_key, keyboard_downarrow_key, keyboard_home_key, keyboard_end_key
     .word cmd_show_help, cmd_exit, cmd_file_save_prompt, cmd_wrap_buffer
     .word cmd_file_open_prompt, cmd_find, keyboard_cmd_pageup, keyboard_cmd_pagedown
     .word keyboard_delete_key, keyboard_end_key, keyboard_cmd_pageup, keyboard_cmd_pagedown, keyboard_enter_key
     .word mem_run_defrag
-
-ctrl_keyval:
-    .byt $47, $49, $4a, $58, $4f
-    .byt $4e, $56, $59, $4b, $50
-    .byt $55, $43, $57, $4c, $41
-    .byt $5a, $45, $44, $54, $42
-    .byt $4d
-ctrl_keyval_end:
 .endproc
 
 ;******************************************************************************
@@ -302,8 +272,8 @@ ctrl_keyval_end:
 :   and #%11011111
 
     ;Search keyval table
-    ldy #keyval_end-keyval
-:   cmp keyval-1,y
+    ldy #keyboard_ctrl_keyval_end-keyboard_ctrl_keyval
+:   cmp keyboard_ctrl_keyval-1,y
     beq match
     dey
     bne :-
@@ -340,22 +310,10 @@ match:
     jsr cursor_activate
 
     pla
-    clc
+    dea
     asl
-    tay
-    lda keyboard_ctrl_addr-2,y
-    sta tempvars
-    lda keyboard_ctrl_addr-1,y
-    sta tempvars+1
-    jmp (tempvars)
-
-keyval:
-    .byt $47, $49, $4a, $58, $4f
-    .byt $4e, $56, $59, $4b, $50
-    .byt $55, $43, $57, $4c, $41
-    .byt $5a, $45, $44, $54, $42
-    .byt $4d
-keyval_end:
+    tax
+    jmp (keyboard_ctrl_jmptbl,x)
 .endproc
 
 ;******************************************************************************
@@ -1326,7 +1284,17 @@ exit:
 
 .endproc
 
-keyboard_ctrl_addr:
+;Ctrl+key value table
+keyboard_ctrl_keyval:
+    .byt $47, $49, $4a, $58, $4f
+    .byt $4e, $56, $59, $4b, $50
+    .byt $55, $43, $57, $4c, $41
+    .byt $5a, $45, $44, $54, $42
+    .byt $4d
+keyboard_ctrl_keyval_end:
+
+;Ctrl+key jump table
+keyboard_ctrl_jmptbl:
     .word cmd_show_help, cmd_file_dos_command_prompt, cmd_wrap_buffer, cmd_exit, cmd_file_save_prompt
     .word cmd_new_buffer, keyboard_cmd_pagedown, keyboard_cmd_pageup, cmd_cut, cmd_copy
     .word cmd_paste, cmd_show_curpos, cmd_find, cmd_goto_line, cmd_auto_indent
