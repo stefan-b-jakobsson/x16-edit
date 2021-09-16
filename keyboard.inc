@@ -34,10 +34,10 @@
 ;3      WIN
 ;4      CAPS
 ;
-;The scan code handler consumes all other modifier key events than Shift. This
-;means, for instance, that the Kernal function GETIN will return the same value
-;when you press A and Ctrl+A. The only way to know whether a modifier key
-;is pressed is to check the value of scancode_modifiers.
+;The scan code handler consumes Ctrl key events. This means that the
+;the Kernal GETIN function returns the same result for A and Ctrl+A.
+;The only way to know whether the Ctrl key is pressed is to check the value 
+;of scancode_modifiers.
 ;
 ;The value of extra keys supported by the scan code handler is stored in
 ;variable "scancode_ext". That variable holds the last pressed extra key.
@@ -66,7 +66,7 @@
     cmp #16
     beq gotachar
 
-    ;Check and handle extra keys
+    ;Check and handle non-standard extra keys
     lda scancode_ext
     beq :+
     stz scancode_ext
@@ -252,6 +252,13 @@ default_jmptbl:
     jmp screen_println
 :   jsr screen_refresh
     jmp screen_println
+
+    ;ESC key
+:   cmp #$03
+    bne :+
+    stz APP_MOD
+    jsr cursor_activate
+    jmp screen_clear_status
     
     ;Clear bit 5 to make upper and lower case the same value
 :   and #%11011111
@@ -263,15 +270,8 @@ default_jmptbl:
     dey
     bne :-
 
-    ;ESC key
-    cmp #$03
-    bne :+
-    stz APP_MOD
-    jsr cursor_activate
-    jmp screen_clear_status
-
     ;r
-:   cmp #$52
+    cmp #$52
     bne :+
     jsr cursor_activate
     lda #0
@@ -351,6 +351,10 @@ exit_help:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_exit_save_before
+    ;ESC key pressed
+    cmp #$03
+    beq abort
+    
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
@@ -361,10 +365,6 @@ exit_help:
     ;N key pressed
     cmp #$4e
     beq discard
-
-    ;ESC key pressed
-    cmp #$03
-    beq abort
 
     ;Else ignore keypress
     rts
@@ -451,6 +451,10 @@ tofiles:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_save_overwrite
+    ;ESC key
+    cmp #$03
+    beq abort
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
 
@@ -460,10 +464,6 @@ tofiles:
 
     ;N key
     cmp #$4e
-    beq abort
-
-    ;ESC key
-    cmp #$03
     beq abort
 
     ;Else ignore key
@@ -693,6 +693,10 @@ prevpage:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_open_save_before
+    ;ESC key
+    cmp #$03
+    beq abort
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
@@ -703,10 +707,6 @@ prevpage:
     ;N key pressed
     cmp #$4e
     beq discard
-
-    ;ESC key
-    cmp #$03
-    beq abort
 
     ;Else ignore keypress
     rts
@@ -764,6 +764,10 @@ abort:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_new_buffer_save_before
+    ;ESC key
+    cmp #$03
+    beq abort
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
@@ -774,10 +778,6 @@ abort:
     ;N key pressed
     cmp #$4e
     beq discard
-
-    ;ESC key
-    cmp #$03
-    beq abort
 
     ;Else ignore keypress
     rts
@@ -951,6 +951,10 @@ abort:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_replace_2
+    ;ESC
+    cmp #$03
+    beq abort
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
@@ -961,10 +965,6 @@ abort:
     ;A
     cmp #97-32
     beq all
-
-    ;ESC
-    cmp #$03
-    beq abort
 
     ;Ignore all other input
     rts
