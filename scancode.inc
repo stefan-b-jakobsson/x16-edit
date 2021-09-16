@@ -157,8 +157,10 @@ keydown:
     ;Modifier key       
     ora scancode_modifiers
     sta scancode_modifiers
-    cpy #3              ;If index < 3 we got one of the Shift keys which is transferred to the Kernal, other modifier keys are consumed and hidden from the Kernal
+    cpy #5              
     bcc exit
+    cpy #7
+    bcs exit
     bra consume_and_exit
 
     ;Control key: set non-standard ASCII value (index+11)
@@ -187,9 +189,10 @@ keyup:
     eor #$ff
     and scancode_modifiers
     sta scancode_modifiers
-    cpy #3                  ;If index < 3 we got one of the Shift keys which is transferred to the Kernal, other modifier keys are consumed and hidden from the Kernal
+    cpy #5              
     bcc exit
-    bra consume_and_exit
+    cpy #7
+    bcs exit
 
 consume_and_exit:
     ;Consume key event preventing the Kernal from further handling it

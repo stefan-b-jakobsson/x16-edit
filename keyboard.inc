@@ -127,23 +127,11 @@ jmptbl:
 ;Error returns.......: None
 .proc keyboard_mode_default
     ;Check modifier key status
-    tax
-
-    lda scancode_modifiers
-    and #KBD_MODIFIER_ALT|KBD_MODIFIER_CTRL|KBD_MODIFIER_WIN|KBD_MODIFIER_CAPS
-    beq default
-
-    lda scancode_modifiers
-    cmp #KBD_MODIFIER_CTRL
+    ldx scancode_modifiers
+    cpx #KBD_MODIFIER_CTRL
     beq ctrl
 
-    ;Modifier combination not supported, exit
-    rts
-
 default:
-    ;Restore char
-    txa
-
     ;Search key value table for matches (control keys and other keys requiring special actions)
     ldx #default_keyval_end-default_keyval
 :   cmp default_keyval-1,x
@@ -173,9 +161,6 @@ default_match:
     jmp (default_jmptbl,x)
 
 ctrl:
-    ;Restore char
-    txa
-
     ;Insert non-breaking space if Ctrl+Space
     cmp #$20
     bne :+
@@ -417,21 +402,18 @@ abort:
     cmp #$03
     beq abort
 
-    ;Ctrl+T
-    tay                                 ;Temp store char in Y
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
 
-    and #%11011111                      ;Clear bit 5 to make upper and lower case the same value
+    ;Ctrl+T
     cmp #$54
     bne :+
-
-    lda scancode_modifiers
-    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
-    cmp #KBD_MODIFIER_CTRL
+    ldx scancode_modifiers
+    cpx #KBD_MODIFIER_CTRL
     beq tofiles
     
     ;Default, send key to prompt
-:   tya                                 ;Restore char                               
-    jmp prompt_keypress
+:   jmp prompt_keypress
 
 abort:
     jsr prompt_close
@@ -510,21 +492,18 @@ write_file:
     cmp #$03
     beq abort
 
-    ;Ctrl+T
-    tay
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
 
-    and #%11011111                      ;Clear bit 5 to make upper and lower case the same value
+    ;Ctrl+T
     cmp #$54
     bne :+
-
-    lda scancode_modifiers
-    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
-    cmp #KBD_MODIFIER_CTRL
+    ldx scancode_modifiers
+    cpx #KBD_MODIFIER_CTRL
     beq tofiles
 
     ;Default, send key to prompt
-:   tya
-    jmp prompt_keypress
+:   jmp prompt_keypress
 
 abort:
     jsr prompt_close
@@ -588,13 +567,13 @@ tofiles:
     bne :+
     jmp prevpage
 
-    ;Ctrl down?
-:   tax                                 ;Store char temporarily
-
-    lda scancode_modifiers
-    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
-    cmp #KBD_MODIFIER_CTRL
+    ;Ctrl
+:   ldx scancode_modifiers
+    cpx #KBD_MODIFIER_CTRL
     bne exit
+
+    ;Convert to lower
+    and #%11011111
 
     ;Ctrl+Y
     cmp #$59
@@ -608,7 +587,6 @@ tofiles:
 
     ;Default, no action
 exit:
-    txa                                 ;Restore char
     rts
 
 enterkey:
