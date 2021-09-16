@@ -402,18 +402,22 @@ abort:
     cmp #$03
     beq abort
 
+    ;Temp store char
+    tax
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
 
     ;Ctrl+T
     cmp #$54
     bne :+
-    ldx scancode_modifiers
-    cpx #KBD_MODIFIER_CTRL
+    lda scancode_modifiers
+    cmp #KBD_MODIFIER_CTRL
     beq tofiles
     
     ;Default, send key to prompt
-:   jmp prompt_keypress
+:   txa
+    jmp prompt_keypress
 
 abort:
     jsr prompt_close
@@ -492,18 +496,22 @@ write_file:
     cmp #$03
     beq abort
 
+    ;Temp store
+    tax
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
 
     ;Ctrl+T
     cmp #$54
     bne :+
-    ldx scancode_modifiers
-    cpx #KBD_MODIFIER_CTRL
+    lda scancode_modifiers
+    cmp #KBD_MODIFIER_CTRL
     beq tofiles
 
     ;Default, send key to prompt
-:   jmp prompt_keypress
+:   txa
+    jmp prompt_keypress
 
 abort:
     jsr prompt_close

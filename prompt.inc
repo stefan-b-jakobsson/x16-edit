@@ -409,7 +409,6 @@ exit:
     adc prompt_start
     
     tax
-    stx $6000
     ldy CRS_Y
     jmp cursor_move
 .endproc
