@@ -21,7 +21,7 @@
         \item Create startup code using the X16 Edit API
     \end{itemize}
 
-    \noindent The methods described herein are tested on emulator version R38.
+    \noindent The methods described herein are tested on an emulator compiled from the GitHub master branch, what is expected to become version R39.
 
 \section{Prepare a custom ROM image}
 
@@ -95,15 +95,15 @@
         \vspace{1em}Example startup code entered into the builtin monitor:
 
         \begin{verbatim}
-            .A 9E00 LDA $9F60       ;Get current ROM bank...
+            .A 9E00 LDA $01         ;Get current ROM bank...
             .A 9E03 PHA             ;... and store it on the stack
             .A 9E04 LDA #$07        ;Store bank 7...
-            .A 9E06 STA $9F60       ;...in the ROM select
+            .A 9E06 STA $01         ;...in the ROM select
             .A 9E09 LDX #$01        ;Set first RAM bank used to 1
             .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
             .A 9E0D JSR $C000       ;Call editor entry point
             .A 9E10 PLA             ;Retrieve original ROM bank...
-            .A 9E11 STA $9F60       ;...and write it to ROM select
+            .A 9E11 STA $01         ;...and write it to ROM select
             .A 9E14 RTS
         \end{verbatim}
 
@@ -128,10 +128,10 @@
         \vspace{1em}Example startup code entered into the builtin monitor:
 
         \begin{verbatim}
-            .A 9E00 LDA $9F60       ;Get current ROM bank...
+            .A 9E00 LDA $01         ;Get current ROM bank...
             .A 9E03 PHA             ;... and store it on the stack
             .A 9E04 LDA #$07        ;Store bank 7...
-            .A 9E06 STA $9F60       ;...in the ROM select
+            .A 9E06 STA $01         ;...in the ROM select
             .A 9E09 LDX #$01        ;Set first RAM bank used to 1
             .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
             .A 9EOD LDA #$23        ;Get filename AddressL...
@@ -142,7 +142,7 @@
             .A 9E19 STA $04         ;...and store in $04
             .A 9E1B JSR $C003       ;Call editor entry point
             .A 9E1E PLA             ;Retrieve original ROM bank...
-            .A 9E1F STA $9F60       ;...and write it to ROM select
+            .A 9E1F STA $01         ;...and write it to ROM select
             .A 9E22 RTS
 
             .M 9E23 <FILE NAME DATA, 5 BYTES IN THIS EXAMPLE>
