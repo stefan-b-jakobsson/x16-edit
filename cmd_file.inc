@@ -63,7 +63,6 @@ msg:
 
     ;Close prompt and disable cursor
     jsr prompt_close
-    jsr cursor_disable
 
     ;Write buffer to file
     ldx filename
@@ -155,6 +154,7 @@ exit:
     rts
 
 confirm_overwrite:
+    jsr cursor_disable
     lda #6
     sta APP_MOD
 
@@ -224,6 +224,8 @@ write:
     beq :+
     
     ;Buffer modified, prompt to save before opening a new file
+    jsr cursor_disable
+    
     lda #7
     sta APP_MOD
     
@@ -262,7 +264,6 @@ msg2:
     sta filelen
 
     jsr prompt_close
-    jsr cursor_disable
 
     ldx filename
     ldy filename+1
@@ -346,8 +347,8 @@ msg:
 ;******************************************************************************
 ;Function name.......: cmd_file_dos_command_exec
 ;Purpose.............: Executes a dos command and displays a status message
-;Preparatory routines: None
-;Input...............: Nothing
+;Input...............: Command string stored at address 
+;                      "prompt_input". Command string len stored in "prompt_len"
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_file_dos_command_exec
@@ -358,16 +359,17 @@ msg:
     jsr file_disk_cmd
 
     ;Close prompt
-    lda #1
-    sta APP_MOD
     jsr prompt_close
 
+    ;Set APP_MOD=2 (display status message)
+    lda #2
+    sta APP_MOD
+
     ;Check if Kernal I/O error occurred
-    lda file_io_err
+    ldx file_io_err
     beq no_kernal_err
     
 kernal_err:
-    tax
     dex
     ldy file_ioerr_H,x
     lda file_ioerr_L,x

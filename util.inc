@@ -104,7 +104,7 @@ output = tempvars+3     ;4 bytes
 ;                      bit is set. Why does this work?  I guess you have to read 
 ;                      those publications.
 .proc util_bcd_to_bin
-    ;Copy input to local memory
+    ;Copy input to local variable
     stx TMP1_ADR
     sty TMP1_ADR+1
     ldy #0
@@ -116,7 +116,7 @@ output = tempvars+3     ;4 bytes
     bne :-
     
     ;Prepare loop
-    ldy #32         ;Output bit count, internally 32 bits, bit the function only returns the lowest 24 bits. The highest 8 bits are discarded!
+    ldy #32         ;Output bit count, internally 32 bits, but the function only returns the lowest 24 bits. The highest 8 bits are discarded.
     ldx #3          ;Byte index (corresponds to 32 bit input, bytes 0 to 3)
 
     clc             ;Clear carry and push processor status including carry flag to stack
@@ -135,7 +135,7 @@ loop:
     ;Adjust high nibble: If bit 7=1 subtract $30; This is the essential "trick" in De Jong's and Peatman's
     ;above mentioned publications. 
     bit bcd_val,x
-    bpl :+
+    bpl :+              ;bpl branches if bit 7 is clear (a positive number)
     sec
     lda bcd_val,x
     sbc #$30
@@ -143,7 +143,7 @@ loop:
 
     ;Adjust low nibble: If bit 3=1 subtract $3; The same "trick" but for the low nibble
 :   lda bcd_val,x
-    and #8
+    and #8              ;The bpl op code doesn't work here, checking bit 3 by anding it
     beq next_byte
     sec
     lda bcd_val,x
@@ -193,7 +193,7 @@ next_byte:
 ;Returns.............: Pointer to string, X=AddressL, Y=AddressH
 ;Error returns.......: None
 .proc util_bcd_to_str
-    ;Copy input to local memory
+    ;Copy input to local variable
     stx TMP1_ADR
     sty TMP1_ADR+1
     ldy #0
@@ -238,7 +238,7 @@ strip_leading_zeros:
     cmp #48
     bne exit
     inx
-    cpx #7          ;We must break this search at position 7. Otherwise 0 would be an empty string.
+    cpx #7          ;We must break this search at position 7. Otherwise input value 0 would return an empty string.
     bcc :-
 
 exit:
@@ -282,7 +282,10 @@ output = tempvars+4         ;9 bytes
     bra :-
 
 prepare:
-    dey         ;Decrease Y to step back to the last digit. Y was at null char before this.
+    cpy #0
+    beq invalid     ;String len = 0 is invalid input
+
+    dey             ;Decrease Y to step back to the last digit. Y was at the terminating null char before this.
     ldx #0
 
 loop:
@@ -295,7 +298,7 @@ loop:
     bcs invalid         ;Char was greater than 57, exit with error
     sta bcd_val,x
     
-    ;Move index to next char, if Y=ff we're done
+    ;Move index to next char, if Y wraps around to $ff we're done
     dey
     cpy #$ff
     beq end
@@ -316,7 +319,7 @@ loop:
     ora bcd_val,x
     sta bcd_val,x
     
-    ;Increase output index and decrease input index. Exit if input index=ff, i.e. 0 before we decreased it
+    ;Increase output index and decrease input index. Exit if input index=ff
     inx
     dey
     cpy #$ff
@@ -330,7 +333,7 @@ end:
     rts
 
 invalid:
-    ;Exit if input value invalid (not only digits in string)
+    ;Exit if input value invalid (not only digits in string or zero len string)
     sec
     ldx #<bcd_val
     ldy #>bcd_val
@@ -343,7 +346,9 @@ bcd_val = tempvars+1    ;4 bytes
 
 ;******************************************************************************
 ;Function name.......: util_strlen
-;Purpose.............: Returns length of null terminated strind
+;Purpose.............: Returns length of null terminated string; this function
+;                      assumes that the input string length is less than 
+;                      256 chars
 ;Input...............: Pointer to null terminated string, X=AddressL, Y=AddressH
 ;Returns.............: Y=String len
 ;Error returns.......: Nothing
@@ -360,4 +365,3 @@ bcd_val = tempvars+1    ;4 bytes
 done:
     rts
 .endproc
-

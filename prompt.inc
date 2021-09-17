@@ -174,13 +174,13 @@ clear_line:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_close
-    ;Clear status line
-    jsr screen_clear_status
-
     ;Restore cursor pos
     ldx prompt_cursor_backup
     ldy prompt_cursor_backup+1
-    jmp cursor_move
+    jsr cursor_move
+
+    ;Clear status line
+    jmp screen_clear_status
 .endproc
 
 ;******************************************************************************
@@ -190,7 +190,7 @@ clear_line:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc prompt_keypress
-    ;Delete key
+    ;Backspace key
     cmp #$14
     beq delete
 
@@ -208,6 +208,10 @@ clear_line:
 
     ;Shift+Home = End key
     cmp #$93
+    beq end
+
+    ;End key
+    cmp #KBD_EXT_END
     beq end
 
     ;Ignore other control chars
@@ -233,12 +237,12 @@ right_arrow:
     jmp prompt_refresh
 
 home:
-    ;Not yet implemented
-    rts
+    jsr prompt_go_home
+    jmp prompt_refresh
 
 end:
-    ;Not yet implemented
-    rts
+    jsr prompt_go_end
+    jmp prompt_refresh
 
 exit:
     rts
@@ -361,7 +365,56 @@ exit:
 
 .endproc
 
+;******************************************************************************
+;Function name.......: prompt_go_home
+;Purpose.............: Moves current editing position to start of prompt
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc prompt_go_home
+    stz prompt_curpos
+    stz prompt_fvc
+    ldx prompt_start
+    ldy CRS_Y
+    jmp cursor_move
+.endproc
+
+;******************************************************************************
+;Function name.......: prompt_go_end
+;Purpose.............: Moves current editing position to end of prompt
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc prompt_go_end
+    lda prompt_len
+    sta prompt_curpos
+
+    sec
+    lda #SCREEN_WIDTH-1
+    sbc prompt_start
+    sta tempvars
+
+    sec
+    lda prompt_len
+    sbc tempvars
+    bcc :+
+    sta prompt_fvc
+    bra :++
+:   stz prompt_fvc
+
+:   sec
+    lda prompt_curpos
+    sbc prompt_fvc
+    clc
+    adc prompt_start
+    
+    tax
+    ldy CRS_Y
+    jmp cursor_move
+.endproc
+
 .segment "VARS"
+    prompt_input:           .res 256
     prompt_start:           .res 1              ;1 byte
     prompt_fvc:             .res 1              ;1 byte
     prompt_curpos:          .res 1              ;1 byte

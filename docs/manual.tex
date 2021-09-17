@@ -57,13 +57,15 @@
 
         The cursor is primarily moved by the standard arrow keys.
 
-        You may move to start of line with the Home key, and to end of line with Shift+Home.
+        You may move to start of line with the Home key, and to end of line with the End key or Shift+Home.
 
-        The computer does not recognize the standard page up and down keys. Those operations
-        are, however, supported by pressing Ctrl+Y (page up) or Ctrl+V (page down).
-        
+        The PgUp and PgDn keys are supported. Alternatively you may press
+        Ctrl+Y for page up or Ctrl+V for page down.
+
         Finally, it is also possible to move the cursor to a specific line number 
         with the go to line feature (Ctrl+L).
+
+        Both the Backspace and the Delete keys have their standard meaning.
 
     \subsection{Commands}
     \label{commands}
@@ -291,7 +293,8 @@
 
     \subsection{Background and text color}
 
-        Both the background and the text color may be changed while using the editor.
+        Both the background and the text color may be changed while using the editor. The program
+        runs in 16 color text mode, so there are 16 background and 16 text colors to choose from.
 
         Press Ctrl+T to cycle through background color options.
         Press Ctrl+B to cycle through text color options.

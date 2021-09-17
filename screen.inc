@@ -25,6 +25,33 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_init
+    ;Get active layer
+    lda VERA_VIDEO
+    and #%00100000
+    bne layer1
+    lda VERA_VIDEO
+    and #%00010000
+    bne layer0
+
+    ;No layer active, set layer 1 active
+    lda VERA_VIDEO
+    ora #%00100000
+    sta VERA_VIDEO
+
+layer1:
+    ;Set 16 color text mode
+    lda VERA_L1_CONFIG
+    and #%11110000
+    sta VERA_L1_CONFIG
+    bra detect
+
+layer0:
+    ;Set 16 color text mode
+    lda VERA_L0_CONFIG
+    and #%11110000
+    sta VERA_L0_CONFIG
+
+detect:
     ;Detect current charset mode
     jsr screen_charset_detect
     sta screen_mode
@@ -51,26 +78,28 @@
 
 ;******************************************************************************
 ;Function name.......: screen_charset_detect
-;Purpose.............: Detects current char set
+;Purpose.............: Detects current charset by reading and comparing the 
+;                      character definitions; this function may fail if the
+;                      user has defined custom characters. If the
+;                      Kernal API in the future exposes the active charset, this
+;                      function should be redesigned.
 ;Input...............: None
 ;Returns.............: A=0: ISO
 ;                      A=1: PETSCII upper case
 ;                      A=2: PETSCII lower case
 ;Error returns.......: C=1: Unknown charset
 .proc screen_charset_detect
-    ;VERA layer 0 or 1 active?
-    lda VERA_VIDEO
-    and #%00010000
-    bne layer0
+    ;Layer 1 active?
     lda VERA_VIDEO
     and #%00100000
     bne layer1
 
-    ;Both layers inactive. Can this happen? Better safe than sorry...
-    sec
-    rts
-
 layer0:
+    ;Layer 0 active?
+    lda VERA_VIDEO
+    and #%00010000
+    beq unknown
+
     ;Get VERA tile base for layer 0
     lda VERA_L0_TILEBASE
     bra detect
@@ -92,25 +121,23 @@ detect:
 
     ;Get first byte of the char definition, and use that value to detect charset mode
     lda VERA_D0
-    bne :+
     
     ;PETSCII lower and upper case
+    bne :+
     lda #2
     clc
     rts
 
+    ;PETSCII upper case/graphics
 :   cmp #$18
     bne :+
-    
-    ;PETSCII upper case/graphics
     lda #1
     clc
     rts
 
+    ;ISO charset
 :   cmp #$ff
     bne unknown
-
-    ;ISO charset
     clc
     lda #0
     rts
@@ -129,10 +156,8 @@ unknown:
 ;Error returns.......: None
 .proc screen_print_header
     ;Clear and set color
-    lda #0
-    sta VERA_L
-    lda #0
-    sta VERA_M
+    stz VERA_L
+    stz VERA_M
     lda #(1<<4)
     sta VERA_H
 
@@ -147,9 +172,8 @@ unknown:
     bne :-
 
     ;Program name
-    lda #0
-    sta VERA_L
-    sta VERA_M
+    stz VERA_L
+    stz VERA_M
     lda #(2<<4)
     sta VERA_H
 
@@ -273,8 +297,7 @@ clear:
     sty TMP1_ADR+1
 
     ;Set VERA address to print from start of SCREEN_HEIGHT-2
-    lda #0
-    sta VERA_L
+    stz VERA_L
     lda #SCREEN_HEIGHT-2
     sta VERA_M
     lda #(1<<4)
@@ -312,42 +335,6 @@ nextrow:
 
     rts
 .endproc
-
-;******************************************************************************
-;Function name.......: screen_clear_footer
-;Purpose.............: Clears program footer at two last rows of screen
-;Input...............: None
-;Returns.............: Nothing
-;Error returns.......: None
-.proc screen_clear_footer
-     ;Set VERA address to print from start of row SCREEN_HEIGHT-2
-    lda #SCREEN_HEIGHT-2
-    sta VERA_M
-    lda #(1<<4)
-    sta VERA_H
-
-    ;Prepare loop
-    lda #32             ;Blank space
-    ldy screen_color
-
-rowstart:
-    stz VERA_L
-    ldx #0              ;Column index
-loop:
-    sta VERA_D0
-    sty VERA_D0
-    inx
-    cpx #SCREEN_WIDTH
-    bne loop
-
-    inc VERA_M
-    ldx VERA_M
-    cpx #SCREEN_HEIGHT
-    bne rowstart
-
-    rts
-.endproc
-
 ;******************************************************************************
 ;Function name.......: screen_print_default_footer
 ;Purpose.............: Prints program footer at two last rows of screen
@@ -414,11 +401,10 @@ row2:
 ;Error returns.......: None
 .proc screen_show_help
     ;Clear editable part of screen
-    jsr screen_clear
+    jsr screen_clear_editor
 
     ;Set VERA address to start printing from start of row 2
-    lda #0
-    sta VERA_L
+    stz VERA_L
     lda #2
     sta VERA_M
     lda #(2<<4)
@@ -542,7 +528,7 @@ msg:
 
 ;******************************************************************************
 ;Function name.......: screen_refresh
-;Purpose.............: Refreshes all visible lines of text. Print will start 
+;Purpose.............: Refreshes editor area. Print will start 
 ;                      from memory address pointed to by zero page vectors 
 ;                      SCR_XXX
 ;Input...............: None
@@ -567,8 +553,7 @@ msg:
     sta rows
 
     ;Set VERA address to print from start of row 2
-    lda #0
-    sta VERA_L
+    stz VERA_L
     lda #2
     sta VERA_M
     lda #(2<<4)
@@ -743,8 +728,7 @@ exit_2:
 ;Error returns.......: None
 .proc screen_println
     ;Set VERA address to print from start of row
-    lda #0
-    sta VERA_L
+    stz VERA_L
     lda CRS_Y
     sta VERA_M
     lda #(2<<4)
@@ -844,42 +828,6 @@ exit:
 .endproc
 
 ;******************************************************************************
-;Function name.......: screen_clear
-;Purpose.............: Clears the editable part of the screen
-;Input...............: None
-;Returns.............: Nothing
-;Error returns.......: None
-.proc screen_clear
-    ;Set VERA address to start printing from start of row 2
-    lda #0
-    sta VERA_L
-    lda #2
-    sta VERA_M
-    lda #(1<<4)
-    sta VERA_H
-
-    ;Pepare printing
-    lda #32                 ;Blank space
-    ldx #SCREEN_WIDTH       ;Columns
-    ldy #SCREEN_HEIGHT-6    ;Rows
-    sty tempvars
-    ldy screen_color
-loop:
-    sta VERA_D0
-    sty VERA_D0
-    dex
-    bne loop
-    stz VERA_L
-    inc VERA_M
-    ldx #SCREEN_WIDTH
-    dec tempvars
-    bne loop
-
-    rts
-rows = tempvars     ;1 byte
-.endproc
-
-;******************************************************************************
 ;Function name.......: screen_print_status
 ;Purpose.............: Prints a null terminated status message 
 ;Input...............: X=pointer to message LSB, Y=pointer to message MSB
@@ -937,6 +885,41 @@ start_at = tempvars+1   ;1 byte
 .endproc
 
 ;******************************************************************************
+;Function name.......: screen_clear_editor
+;Purpose.............: Clears the editor area
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_clear_editor
+    ;Set VERA address to start printing from start of row 2
+    stz VERA_L
+    lda #2
+    sta VERA_M
+    lda #(1<<4)
+    sta VERA_H
+
+    ;Pepare printing
+    lda #32                 ;Blank space
+    ldx #SCREEN_WIDTH       ;Columns
+    ldy #SCREEN_HEIGHT-6    ;Rows
+    sty tempvars
+    ldy screen_color
+loop:
+    sta VERA_D0
+    sty VERA_D0
+    dex
+    bne loop
+    stz VERA_L
+    inc VERA_M
+    ldx #SCREEN_WIDTH
+    dec tempvars
+    bne loop
+
+    rts
+rows = tempvars     ;1 byte
+.endproc
+
+;******************************************************************************
 ;Function name.......: screen_clear_status
 ;Purpose.............: Clears status message
 ;Input...............: None
@@ -959,6 +942,42 @@ start_at = tempvars+1   ;1 byte
     sty VERA_D0
     dex
     bne :-
+
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: screen_clear_footer
+;Purpose.............: Clears program footer at two last rows of screen
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_clear_footer
+     ;Set VERA address to print from start of row SCREEN_HEIGHT-2
+    lda #SCREEN_HEIGHT-2
+    sta VERA_M
+    lda #(1<<4)
+    sta VERA_H
+
+    ;Prepare loop
+    lda #32             ;Blank space
+    ldy screen_color
+
+rowstart:
+    stz VERA_L
+    ldx #0              ;Column index
+loop:
+    sta VERA_D0
+    sty VERA_D0
+    inx
+    cpx #SCREEN_WIDTH
+    bne loop
+
+    inc VERA_M
+    ldx VERA_M
+    cpx #SCREEN_HEIGHT
+    bne rowstart
+
     rts
 .endproc
 

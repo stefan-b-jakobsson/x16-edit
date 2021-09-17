@@ -17,128 +17,79 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-
 ;******************************************************************************
 ;Function name.......: cursor_init
-;Purpose.............: Initializes the cursor sprite
+;Purpose.............: Initializes the cursor
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_init
-    ;Prepare writing sprite graphics data at VERA address $4000
-    lda #$00
-    sta VERA_L
-    lda #$40
-    sta VERA_M
-    lda #(1<<4)
-    sta VERA_H
-
-    ;First write 6 blank lines (48 bytes) with color 0 (transparent)
-    lda #$00
-    ldx #48
-    :   sta VERA_D0
-        dex
-        bne :-
-    
-    ;Then write 2 lines (16 bytes) with color 1 (white)
-    lda #$01
-    ldx #16
-    :   sta VERA_D0
-        dex
-        bne :-
-    
-    ;Prepare writing attributes for sprite #0 (VERA address 01fc00)
-    lda #$00
-    sta VERA_L
-    lda #$fc
-    sta VERA_M
-    lda #($01 | (1 << 4)) 
-    sta VERA_H
-
-    ;Set graphics address = $4000 and graphics mode 1 (8 bpp)
-    lda #(($4000 << 5) & 255)
-    sta VERA_D0
-    lda #(($4000 >> 13) | (1 << 7))
-    sta VERA_D0
-
-    ;Set cursor screen x position = 0
-    lda #0
-    sta VERA_D0
-    sta VERA_D0
-    
-    lda #0
-    sta CRS_X
-
-    ;Set cursor screen y position = 2
-    lda #16
-    sta VERA_D0
-    lda #0
-    sta VERA_D0
+    ;Set position
+    stz CRS_X
     lda #2
     sta CRS_Y
 
-    ;Set Z-depth = 0 => hidden, and V-flip & H-flip = false
-    lda #0
-    sta VERA_D0
-
-    ;Set sprite height=8, and sprite width=8
-    lda #0
-    sta VERA_D0
-
-    ;Enable sprites
-    lda #%01000000
-    ora VERA_VIDEO
-    sta VERA_VIDEO
-
     ;Init cursor toggle counter
-    lda #60
+    lda #30
     sta cursor_toggle_counter
 
-    rts
-.endproc
-
-;******************************************************************************
-;Function name.......: cursor_show
-;Purpose.............: Shows the cursor sprite
-;Input...............: None
-;Returns.............: Nothing
-;Error returns.......: None
-.proc cursor_show
-    ;Prepare writing sprite attributes at VERA address 01fc06
-    lda #$06
-    sta VERA_L
-    lda #$fc
-    sta VERA_M
-    lda #$01 
-    sta VERA_H
-
-    ;Set sprite #0 visible
-    lda #(3 << 2)
-    sta VERA_D0
+    ;Set cursor state = hidden
+    stz cursor_state
 
     rts
 .endproc
 
 ;******************************************************************************
-;Function name.......: cursor_hide
-;Purpose.............: Hides the cursor sprite
+;Function name.......: cursor_invert
+;Purpose.............: Inverts color at cursor position
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc cursor_hide
-    ;Prepare writing sprite attributes at VERA address 01fc06
-    lda #$06
-    sta VERA_L
-    lda #$fc
-    sta VERA_M
-    lda #$01 
-    sta VERA_H
+.proc cursor_invert
+    stz VERA_H
 
-    ;Set sprite #0 not visible
-    lda #0
+    lda cursor_state
+    and #%00000001
+    beq show
+
+hide:
+    lda last_shown_at
+    asl
+    ina
+    sta VERA_L
+    lda last_shown_at+1
+    sta VERA_M
+    bra swap
+
+show:
+    lda CRS_X
+    sta last_shown_at
+    asl
+    ina
+    sta VERA_L
+    lda CRS_Y
+    sta last_shown_at+1
+    sta VERA_M
+
+    ;Swap background/foreground colors
+swap:
+    lda VERA_D0
+    asl
+    adc #$80
+    rol
+    asl
+    adc #$80
+    rol
     sta VERA_D0
 
+    ;Update cursor state
+    inc cursor_state
+    
     rts
+
+.segment "VARS"
+    last_shown_at: .res 2
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -148,51 +99,20 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_move
-    ;Prepare writing sprite attributes at VERA address 01fc02
-    lda #$02
-    sta VERA_L
-    lda #$fc
-    sta VERA_M
-    lda #($01 | (1 << 4))
-    sta VERA_H
+    lda cursor_state
+    and #%00000001
+    beq exit
+    jsr cursor_invert
 
-    ;Set X position, bits 0:7 (X register multiplied by 8)
-    txa
-    asl
-    asl
-    asl
-    sta VERA_D0
-
-    ;Set X position, bits 8:9 (X register divided by 32)
-    txa
-    lsr
-    lsr
-    lsr
-    lsr
-    lsr
-    sta VERA_D0
-
-    ;Set Y position, bits 0:7 (Y register multiplied by 8)
-    tya
-    asl
-    asl
-    asl
-    sta VERA_D0
-
-    ;Set Y position, bits 8:9 (Y register divided by 32)
-    tya
-    lsr
-    lsr
-    lsr
-    lsr
-    lsr
-    sta VERA_D0
-
-    ;Finally, save new position
+exit:
     stx CRS_X
     sty CRS_Y
-
-    rts
+    lda cursor_toggle_counter
+    beq :+
+    jsr cursor_invert
+    lda #30
+    sta cursor_toggle_counter
+:   rts
 .endproc
 
 ;******************************************************************************
@@ -325,37 +245,23 @@ bottom:
 ;Function name.......: cursor_toggle
 ;Purpose.............: Controls cursor toggle. The cursor will change state
 ;                      (hidden or visible) for every 30 invocations of this
-;                      function. When called once every interrupt, the cursor
+;                      function. When called once every VBLANK, the cursor
 ;                      toggle period will be 1 second.
-;Input...............: Nothing
+;Input...............: cursor_toggle_counter=0 means that the cursor is
+;                      disabled (hidden)
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_toggle
     ;Check if cursor is disabled, cursor_toggle_counter = 0
     lda cursor_toggle_counter
-    bne active
-    
-    ;Cursor is disabled
-    rts
+    beq exit                ;Cursor disabled
 
-active:
-    ;Cursor is active, decrease counter
+toggle:
     dec cursor_toggle_counter
-    
-    lda cursor_toggle_counter
-    cmp #30                 ;After 30 invocations we have 1/2 a second, show cursor
-    beq show
-    cmp #0                  ;After another 30 invocations we have 1/2 a second again, hide cursor
-    bne exit                ;If counter value is not 30 or 0, do nothing
-
-hide:
-    jsr cursor_hide
-    lda #60                 ;Restart counter
+    bne exit
+    jsr cursor_invert
+    lda #30                 ;Restart counter for 1/2 second
     sta cursor_toggle_counter
-    rts
-    
-show:
-    jsr cursor_show
 
 exit:
     rts
@@ -369,8 +275,12 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_activate
-    jsr cursor_show
-    lda #29
+    lda cursor_state
+    and #%00000001
+    bne :+
+    jsr cursor_invert
+
+:   lda #30                         ;The cursor is already visible, set counter to default start value = 30 (1/2 second)
     sta cursor_toggle_counter
     rts
 .endproc
@@ -382,14 +292,18 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_disable
-    jsr cursor_hide
-    stz cursor_toggle_counter
+    lda cursor_state
+    and #%00000001
+    beq :+
+    jsr cursor_invert
+
+:   stz cursor_toggle_counter
     rts
 .endproc
-
 
 .segment "VARS"
     CRS_X:                  .res 1              ;Cursor screen column position
     CRS_Y:                  .res 1              ;Cursor screen row position
-    cursor_toggle_counter:  .res 1              ;1 byte
+    cursor_toggle_counter:  .res 1
+    cursor_state:           .res 1
 .CODE

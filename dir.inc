@@ -297,7 +297,7 @@ err:
     jmp screen_print_status
 
 prepare:
-    jsr screen_clear
+    jsr screen_clear_editor
 
     stz VERA_L
     lda #3

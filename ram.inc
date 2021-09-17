@@ -32,35 +32,32 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc ram_backup
+    backup = $b000
+
     lda mem_start
     sta BNK_SEL
 
-    ;Copy zero page addresses used by the program
-    backup = $b000
-    VARS = __VARS_LOAD__
-    zpsize = $14
-
+    ;Copy golden RAM
     ldx #0
-:   lda __ZEROPAGE_LOAD__,x
-    sta $b000,x
+
+:   lda $0400,x
+    sta backup,x
+    lda $0500,x
+    sta backup+$0100,x
+    lda $0600,x
+    sta backup+$0200,x
+    lda $0700,x
+    sta backup+$0300,x
     inx
-    cpx #zpsize
     bne :-
 
-    ;Copy VARS segment, mem_start and mem_top already affected by startup, but we
-    ;handle those two bytes in a jiffy
-    
+    ;Copy zero page
     ldx #0
-:   lda VARS,x
-    sta backup+zpsize,x
-    lda VARS+$0100,x
-    sta backup+$0100+zpsize,x
-    lda VARS+$0200,x
-    sta backup+$0200+zpsize,x
-    lda VARS+$0300,x
-    sta backup+$0300+zpsize,x
-    
+
+:   lda $22,x
+    sta backup+$0400,x
     inx
+    cpx #$14
     bne :-
 
     ;Get initial values of mem_start and mem_top from stack, stored there at beginning of main function
@@ -68,9 +65,9 @@
     ply     ;...two bytes, and temporarily store in X and Y
 
     pla     ;Pull off mem_top
-    sta backup+zpsize+mem_top-VARS
+    sta backup+mem_top-$0400
     pla     ;Pull off mem_start
-    sta backup+zpsize+mem_start-VARS
+    sta backup+mem_start-$0400
 
     ;Restore return address on stack
     phy
@@ -94,29 +91,31 @@
     sta BNK_SEL
 
     ;Restore zero page
-    zpsize = $14
     backup = $b000
-    VARS = __VARS_LOAD__
 
+    ;Restore golden RAM
     ldx #0
+
 :   lda backup,x
-    sta __ZEROPAGE_LOAD__,x
+    sta $0400,x
+    lda backup+$0100,x
+    sta $0500,x
+    lda backup+$0200,x
+    sta $0600,x
+    lda backup+$0300,x
+    sta $0700,x
     inx
-    cpx #zpsize
     bne :-
-
-    ;Restore $0400-$07FF
+    
+    ;Restore zero page
     ldx #0
-:   lda backup+zpsize,x
-    sta VARS,x
-    lda backup+zpsize+$100,x
-    sta VARS+$0100,x
-    lda backup+zpsize+$200,x
-    sta VARS+$0200,x
-    lda backup+zpsize+$300,x
-    sta VARS+$0300,x
+
+:   lda backup+$0400,x
+    sta $22,x
     inx
+    cpx #$14
     bne :-
+    
 
     rts
 

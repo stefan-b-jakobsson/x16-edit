@@ -21,14 +21,14 @@ The first target (the RAM version) is to be loaded as a normal program from the 
 
 The second target is a 16 KB image to be stored in one of the ROM banks (the ROM version).
 
+# Required Kernal/Emulator version
+
+| X16 Edit version | Kernal/Emulator version |
+| ---------------- | ----------------------- |
+| 0.0.1 - 0.3.6    | R38                     |
+| 0.4.0 -          | R39                     |
 
 # Running the RAM version
-
-The program is tested with X16 emulator version R38.
-
-The emulator may be downloaded from
-
-https://www.commanderx16.com/
 
 Run the RAM version with the following command
 

@@ -18,11 +18,14 @@
 ;******************************************************************************
 
 .import __ZP_START__, __ZP_LAST__, __VARS_LOAD__
-.export bridge_code
 
 ;*****************************************************************************
-;KERNAL VECTORS
+;KERNAL
 ;*****************************************************************************
+
+;RAM and ROM select
+.define BNK_SEL $00 
+.define ROM_SEL $01
 
 ;File management
 .define KERNAL_CLALL $ffe7
@@ -40,18 +43,12 @@
 
 ;Keyboard
 .define KERNAL_GETIN $ffe4
-.define KERNAL_KBDBUF_GET_MODIFIERS $ca64
-KBD_MODIFIER_SHIFT = 1 ; C64:  Shift
-KBD_MODIFIER_ALT   = 2 ; C64:  Commodore
-KBD_MODIFIER_CTRL  = 4 ; C64:  Ctrl
-KBD_MODIFIER_WIN   = 8 ; C128: Alt
-KBD_MODIFIER_CAPS  = 16; C128: Caps
 
 ;Other
 .define KERNAL_SCREEN_SET_CHARSET $ff62
 
 ;*****************************************************************************
-;VERA VECTORS
+;VERA
 ;*****************************************************************************
 .define VERA_L $9f20
 .define VERA_M $9f21
@@ -125,26 +122,12 @@ TMP2_IDX:   .res 1   ;Index
 ;*****************************************************************************
 ;Global variables not stored in zero page
 ;*****************************************************************************
-
 .segment "VARS"
 
+bridge_code:            .res 55             ;Bridge code, used by ROM version of the program
 APP_MOD:                .res 1              ;1 byte, application mode
 APP_QUIT:               .res 1              ;1 byte, used to signal program exit
 tempvars:               .res 16             ;Temporary variables
-cmd_display_msg:        .res 59
-
-.CODE
-
-;*****************************************************************************
-;Buffers
-;*****************************************************************************
-
-.segment "VARS"
-
-prompt_input:           .res 256
-file_cur_filename:      .res 256
-file_disk_status:       .res 127
-bridge_code:            .res 40
 
 .CODE
 
@@ -158,10 +141,7 @@ dir_entry                               = $b500               ;256 bytes
 ;*****************************************************************************
 ;CONSTANTS
 ;*****************************************************************************
-.define BNK_SEL $9f61 
-.define ROM_SEL $9f60
-.define ROM_BNK 7
-
+.define ROM_BNK 7           ;The bank where ROM version of X16 Edit is stored
 .define LF 10
 .define CR 13          
 .define SCREEN_WIDTH 80

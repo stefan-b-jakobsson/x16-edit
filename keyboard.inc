@@ -18,6 +18,42 @@
 ;******************************************************************************
 
 ;******************************************************************************
+;General information on keyboard functions
+;---------------------------------------------
+;X16 Edit uses a custom PS/2 scan code handler to read status of modifier
+;keys and to get keys not supported by the Kernal (for instance numerical key pad 
+;keys). The scan code handler is implemented in source file "scancode.inc".
+;
+;The status of each modifier key is represented by one bit (1=down, 0=up) in 
+;variable "scancode_modifiers" as follows:
+;
+;Bit #  Key   
+;0      SHIFT
+;1      ALT
+;2      CTRL
+;3      WIN
+;4      CAPS
+;
+;The scan code handler consumes Ctrl key events. This means that the
+;the Kernal GETIN function returns the same result for A and Ctrl+A.
+;The only way to know whether the Ctrl key is pressed is to check the value 
+;of scancode_modifiers.
+;
+;The value of extra keys supported by the scan code handler is stored in
+;variable "scancode_ext". That variable holds the last pressed extra key.
+;
+;Printable chars have their default PETSCII/ASCII value. 
+;
+;List of non-printable extra keys:
+;
+;Key        Value
+;DELETE     = $15
+;END        = $16
+;PGUP       = $17
+;PGDN       = $18
+;INSERT     = $1a
+
+;******************************************************************************
 ;Function name.......: keyboard_read_and_dispatch
 ;Purpose.............: Reads one character from the keyboard buffer and
 ;                      dispatches that to proper key handler
@@ -25,84 +61,62 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_read_and_dispatch
-    ;Get char from keyboard queue. Don't read if APP_MOD=16
+    ;Don't read keyboard if APP_MOD=16 (set on charset changed)
     lda APP_MOD
     cmp #16
     beq gotachar
-    
-    bridge_setaddr KERNAL_GETIN
+
+    ;Check and handle non-standard extra keys
+    lda scancode_ext
+    beq :+
+    stz scancode_ext
+    bra gotachar
+
+    ;Read standard keys
+:   bridge_setaddr KERNAL_GETIN
     bridge_call KERNAL_GETIN
     bne gotachar
 
-    ;No input, run memory defrag instead during this interrupt cycle
+    ;No input to handle, run memory defrag instead during this interrupt cycle
     jmp mem_run_defrag
     
 gotachar:
     ;Store char in Y temporarily
     tay
 
-    ;Select key handler according to program mode
-    ldx APP_MOD
-    lda jmptbl_L,x
-    sta eventhandler
-    lda jmptbl_H,x
-    sta eventhandler+1
+    ;Calculate index in jump table
+    lda APP_MOD
+    asl
+    tax
     
     ;Restore char in A
     tya
 
-    ;Jump to event handler
-    jmp (eventhandler)
+    ;Jump to APP mode event handler
+    jmp (jmptbl,x)
 
-.segment "VARS"
-    eventhandler: .res 2
-.CODE
-
-jmptbl_L:
-    .byt <keyboard_mode_default
-    .byt <keyboard_mode_helpscreen
-    .byt <keyboard_mode_statusmessage
-    .byt <keyboard_mode_command
-    .byt <keyboard_mode_file_save
-    .byt <keyboard_mode_file_open
-    .byt <keyboard_mode_file_save_overwrite
-    .byt <keyboard_mode_file_open_save_before
-    .byt <keyboard_mode_exit_save_before
-    .byt <keyboard_mode_new_buffer_save_before
-    .byt <keyboard_mode_find
-    .byt <keyboard_mode_goto_line
-    .byt <keyboard_mode_replace_0
-    .byt <keyboard_mode_replace_1
-    .byt <keyboard_mode_replace_2
-    .byt <keyboard_mode_word_wrap_prompt
-    .byt <cmd_refresh_after_encoding_changed
-    .byt <keyboard_mode_set_device
-    .byt <keyboard_mode_file_dir
-    .byt <keyboard_mode_file_dir
-    .byt <keyboard_mode_dos_cmd
-
-jmptbl_H:
-    .byt >keyboard_mode_default
-    .byt >keyboard_mode_helpscreen
-    .byt >keyboard_mode_statusmessage
-    .byt >keyboard_mode_command
-    .byt >keyboard_mode_file_save
-    .byt >keyboard_mode_file_open
-    .byt >keyboard_mode_file_save_overwrite
-    .byt >keyboard_mode_file_open_save_before
-    .byt >keyboard_mode_exit_save_before
-    .byt >keyboard_mode_new_buffer_save_before
-    .byt >keyboard_mode_find
-    .byt >keyboard_mode_goto_line
-    .byt >keyboard_mode_replace_0
-    .byt >keyboard_mode_replace_1
-    .byt >keyboard_mode_replace_2
-    .byt >keyboard_mode_word_wrap_prompt
-    .byt >cmd_refresh_after_encoding_changed
-    .byt >keyboard_mode_set_device
-    .byt >keyboard_mode_file_dir
-    .byt >keyboard_mode_file_dir
-    .byt >keyboard_mode_dos_cmd
+jmptbl:
+    .word keyboard_mode_default                 ;APP mode 0
+    .word keyboard_mode_helpscreen              ;APP mode 1
+    .word keyboard_mode_statusmessage           ;APP mode 2
+    .word keyboard_mode_command                 ;APP mode 3
+    .word keyboard_mode_file_save               ;APP mode 4
+    .word keyboard_mode_file_open               ;APP mode 5
+    .word keyboard_mode_file_save_overwrite     ;APP mode 6
+    .word keyboard_mode_file_open_save_before   ;APP mode 7
+    .word keyboard_mode_exit_save_before        ;APP mode 8
+    .word keyboard_mode_new_buffer_save_before  ;APP mode 9
+    .word keyboard_mode_find                    ;APP mode 10
+    .word keyboard_mode_goto_line               ;APP mode 11
+    .word keyboard_mode_replace_0               ;APP mode 12
+    .word keyboard_mode_replace_1               ;APP mode 13
+    .word keyboard_mode_replace_2               ;APP mode 14
+    .word keyboard_mode_word_wrap_prompt        ;APP mode 15
+    .word cmd_refresh_after_encoding_changed    ;APP mode 16
+    .word keyboard_mode_set_device              ;APP mode 17
+    .word keyboard_mode_file_dir                ;APP mode 18
+    .word keyboard_mode_file_dir                ;APP mode 19
+    .word keyboard_mode_dos_cmd                 ;APP mode 20
 .endproc
 
 ;******************************************************************************
@@ -111,272 +125,97 @@ jmptbl_H:
 ;Input...............: A=char
 ;Returns.............: Nothing
 ;Error returns.......: None
-;Keyboard shordcuts..: ^G=$07 Get Help
-;                      ^X=$18 Exit Program
-;                      ^O=$0f Write Out
-;                      ^R=$12 Read file
-;                      ^N=$0e New buffer
-;                      ^Y=$19 PageUp
-;                      ^V=$16 PageDown
-;                      ^K=$0b Cut
-;                      ^P=$10 Copy
-;                      ^U=$15 Uncut (paste)
-;                      ^C=$03 Show cursor position
-;                      ^W=$17 WhereIs
-;                      ^S=$13 Replace
-;                      ^L=$0c Go to line
-;                      ^A=$01 Auto indent on/off
-;                      ^Z=$1a Word wrap on/off
-;                      ^E=$05 Change character encoding
-;                      ^D=$04 Set device number
-;                      ^T=$14 Change text color
-;                      ^B=$02 Change background color
-;                      ^M=$0d Show memory usage
-;                      ^SPACE=$a0 Insert non-breaking space
 .proc keyboard_mode_default
-    ;Store key in Y
-    tay
-
-    ;Get key modifiers
-    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
-    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
-    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
-    tax
-    tya
-
+    ;Check modifier key status
+    ldx scancode_modifiers
     cpx #KBD_MODIFIER_CTRL
-    bne modifier_none
-    jmp modifier_ctrl
+    beq ctrl
 
-modifier_none:
-    ;ESC key
-    cmp #$03
-    bne :+
-    jmp keyboard_esc_key
+default:
+    ;Search key value table for matches (control keys and other keys requiring special actions)
+    ldx #default_keyval_end-default_keyval
+:   cmp default_keyval-1,x
+    beq default_match
+    dex
+    bne :-
 
-    ;Enter key
-:   cmp #13
-    bne :+
-    jmp keyboard_enter_key
-    
-    ;Delete key
-:   cmp #$14
-    bne :+
-    jmp keyboard_delete_key
-
-    ;Tab key
-:   cmp #$09
-    bne :+
-    jmp cmd_insert_tab
-
-    ;Left arrow key
-:   cmp #$9d
-    bne :+
-    jmp keyboard_leftarrow_key
-
-    ;Right arrow key
-:   cmp #$1d
-    bne :+
-    jmp keyboard_rightarrow_key
-
-    ;Up arrow key
-:   cmp #$91
-    bne :+
-    jmp keyboard_uparrow_key
-
-    ;Down arrow key
-:   cmp #$11
-    bne :+
-    jmp keyboard_downarrow_key
-
-    ;Home key
-:   cmp #$13
-    bne :+
-    jmp keyboard_home_key
-
-    ;Shift+Home = End key
-:   cmp #$93
-    bne :+
-    jmp keyboard_end_key
-
-    ;F1
-:   cmp #$85
-    bne :+
-    jmp cmd_show_help
-
-    ;F2
-:   cmp #$89
-    bne :+
-    jmp cmd_exit
-
-    ;F3
-:   cmp #$86
-    bne :+
-    jmp cmd_file_save_prompt
-
-    ;F4
-:   cmp #$8a
-    bne :+
-    jmp cmd_wrap_buffer
-
-    ;F5
-:   cmp #$87
-    bne :+
-    jmp cmd_file_open_prompt
-
-    ;F6
-:   cmp #$8b
-    bne :+
-    jmp cmd_find
-
-    ;F7
-:   cmp #$88
-    bne :+
-    jmp keyboard_cmd_pageup
-
-    ;F8
-:   cmp #$8c
-    bne :+
-    jmp keyboard_cmd_pagedown
-
-:   ;Convert non-breaking space (Shift+space, ASCII 160) to normal space char
+    ;Convert non-breaking space (Shift+space, ASCII 160) to normal space char (ASCII 32)
     cmp #$a0
-    bne default_handler
+    bne default_insert
     lda #$20
 
-    ;Default key handler
-default_handler:
+default_insert:
+    ;Insert char into buffer and update screen
     jsr cmd_insert
     bcs :+
     jmp screen_println
 :   jsr screen_refresh
     jmp screen_println
 
-modifier_ctrl:
-    ;Ctrl+G
-    cmp #$07
-    bne :+
-    jmp cmd_show_help
+default_match:
+    ;Action for special keys, for example arrow keys and function keys
+    dex
+    txa
+    asl
+    tax
+    jmp (default_jmptbl,x)
 
-    ;Ctrl+I
-:   cmp #$09
+ctrl:
+    ;Insert non-breaking space if Ctrl+Space
+    cmp #$20
     bne :+
-    jmp cmd_file_dos_command_prompt
+    lda #$a0
+    jmp default_insert
 
-    ;Ctrl+J
-:   cmp #$0a
-    bne :+
-    jmp cmd_wrap_buffer
+    ;Convert lower case letters to upper case
+:   and #%11011111
 
-    ;Ctrl+X
-:   cmp #$18
-    bne :+
-    jmp cmd_exit
+    ;Look for matches in key value table
+    ldx #keyboard_ctrl_keyval_end-keyboard_ctrl_keyval
+:   cmp keyboard_ctrl_keyval-1,x
+    beq ctrl_match
+    dex
+    bne :-
 
-    ;Ctrl+O
-:   cmp #$0f
-    bne :+
-    jmp cmd_file_save_prompt
-
-    ;Ctrl+R
-:   cmp #$12
+    ;Ctrl+R - Open file
+    cmp #$52
     bne :+
     lda #0
     jmp cmd_file_open_prompt
 
-    ;Ctrl+N
-:   cmp #$0e
-    bne :+
-    jmp cmd_new_buffer
-
-    ;Ctrl+V
-:   cmp #$16
-    bne :+
-    jmp keyboard_cmd_pagedown
-
-    ;Ctrl+Y
-:   cmp #$19
-    bne :+
-    jmp keyboard_cmd_pageup
-
-    ;Ctrl+K
-:   cmp #$0b
-    bne :+
-    jmp cmd_cut
-
-    ;Ctrl+P
-:   cmp #$10
-    bne :+
-    jmp cmd_copy
-
-    ;Ctrl+U
-:   cmp #$15
-    bne :+
-    jmp cmd_paste
-
-    ;Ctrl+C
-:   cmp #3
-    bne :+
-    jmp cmd_show_curpos
-
-    ;Ctrl+W
-:   cmp #$17
-    bne :+
-    jmp cmd_find
-
-    ;Ctrl+S
-:   cmp #$13
+    ;Ctrl+S - Replace string
+:   cmp #$53
     bne :+
     lda #0
     jmp cmd_replace
 
-    ;Ctrl+L
-:   cmp #$0c
-    bne :+
-    jmp cmd_goto_line
-
-    ;Ctrl+A
-:   cmp #$01
-    bne :+
-    jmp cmd_auto_indent
-
-    ;Ctrl+Z
-:   cmp #$1a
-    bne :+
-    jmp cmd_set_word_wrap
-
-    ;Ctrl+E
-:   cmp #$05
-    bne :+
-    jmp cmd_change_encoding
-
-    ;Ctrl+D
-:   cmp #$04
-    bne :+
-    jmp cmd_file_set_device
-
-    ;Ctrl+T
-:   cmp #$14
-    bne :+
-    jmp cmd_rotate_text_color
-
-    ;Ctrl+B
-:   cmp #$02
-    bne :+
-    jmp cmd_rotate_background_color
-
-    ;Ctrl+M
-:   cmp #$0d
-    bne :+
-    jmp cmd_mem_usage
-
-    ;Ctrl+space, insert non-breaking space
-:   cmp #$a0
-    bne :+
-    jmp default_handler
-
+    ;Exit
 :   rts
 
+ctrl_match:
+    ;Action for Ctrl+key combinations
+    dex
+    txa
+    asl
+    tax
+    jmp (keyboard_ctrl_jmptbl,x)
+
+default_keyval:
+    .byt $03, $0d, $14, $09, $9d
+    .byt $1d, $91, $11, $13, $93
+    .byt $85, $89, $86, $8a
+    .byt $87, $8b, $88, $8c
+    .byt $15, $16, $17, $18, $19
+    .byt $1a
+default_keyval_end:
+
+default_jmptbl:
+    .word keyboard_esc_key, keyboard_enter_key, keyboard_backspace_key, cmd_insert_tab, keyboard_leftarrow_key
+    .word keyboard_rightarrow_key, keyboard_uparrow_key, keyboard_downarrow_key, keyboard_home_key, keyboard_end_key
+    .word cmd_show_help, cmd_exit, cmd_file_save_prompt, cmd_wrap_buffer
+    .word cmd_file_open_prompt, cmd_find, keyboard_cmd_pageup, keyboard_cmd_pagedown
+    .word keyboard_delete_key, keyboard_end_key, keyboard_cmd_pageup, keyboard_cmd_pagedown, keyboard_enter_key
+    .word mem_run_defrag
 .endproc
 
 ;******************************************************************************
@@ -413,156 +252,30 @@ modifier_ctrl:
     jmp screen_println
 :   jsr screen_refresh
     jmp screen_println
+
+    ;ESC key
+:   cmp #$03
+    bne :+
+    stz APP_MOD
+    jsr cursor_activate
+    jmp screen_clear_status
     
     ;Clear bit 5 to make upper and lower case the same value
 :   and #%11011111
 
-    ;ESC key
-    cmp #$03
-    bne :+
-    stz APP_MOD
-    jsr cursor_activate
-    jmp screen_clear_status
-
-    ;a
-:   cmp #$41
-    bne :+
-    stz APP_MOD
-    jsr cursor_activate
-    jmp cmd_auto_indent
-    
-    ;g
-:   cmp #$47
-    bne :+
-    stz APP_MOD
-    jmp cmd_show_help
-
-    ;i
-:   cmp #$49
-    bne :+
-    jsr cursor_activate
-    jmp cmd_file_dos_command_prompt
-
-:   ;j
-    cmp #$4a
-    bne :+
-    stz APP_MOD
-    jsr cmd_wrap_buffer
-
-    ;x
-:   cmp #$58
-    bne :+
-    jsr cursor_activate
-    jmp cmd_exit
-
-    ;w
-:   cmp #$57
-    bne :+
-    jsr cursor_activate
-    jmp cmd_find
-
-    ;o
-:   cmp #$4f
-    bne :+
-    jsr cursor_activate
-    jmp cmd_file_save_prompt
-
-    ;n
-:   cmp #$4e
-    bne :+
-    jsr cursor_activate
-    jsr screen_clear_status
-    jmp cmd_new_buffer
-
-    ;y
-:   cmp #$59
-    bne :+
-    jsr cursor_activate
-    stz APP_MOD
-    jmp keyboard_cmd_pageup
-
-    ;v
-:   cmp #$56
-    bne :+
-    jsr cursor_activate
-    stz APP_MOD
-    jmp keyboard_cmd_pagedown
-
-    ;k
-:   cmp #$4b
-    bne :+
-    jsr cursor_activate
-    stz APP_MOD
-    jsr cmd_cut
-    jmp screen_clear_status
-
-    ;b
-:   cmp #$42
-    bne :+
-    stz APP_MOD
-    jsr screen_clear_status
-    jsr cursor_activate
-    jmp cmd_rotate_background_color
-
-    ;m
-:   cmp #$4d
-    bne :+
-    jsr cursor_activate
-    jmp cmd_mem_usage
-
-    ;u
-:   cmp #$55
-    bne :+
-    stz APP_MOD
-    jsr screen_clear_status
-    jsr cursor_activate
-    jmp cmd_paste
-
-    ;p
-:   cmp #$50
-    bne :+
-    stz APP_MOD
-    jsr cursor_activate
-    jsr screen_clear_status
-    jmp cmd_copy
+    ;Search keyval table
+    ldy #keyboard_ctrl_keyval_end-keyboard_ctrl_keyval
+:   cmp keyboard_ctrl_keyval-1,y
+    beq match
+    dey
+    bne :-
 
     ;r
-:   cmp #$52
+    cmp #$52
     bne :+
     jsr cursor_activate
     lda #0
     jmp cmd_file_open_prompt
-
-    ;e
-:   cmp #$45
-    bne :+
-    jsr cursor_activate
-    jmp cmd_change_encoding
-    
-    ;z
-:   cmp #$5a
-    bne :+
-    stz APP_MOD
-    jsr cursor_activate
-    jmp cmd_set_word_wrap
-
-    ;l
-:   cmp #$4c
-    bne :+
-    jsr cursor_activate
-    jmp cmd_goto_line
-
-    ;d
-:   cmp #$44
-    bne :+
-    jsr cursor_activate
-    jmp cmd_file_set_device
-
-    ;c
-:   cmp #$43
-    bne :+
-    jsr cursor_activate
-    jmp cmd_show_curpos
 
     ;s
 :   cmp #$53
@@ -571,14 +284,21 @@ modifier_ctrl:
     lda #0
     jmp cmd_replace
 
-    ;t
-:   cmp #$54
-    bne unknown
-    jmp cmd_rotate_text_color
-
     ;Uknown command, ignore
-unknown:
     rts
+
+match:
+    phy
+
+    stz APP_MOD
+    jsr screen_clear_status
+    jsr cursor_activate
+
+    pla
+    dea
+    asl
+    tax
+    jmp (keyboard_ctrl_jmptbl,x)
 .endproc
 
 ;******************************************************************************
@@ -631,6 +351,10 @@ exit_help:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_exit_save_before
+    ;ESC key pressed
+    cmp #$03
+    beq abort
+    
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
@@ -642,14 +366,11 @@ exit_help:
     cmp #$4e
     beq discard
 
-    ;ESC key pressed
-    cmp #$03
-    beq abort
-
     ;Else ignore keypress
     rts
 
 save:
+    jsr cursor_activate
     jsr screen_clear_status
     jmp cmd_file_save_prompt
 
@@ -660,6 +381,7 @@ discard:
     rts
 
 abort:
+    jsr cursor_activate
     stz APP_MOD
     jmp screen_clear_status
 .endproc
@@ -680,20 +402,22 @@ abort:
     cmp #$03
     beq abort
 
-    ;Ctrl+T
-    cmp #$14
-    bne :+
-
-    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
-    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
-    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
+    ;Temp store char
     tax
-    lda #$14
-    cpx #KBD_MODIFIER_CTRL
+
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+
+    ;Ctrl+T
+    cmp #$54
+    bne :+
+    lda scancode_modifiers
+    cmp #KBD_MODIFIER_CTRL
     beq tofiles
     
     ;Default, send key to prompt
-:   jmp prompt_keypress
+:   txa
+    jmp prompt_keypress
 
 abort:
     jsr prompt_close
@@ -727,6 +451,10 @@ tofiles:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_save_overwrite
+    ;ESC key
+    cmp #$03
+    beq abort
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
 
@@ -736,10 +464,6 @@ tofiles:
 
     ;N key
     cmp #$4e
-    beq abort
-
-    ;ESC key
-    cmp #$03
     beq abort
 
     ;Else ignore key
@@ -772,20 +496,22 @@ write_file:
     cmp #$03
     beq abort
 
-    ;Ctrl+T
-    cmp #$14
-    bne :+
-
-    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
-    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
-    and #255-KBD_MODIFIER_SHIFT         ;Ignore shift key
+    ;Temp store
     tax
-    lda #$14
-    cpx #KBD_MODIFIER_CTRL
+
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+
+    ;Ctrl+T
+    cmp #$54
+    bne :+
+    lda scancode_modifiers
+    cmp #KBD_MODIFIER_CTRL
     beq tofiles
 
     ;Default, send key to prompt
-:   jmp prompt_keypress
+:   txa
+    jmp prompt_keypress
 
 abort:
     jsr prompt_close
@@ -839,18 +565,37 @@ tofiles:
     bne :+
     jmp downarrow
 
+    ;Page down key
+:   cmp #KBD_EXT_PGDN
+    bne :+
+    jmp nextpage
+
+    ;Page up key
+:   cmp #KBD_EXT_PGUP
+    bne :+
+    jmp prevpage
+
+    ;Ctrl
+:   ldx scancode_modifiers
+    cpx #KBD_MODIFIER_CTRL
+    bne exit
+
+    ;Convert to lower
+    and #%11011111
+
     ;Ctrl+Y
-:   cmp #$19
+    cmp #$59
     bne :+
     jmp prevpage
     
     ;Ctrl+V
-:   cmp #$16
-    bne :+
+:   cmp #$56
+    bne exit
     jmp nextpage
 
     ;Default, no action
-:   rts
+exit:
+    rts
 
 enterkey:
     clc
@@ -870,7 +615,7 @@ enterkey:
     lda dir_filename_len
     jmp dir_change
 
-:   jsr screen_clear
+:   jsr screen_clear_editor
     jsr prompt_close
 
     ldx #<dir_entry
@@ -918,7 +663,7 @@ abortopen:
     jsr cursor_activate
     lda #5
     sta APP_MOD
-:   jsr screen_clear
+:   jsr screen_clear_editor
     jmp screen_refresh
 
 uparrow:
@@ -948,6 +693,10 @@ prevpage:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_open_save_before
+    ;ESC key
+    cmp #$03
+    beq abort
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
@@ -959,23 +708,22 @@ prevpage:
     cmp #$4e
     beq discard
 
-    ;ESC key
-    cmp #$03
-    beq abort
-
     ;Else ignore keypress
     rts
 
 save:
+    jsr cursor_activate
     jmp cmd_file_save_prompt
 
 discard:
+    jsr cursor_activate
     stz mem_modified
     jsr cmd_file_open_prompt
     inc mem_modified
     rts
 
 abort:
+    jsr cursor_activate
     stz APP_MOD
     jsr screen_clear_status
     rts
@@ -1016,6 +764,10 @@ abort:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_new_buffer_save_before
+    ;ESC key
+    cmp #$03
+    beq abort
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
@@ -1027,23 +779,22 @@ abort:
     cmp #$4e
     beq discard
 
-    ;ESC key
-    cmp #$03
-    beq abort
-
     ;Else ignore keypress
     rts
 
 save:
+    jsr cursor_activate
     jmp cmd_file_save_prompt
 
 discard:
+    jsr cursor_activate
     jsr screen_clear_status
     stz APP_MOD
     stz mem_modified
     jmp cmd_new_buffer
 
 abort:
+    jsr cursor_activate
     stz APP_MOD
     jmp screen_clear_status
 .endproc
@@ -1180,8 +931,10 @@ search:
     jsr prompt_close
     stz APP_MOD
 
+    jsr cursor_disable
     lda #2
-    jmp cmd_replace
+    jsr cmd_replace
+    jmp cursor_activate
 
 abort:
     jsr prompt_close
@@ -1198,6 +951,10 @@ abort:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_replace_2
+    ;ESC
+    cmp #$03
+    beq abort
+
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
@@ -1209,22 +966,22 @@ abort:
     cmp #97-32
     beq all
 
-    ;ESC
-    cmp #$03
-    beq abort
-
     ;Ignore all other input
     rts
 
 yes:
+    jsr cursor_disable
     ldx #0
     lda #3
-    jmp cmd_replace
+    jsr cmd_replace
+    jmp cursor_activate
 
 all:
+    jsr cursor_disable
     ldx #1
     lda #3
-    jmp cmd_replace
+    jsr cmd_replace
+    jmp cursor_activate
 
 abort:
     stz APP_MOD
@@ -1330,12 +1087,12 @@ msg:
 .endproc
 
 ;******************************************************************************
-;Function name.......: keyboard_delete_key
-;Purpose.............: Key handler: Delete
+;Function name.......: keyboard_backspace_key
+;Purpose.............: Key handler: Backspace
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc keyboard_delete_key
+.proc keyboard_backspace_key
     jsr cmd_delete
 
     bcs exit            ;C=1, at start of file
@@ -1353,13 +1110,33 @@ exit:
 .endproc
 
 ;******************************************************************************
+;Function name.......: keyboard_delete_key
+;Purpose.............: Key handler: Delete
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_delete_key
+    jsr cmd_go_right
+    cpx #1 
+    beq exit
+    
+    jmp keyboard_backspace_key
+exit:
+    rts
+.endproc
+
+;******************************************************************************
 ;Function name.......: keyboard_rightarrow_key
 ;Purpose.............: Key handler: Move right
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_rightarrow_key
+    jsr cursor_disable
     jsr cmd_go_right
+    php
+    jsr cursor_activate
+    plp
     bcs :+
     jmp screen_println
 :   jmp screen_refresh
@@ -1372,7 +1149,11 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_leftarrow_key
+    jsr cursor_disable
     jsr cmd_go_left
+    php
+    jsr cursor_activate
+    plp
     bcc :+
     
     jsr screen_refresh
@@ -1387,7 +1168,10 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_uparrow_key
+    jsr cursor_disable
     jsr cmd_go_up
+    jsr cursor_activate
+    jsr cursor_toggle
     jsr screen_refresh
     jmp screen_println
 .endproc
@@ -1399,7 +1183,10 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_downarrow_key
+    jsr cursor_disable
     jsr cmd_go_down
+    jsr cursor_activate
+    jsr cursor_toggle
     jsr screen_refresh
     jmp screen_println
 .endproc
@@ -1411,7 +1198,9 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_home_key
+    jsr cursor_disable
     jsr cmd_go_home
+    jsr cursor_activate
     jmp screen_println
 .endproc
 
@@ -1422,7 +1211,9 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_end_key
+    jsr cursor_disable
     jsr cmd_go_end
+    jsr cursor_activate
     jmp screen_println
 .endproc
 
@@ -1433,13 +1224,17 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_cmd_pageup
+    jsr cursor_disable
+
     lda #27
     sta linecount
 
 :   jsr cmd_go_up
+    bcs :+
     dec linecount
     bne :-
 
+:   jsr cursor_activate
     jmp screen_refresh
 
 .segment "VARS"
@@ -1456,13 +1251,17 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_cmd_pagedown
+    jsr cursor_disable
+
     lda #27
     sta linecount
 
 :   jsr cmd_go_down
+    bcs :+
     dec linecount
     bne :-
 
+:   jsr cursor_activate
     jmp screen_refresh
 
 .segment "VARS"
@@ -1470,6 +1269,23 @@ exit:
 .CODE
 
 .endproc
+
+;Ctrl+key value table
+keyboard_ctrl_keyval:
+    .byt $47, $49, $4a, $58, $4f
+    .byt $4e, $56, $59, $4b, $50
+    .byt $55, $43, $57, $4c, $41
+    .byt $5a, $45, $44, $54, $42
+    .byt $4d
+keyboard_ctrl_keyval_end:
+
+;Ctrl+key jump table
+keyboard_ctrl_jmptbl:
+    .word cmd_show_help, cmd_file_dos_command_prompt, cmd_wrap_buffer, cmd_exit, cmd_file_save_prompt
+    .word cmd_new_buffer, keyboard_cmd_pagedown, keyboard_cmd_pageup, cmd_cut, cmd_copy
+    .word cmd_paste, cmd_show_curpos, cmd_find, cmd_goto_line, cmd_auto_indent
+    .word cmd_set_word_wrap, cmd_change_encoding, cmd_file_set_device, cmd_rotate_text_color, cmd_rotate_background_color
+    .word cmd_mem_usage
 
 .segment "VARS"
     keyboard_tabwidth:      .res 1              ;1 byte
