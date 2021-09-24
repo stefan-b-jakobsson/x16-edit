@@ -151,6 +151,7 @@ rambackup:
     jsr clipboard_init
     jsr cmd_init
     jsr scancode_init
+    jsr progress_init
     
     clc
     rts
@@ -201,6 +202,7 @@ exit:
 .include "mem.inc"
 .include "ram.inc"
 .include "dir.inc"
+.include "progress.inc"
 
 .if target_mem=target_rom
     .include "bridge.inc"

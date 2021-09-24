@@ -96,19 +96,21 @@ msg:
     ldy #3
     bridge_call KERNAL_SETLFS
     bcc :+
-    bra io_err
+    jmp io_err
 
 :   bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
-    bcs io_err
+    bcc :+
+    jmp io_err
 
-    bridge_setaddr KERNAL_CHKOUT
+:   bridge_setaddr KERNAL_CHKOUT
     ldx #1
     bridge_call KERNAL_CHKOUT
-    bcs io_err
+    bcc :+
+    jmp io_err
 
     ;Init temporary pointer to start of text; head of buffer is bank=mem_start+1, addressH=$a0
-    stz TMP1_ADR
+:   stz TMP1_ADR
     lda #$a0
     sta TMP1_ADR+1
     lda mem_start       
@@ -120,14 +122,19 @@ msg:
     lda (TMP1_ADR),y
     sta page_len
 
+    ;Init progress indicator
+    lda #15
+    sta progress_cnt
+    jsr progress_show
+
     ;Offset to skip page metadata
     ldy #5
     sty TMP1_ADR
     ldy #0
 
-    bridge_setaddr KERNAL_CHROUT
 write_loop:
-
+    bridge_setaddr KERNAL_CHROUT
+    
     cpy page_len
     beq get_next_page
     lda (TMP1_ADR),y
@@ -139,8 +146,15 @@ write_loop:
     lda #CR
 
 :   bridge_call KERNAL_CHROUT
-    bcs io_err
-    iny
+    bcs io_err                      ;Check Kernal I/O error
+
+    bridge_setaddr KERNAL_READST    ;Check disk error, including file not found    
+    bridge_call KERNAL_READST
+    beq :+
+    lda #0                          ;Need to set Kernal I/O err=0
+    bra io_err
+
+:   iny
     bra write_loop
 
 get_next_page:
@@ -170,7 +184,15 @@ get_next_page:
     lda #5
     sta TMP1_ADR
 
-    ldy #0
+    ;Update progress indicator
+    dec progress_cnt
+    bne :+
+    lda #15
+    sta progress_cnt
+    jsr progress_tick
+
+    ;Prepare continue writing data
+:   ldy #0
     bra write_loop
 
 io_err:
@@ -183,10 +205,13 @@ close_file:
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
 
+    ;Hide progress indicator
+    jsr progress_hide
+
     rts
 
 page_len = tempvars     ;1 byte
-
+progress_cnt = tempvars+1
 .endproc
 
 ;******************************************************************************
@@ -196,7 +221,7 @@ page_len = tempvars     ;1 byte
 ;                      Length of file name in A
 ;Returns.............: Nothing
 ;Error returns.......: Kernal I/O error code available in file_io_err
-.proc file_read 
+.proc file_read
     ;Set default = no I/O error
     stz file_io_err
 
@@ -259,8 +284,13 @@ page_len = tempvars     ;1 byte
     beq continue
     jmp close
 
-    ;Clear and initialize memory
 continue:
+    ;Show progress sprite
+    lda #20
+    sta progress_cnt
+    jsr progress_show
+
+    ;Clear and initialize memory
     jsr mem_init
     lda #5
     sta CRS_ADR
@@ -300,7 +330,14 @@ read_loop:
 alloc_new_page:
     pha             ;Save char to insert on stack
 
-    stz CRS_ADR
+    ;Update progress indicator
+    dec progress_cnt
+    bne :+
+    jsr progress_tick
+    lda #20
+    sta progress_cnt
+
+:   stz CRS_ADR
 
     jsr mem_alloc   ;Y=bank, X=page
     cpx #0          ;Mem full?
@@ -374,6 +411,9 @@ close:
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
     
+    ;Hide progress indicator
+    jsr progress_hide
+
     rts
 
 mem_full:
@@ -392,6 +432,10 @@ mem_full:
 
 msg:
     .byt "memory full",0
+
+.segment "VARS"
+    progress_cnt: .res 1
+.CODE
 
 .endproc
 

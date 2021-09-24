@@ -262,7 +262,6 @@ toggle:
     jsr cursor_invert
     lda #30                 ;Restart counter for 1/2 second
     sta cursor_toggle_counter
-
 exit:
     rts
 .endproc
