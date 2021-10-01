@@ -237,7 +237,6 @@ write:
 :   lda #5
     sta APP_MOD
 
-    jsr screen_clear_footer
     jsr screen_print_file_ctx_footer
 
     ldx #<msg

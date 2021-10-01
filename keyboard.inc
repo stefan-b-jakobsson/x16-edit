@@ -422,11 +422,9 @@ abort:
 abort:
     jsr prompt_close
     stz APP_MOD
-    jsr screen_clear_footer
     jmp screen_print_default_footer
 
 write_file:
-    jsr screen_clear_footer
     jsr screen_print_default_footer
     ldx #<prompt_input
     ldy #>prompt_input
@@ -516,11 +514,9 @@ write_file:
 abort:
     jsr prompt_close
     stz APP_MOD
-    jsr screen_clear_footer
     jmp screen_print_default_footer
 
 read_file:
-    jsr screen_clear_footer
     jsr screen_print_default_footer
     ldx #<prompt_input
     ldy #>prompt_input
@@ -628,7 +624,6 @@ enterkey:
     cmp #18
     beq open
 save:
-    jsr screen_clear_footer
     jsr screen_print_default_footer
     jsr cursor_activate
     ldx #<prompt_input
@@ -638,7 +633,6 @@ save:
 
 open:
     stz APP_MOD
-    jsr screen_clear_footer
     jsr screen_print_default_footer
     jsr cursor_activate
     ldx #<prompt_input
@@ -651,14 +645,12 @@ abort:
     cmp #18
     beq abortopen
 abortsave:
-    jsr screen_clear_footer
     jsr screen_print_file_ctx_footer
     jsr cursor_activate
     lda #4
     sta APP_MOD
     jmp :+
 abortopen:
-    jsr screen_clear_footer
     jsr screen_print_file_ctx_footer
     jsr cursor_activate
     lda #5

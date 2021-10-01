@@ -36,8 +36,6 @@
     bridge_call KERNAL_CLOSE
 
     bridge_setaddr KERNAL_SETNAM
-    lda #'$'
-    sta dirpath
     lda #1
     ldx #<dirpath
     ldy #>dirpath
@@ -70,19 +68,17 @@ io_error:
     sec
     rts
 
-.segment "VARS"
-    dirpath: .res 1
-.CODE
+dirpath: .byte "$"
 .endproc
 
 ;******************************************************************************
 ;Function name.......: dir_next
 ;Purpose.............: Retrieves next directory entry from file system
 ;Input...............: None
-;Returns.............: filename in          dir_entry
-;                      filename length in   dir_filename_len
-;                      file type in         dir_type
-;                      file block size in   dir_size
+;Returns.............: filename         in dir_entry
+;                      filename length  in dir_filename_len
+;                      file type        in dir_type
+;                      file block size  in dir_size
 ;Returns.............: C=1 if reached end of file or an error
 ;Error returns.......: Call file_read_disk_status to verify if
 ;                      a disk error occured
@@ -103,10 +99,9 @@ read_loop:
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     cmp #0
-    beq :+
-    bra eof
+    bne eof
 
-:   pla
+    pla
 
     ;A state machine parsing a line of dir data
 
@@ -281,7 +276,6 @@ err:
     bcc prepare
     
 err:
-    jsr screen_clear_footer
     jsr screen_print_default_footer
     jsr cursor_activate
     jsr prompt_close

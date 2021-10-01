@@ -109,7 +109,7 @@
 ;                      INSERT     = $1a
 ;Error returns:......: None
 .proc scancode_handler
-    ;Save input so we can restore values before exit
+    ;Save input so we can restore values later
     pha
     phx
     php   
@@ -148,13 +148,11 @@ match:
 
 keydown:
     ;Key down event
-    cpy #16             ;Y>=16 => printable char
-    bcs :++
-    cpy #10             ;Y>=10 => control char
+    cpy #10             ;Y>=10 => control keys and printable keys
     bcs :+
                         ;Y<10 => modifier key
 
-    ;Modifier key       
+    ;Modifier key
     ora scancode_modifiers
     sta scancode_modifiers
     cpy #5              
@@ -163,32 +161,22 @@ keydown:
     bcs exit
     bra consume_and_exit
 
-    ;Control key: set non-standard ASCII value (index+11)
-:   clc
-    tya
-    adc #11
-    sta scancode_ext
-    cmp #$19
-    bne consume_and_exit
-    
-    lda #KBD_EXT_ENT
-    sta scancode_ext
-    bra consume_and_exit
-
-    ;Printable key: set ASCII code
-:   lda printable-16,y
+    ;Control keys and printable keys
+:   lda keyvals-10,y
     sta scancode_ext
     bra consume_and_exit
 
 keyup:
     ;Key up event
-    cpy #10                 ;Y>10 => not modifier key, just consume and exit
+    cpy #10                 ;Y>10 => not modifier key, consume and exit
     bcs consume_and_exit
 
     ;Modifier key, clear status bit
     eor #$ff
     and scancode_modifiers
     sta scancode_modifiers
+    
+    ;Exit if Ctrl key, else consume and exit
     cpy #5              
     bcc exit
     cpy #7
@@ -211,7 +199,9 @@ bitmask:
     .byt KBD_MODIFIER_SHIFT, KBD_MODIFIER_SHIFT, KBD_MODIFIER_ALT
     .byt KBD_MODIFIER_ALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL
     .byt KBD_MODIFIER_WIN, KBD_MODIFIER_WIN, KBD_MODIFIER_CAPS
-printable:
+
+keyvals:
+    .byt KBD_EXT_DELETE, KBD_EXT_END, KBD_EXT_PGUP, KBD_EXT_PGDN, KBD_EXT_ENT, KBD_EXT_INSERT
     .byt KBD_EXT_NUM_0, KBD_EXT_NUM_1, KBD_EXT_NUM_2, KBD_EXT_NUM_3
     .byt KBD_EXT_NUM_4, KBD_EXT_NUM_5, KBD_EXT_NUM_6, KBD_EXT_NUM_7
     .byt KBD_EXT_NUM_8, KBD_EXT_NUM_9, KBD_EXT_NUM_DP, KBD_EXT_NUM_DIV

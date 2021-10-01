@@ -17,7 +17,6 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-
 ;******************************************************************************
 ;Function name.......: screen_init
 ;Purpose.............: Initializes the screen
@@ -25,46 +24,57 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_init
-    ;Get active layer
+    ;Set layer 1 active
     lda VERA_VIDEO
-    and #%00100000
-    bne layer1
-    lda VERA_VIDEO
-    and #%00010000
-    bne layer0
-
-    ;No layer active, set layer 1 active
-    lda VERA_VIDEO
+    and #%11101111
     ora #%00100000
     sta VERA_VIDEO
 
-layer1:
     ;Set 16 color text mode
     lda VERA_L1_CONFIG
     and #%11110000
     sta VERA_L1_CONFIG
-    bra detect
+    lda VERA_L1_TILEBASE
 
-layer0:
-    ;Set 16 color text mode
-    lda VERA_L0_CONFIG
-    and #%11110000
-    sta VERA_L0_CONFIG
+    ;Read tile data to detect charset mode
+    and #%11111100                  ;Set VERA mid (TILEBASE*2, discarding the lowest two bits in TILEBASE)
+    asl
+    sta VERA_M
 
-detect:
-    ;Detect current charset mode
-    jsr screen_charset_detect
+    lda #8                          ;8 => second char, as first char is the same in petscii uc and lc
+    sta VERA_L
+    stz VERA_H
+
+    lda VERA_D0                     ;Get first byte of the char definition, and use that value to detect charset mode
+    
+    ;PETSCII lower and upper case?
+    bne :+
+    lda #2
     sta screen_mode
-    bcc :+                      ;Carry clear => operation succeded, continue using that charset mode
+    bra prepare_screen
 
-    ;Unknown charset mode, use ISO mode
-    bridge_setaddr KERNAL_CHROUT
+    ;PETSCII upper case/graphics?
+:   cmp #$18
+    bne :+
+    lda #1
+    sta screen_mode
+    bra prepare_screen
+
+    ;ISO charset?
+:   cmp #$ff
+    bne :+
+    stz screen_mode
+    bra prepare_screen
+
+    ;Charset unknown, select ISO mode
+:   bridge_setaddr KERNAL_CHROUT
     lda #$0f
     bridge_call KERNAL_CHROUT
     stz screen_mode
 
-    ;Set default background and text color
-:   lda #97
+prepare_screen: 
+    ;Set default background and foreground colors
+    lda #97
     sta screen_color
 
     ;Clear screen
@@ -73,79 +83,8 @@ detect:
     ;Init screen header and footer
     jsr screen_print_header
     jsr screen_print_default_footer
+
     rts
-.endproc
-
-;******************************************************************************
-;Function name.......: screen_charset_detect
-;Purpose.............: Detects current charset by reading and comparing the 
-;                      character definitions; this function may fail if the
-;                      user has defined custom characters. If the
-;                      Kernal API in the future exposes the active charset, this
-;                      function should be redesigned.
-;Input...............: None
-;Returns.............: A=0: ISO
-;                      A=1: PETSCII upper case
-;                      A=2: PETSCII lower case
-;Error returns.......: C=1: Unknown charset
-.proc screen_charset_detect
-    ;Layer 1 active?
-    lda VERA_VIDEO
-    and #%00100000
-    bne layer1
-
-layer0:
-    ;Layer 0 active?
-    lda VERA_VIDEO
-    and #%00010000
-    beq unknown
-
-    ;Get VERA tile base for layer 0
-    lda VERA_L0_TILEBASE
-    bra detect
-
-layer1:
-    ;Get VERA tile base for layer 1
-    lda VERA_L1_TILEBASE
-
-detect:
-    ;Set VERA mid (TILEBASE*2, discarding the lowest two bits in TILEBASE)
-    and #%11111100
-    asl
-    sta VERA_M
-
-    ;Set VERA low and high
-    lda #8      ;8 => second char, as first char is the same in petscii uc and lc
-    sta VERA_L  
-    stz VERA_H
-
-    ;Get first byte of the char definition, and use that value to detect charset mode
-    lda VERA_D0
-    
-    ;PETSCII lower and upper case
-    bne :+
-    lda #2
-    clc
-    rts
-
-    ;PETSCII upper case/graphics
-:   cmp #$18
-    bne :+
-    lda #1
-    clc
-    rts
-
-    ;ISO charset
-:   cmp #$ff
-    bne unknown
-    clc
-    lda #0
-    rts
-
-unknown:
-    sec
-    rts
-
 .endproc
 
 ;******************************************************************************
@@ -155,7 +94,7 @@ unknown:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_print_header
-    ;Clear and set color
+    ;Prepare printing
     stz VERA_L
     stz VERA_M
     lda #(1<<4)
@@ -171,9 +110,8 @@ unknown:
     dex
     bne :-
 
-    ;Program name
+    ;Print program name
     stz VERA_L
-    stz VERA_M
     lda #(2<<4)
     sta VERA_H
 
@@ -185,8 +123,8 @@ name_loop:
     inx
     bra name_loop
 
+    ;Print current file name centered, or NEW BUFFER if file not saved
 filename:
-    ;Print current file name centered
     lda file_cur_filename_len
     beq new_buffer              ;Filename len=0 => new empty buffer
 
@@ -194,21 +132,14 @@ filename:
     cmp #SCREEN_WIDTH-25
     bcc :+
     lda #SCREEN_WIDTH-25
-    sta filename_len
-    bra :++
-
 :   sta filename_len
 
     ;Calulate where to start printing file name
-:   sec
+    sec
     lda #SCREEN_WIDTH
     sbc filename_len
     and #%11111110      ;We must stat at even numbers to output characters instead of changing color
-
     sta VERA_L
-    stz VERA_M
-    lda #(2<<4)
-    sta VERA_H
 
     ldy #0
 filename_loop:
@@ -223,9 +154,6 @@ new_buffer:
     ;Buffer not yet saved. Prints "NEW BUFFER" instead of a file name
     lda #SCREEN_WIDTH-10
     sta VERA_L
-    stz VERA_M
-    lda #(2<<4)
-    sta VERA_H
 
     ldy #0
 newbuffer_loop:
@@ -296,6 +224,11 @@ clear:
     stx TMP1_ADR
     sty TMP1_ADR+1
 
+    ;Clear footer
+    ldx #SCREEN_HEIGHT-2
+    ldy #SCREEN_HEIGHT-1
+    jsr screen_clear_lines
+
     ;Set VERA address to print from start of SCREEN_HEIGHT-2
     stz VERA_L
     lda #SCREEN_HEIGHT-2
@@ -303,6 +236,7 @@ clear:
     lda #(1<<4)
     sta VERA_H
 
+    ;Print footer
     ldy #255
     ldx #0
 printloop:
@@ -342,12 +276,9 @@ nextrow:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_print_default_footer
-    jsr screen_clear_footer
-
     ldx #<row1
     ldy #>row1
     jmp screen_print_footer
-
 row1:
     .byt ":^g get help :^o write out :^y prev page :^k cut   :^c cur pos", 0 
 row2:
@@ -362,8 +293,6 @@ row2:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_print_file_ctx_footer
-    jsr screen_clear_footer
-
     ldx #<row1
     ldy #>row1
     jmp screen_print_footer
@@ -381,8 +310,6 @@ row2:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_print_dir_ctx_footer
-    jsr screen_clear_footer
-
     ldx #<row1
     ldy #>row1
     jmp screen_print_footer
@@ -423,43 +350,22 @@ loop:
     beq exit
 
     cmp #LF
-    bne check_mode
+    beq :+
+    jsr screen_put_uc_char
+    bra next
 
     ;Line feed
-    stz VERA_L
+:   stz VERA_L
     inc VERA_M
-    bra step
 
-check_mode:
-    ldx screen_mode
-    bne petscii
-
-print:
-    sta VERA_D0
-
-step:
+next:
     iny
     bne loop
-
     inc TMP1_ADR+1
     bra loop
 
 exit:
     rts
-
-petscii:
-    cpx #2
-    beq mod_pet_lc
-    .scope
-        charset_ascii_to_petscii_ucase
-    .endscope
-    bra print
-
-mod_pet_lc:
-    .scope
-        charset_ascii_to_petscii_lcase
-    .endscope
-    bra print
 
 ;Help screen content (ASCII/ISO encoded null terminated string)
 msg:
@@ -891,32 +797,9 @@ start_at = tempvars+1   ;1 byte
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_clear_editor
-    ;Set VERA address to start printing from start of row 2
-    stz VERA_L
-    lda #2
-    sta VERA_M
-    lda #(1<<4)
-    sta VERA_H
-
-    ;Pepare printing
-    lda #32                 ;Blank space
-    ldx #SCREEN_WIDTH       ;Columns
-    ldy #SCREEN_HEIGHT-6    ;Rows
-    sty tempvars
-    ldy screen_color
-loop:
-    sta VERA_D0
-    sty VERA_D0
-    dex
-    bne loop
-    stz VERA_L
-    inc VERA_M
-    ldx #SCREEN_WIDTH
-    dec tempvars
-    bne loop
-
-    rts
-rows = tempvars     ;1 byte
+    ldx #2
+    ldy #SCREEN_HEIGHT-4
+    jmp screen_clear_lines
 .endproc
 
 ;******************************************************************************
@@ -926,59 +809,9 @@ rows = tempvars     ;1 byte
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_clear_status
-    ;Set VERA address to start of status line
-    stz VERA_L
-    lda #SCREEN_HEIGHT-3
-    sta VERA_M
-    lda #(1<<4)
-    sta VERA_H
-
-    ;Prepare printing
-    ldx #SCREEN_WIDTH   ;Column count
-    lda #32             ;Blank space
-    ldy screen_color    ;Color
-
-:   sta VERA_D0
-    sty VERA_D0
-    dex
-    bne :-
-
-    rts
-.endproc
-
-;******************************************************************************
-;Function name.......: screen_clear_footer
-;Purpose.............: Clears program footer at two last rows of screen
-;Input...............: None
-;Returns.............: Nothing
-;Error returns.......: None
-.proc screen_clear_footer
-     ;Set VERA address to print from start of row SCREEN_HEIGHT-2
-    lda #SCREEN_HEIGHT-2
-    sta VERA_M
-    lda #(1<<4)
-    sta VERA_H
-
-    ;Prepare loop
-    lda #32             ;Blank space
-    ldy screen_color
-
-rowstart:
-    stz VERA_L
-    ldx #0              ;Column index
-loop:
-    sta VERA_D0
-    sty VERA_D0
-    inx
-    cpx #SCREEN_WIDTH
-    bne loop
-
-    inc VERA_M
-    ldx VERA_M
-    cpx #SCREEN_HEIGHT
-    bne rowstart
-
-    rts
+    ldx #SCREEN_HEIGHT-3
+    ldy #SCREEN_HEIGHT-3
+    jmp screen_clear_lines
 .endproc
 
 ;******************************************************************************
@@ -988,30 +821,42 @@ loop:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_clearall
+    ldx #0
+    ldy #SCREEN_HEIGHT-1
+    jmp screen_clear_lines
+.endproc
+
+;******************************************************************************
+;Function name.......: screen_clear_lines
+;Purpose.............: Clears selected lines
+;Input...............: X=First line to clear, Y=last line to clear
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_clear_lines
+    ;Prepare
     stz VERA_L
-    stz VERA_M
+    stx VERA_M
     lda #(1<<4)
     sta VERA_H
 
-    lda #32
-    ldy screen_color
-
-linestart:
-    ldx #0
-loop:
+    ;Clear screen
+    ldx #SCREEN_WIDTH
+:   lda #32
     sta VERA_D0
-    sty VERA_D0
-    inx
-    cpx #SCREEN_WIDTH
-    bne loop
+    lda screen_color
+    sta VERA_D0
+    dex
+    bne :-
 
     inc VERA_M
-    stz VERA_L
-    ldx VERA_M
-    cpx #SCREEN_HEIGHT
-    bne linestart
+    cpy VERA_M
+    bcc :+
 
-    rts
+    ldx #SCREEN_WIDTH
+    stz VERA_L
+    bra :-
+
+:   rts
 .endproc
 
 ;******************************************************************************

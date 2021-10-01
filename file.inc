@@ -62,22 +62,18 @@ msg:
     sty TMP1_ADR+1
     
     phy
+    phx
     
+    ldx #4
     tay
-    lda #','
+:   lda suffix-1,x
     sta (TMP1_ADR),y
     iny
-    lda #'s'
-    sta (TMP1_ADR),y
-    iny
-    lda #','
-    sta (TMP1_ADR),y
-    iny
-    lda #'w'
-    sta (TMP1_ADR),y
-    iny
+    dex
+    bne :-
     
     tya
+    plx
     ply
 
     ;Close file #1, and open file #1 for writing
@@ -130,11 +126,10 @@ msg:
     ;Offset to skip page metadata
     ldy #5
     sty TMP1_ADR
-    ldy #0
-
-write_loop:
-    bridge_setaddr KERNAL_CHROUT
     
+    bridge_setaddr KERNAL_CHROUT
+    ldy #0
+write_loop:
     cpy page_len
     beq get_next_page
     lda (TMP1_ADR),y
@@ -148,16 +143,18 @@ write_loop:
 :   bridge_call KERNAL_CHROUT
     bcs io_err                      ;Check Kernal I/O error
 
-    bridge_setaddr KERNAL_READST    ;Check disk error, including file not found    
-    bridge_call KERNAL_READST
-    beq :+
-    lda #0                          ;Need to set Kernal I/O err=0
-    bra io_err
-
-:   iny
+    iny
     bra write_loop
 
 get_next_page:
+    ;Check disk status
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST
+    beq :+
+    lda #0
+    bra io_err
+:   bridge_setaddr KERNAL_CHROUT
+
     ;Reset to get page metadata
     stz TMP1_ADR
 
@@ -212,6 +209,8 @@ close_file:
 
 page_len = tempvars     ;1 byte
 progress_cnt = tempvars+1
+
+suffix: .byt "w,s,"     ;Read backwards
 .endproc
 
 ;******************************************************************************
@@ -230,22 +229,18 @@ progress_cnt = tempvars+1
     sty TMP1_ADR+1
     
     phy
+    phx
     
+    ldx #4
     tay
-    lda #','
+:   lda suffix-1,x
     sta (TMP1_ADR),y
     iny
-    lda #'s'
-    sta (TMP1_ADR),y
-    iny
-    lda #','
-    sta (TMP1_ADR),y
-    iny
-    lda #'r'
-    sta (TMP1_ADR),y
-    iny
+    dex
+    bne :-
     
     tya
+    plx
     ply
 
     ;Close file #1, and open file #1 for reading
@@ -428,15 +423,13 @@ mem_full:
     first_char: .res 1
     curpage_len: .res 1
     newpage: .res 2 
+    progress_cnt: .res 1
 .CODE
 
 msg:
     .byt "memory full",0
 
-.segment "VARS"
-    progress_cnt: .res 1
-.CODE
-
+suffix: .byt "r,s,"     ;Read backwards
 .endproc
 
 ;******************************************************************************

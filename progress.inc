@@ -103,13 +103,16 @@ sprite_data:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc progress_show
+    ;Ensure all progress indicators are hidden
     stz progress_state
     jsr progress_tick
 
+    ;Enable sprites
     lda VERA_VIDEO
     ora #%01000000
     sta VERA_VIDEO
     
+    ;Set progress state
     stz progress_state
     rts
 .endproc
@@ -121,6 +124,7 @@ sprite_data:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc progress_hide
+    ;Disable all sprites
     lda VERA_VIDEO
     and #%10111111
     sta VERA_VIDEO
@@ -137,6 +141,7 @@ sprite_data:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc progress_tick
+    ;Prepare to write sprite config
     lda #(8+6)
     sta VERA_L
     lda #$fc
@@ -144,19 +149,19 @@ sprite_data:
     lda #1 + (4<<4)
     sta VERA_H
     
-    ldy #12
     lda progress_state
-
+    ldy #12
     ldx #3
 loop:
-    lsr
+    lsr             ;Shift state bit into carry
     bcs :+
-    stz VERA_D0
+    stz VERA_D0     ;Progress indicator hidden
     bra :++
-:   sty VERA_D0
+:   sty VERA_D0     ;Progress indicator shown
 :   dex
     bne loop
 
+    ;Advance progress state counter
     sec
     rol progress_state
     lda progress_state
