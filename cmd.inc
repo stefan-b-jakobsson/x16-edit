@@ -1453,9 +1453,9 @@ msg:
 ;Error returns.......: None
 .proc cmd_paste
     ;Check if clipboard is empty
-    lda clipboard_pointer+1
+    lda clipboard_end+1
     bne not_empty
-    lda clipboard_pointer
+    lda clipboard_end
     cmp #>clipboard_mem
     bne not_empty
 

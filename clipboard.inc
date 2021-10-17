@@ -19,18 +19,17 @@
 
 ;******************************************************************************
 ;Function name.......: clipboard_init
-;Purpose.............: Initializes and clears clipboard memory
+;Purpose.............: Initializes and clears clipboard memory pointers
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc clipboard_init
-    lda #>clipboard_mem
-    sta clipboard_pointer
+    ;Pointer to end of clipboard content
+    lda #>clipboard_mem         ;MSB
     sta clipboard_end
+    stz clipboard_end+1         ;LSB
 
-    stz clipboard_pointer+1
-    stz clipboard_end+1
-
+    ;Clear flags
     stz clipboard_flags
 
     rts
@@ -47,10 +46,8 @@
     tax
 
     ;Check if clipboard mem is full
-    sec
-    lda clipboard_pointer
-    sbc #>clipboard_mem
-    cmp #CLIPBOARD_SIZE
+    lda clipboard_end
+    cmp #(>clipboard_mem+CLIPBOARD_SIZE)
     bcc mem_not_full
 
 mem_full:
@@ -59,34 +56,28 @@ mem_full:
 
 mem_not_full:
     ;Prepare to insert char in clipboard mem
-    lda #<clipboard_mem
-    sta TMP1_ADR
-    lda clipboard_pointer
+    stz TMP1_ADR
+    lda clipboard_end
     sta TMP1_ADR+1
-    ldy clipboard_pointer+1
+    ldy clipboard_end+1
     
     ;Save current RAM bank on stack
     lda BNK_SEL
     pha
 
-    ;Select RAM bank stack for clipboard mem
+    ;Select RAM bank for clipboard mem
     lda mem_start
     sta BNK_SEL
 
-    ;Store char
+    ;Store char in clipboard mem
     txa
     sta (TMP1_ADR),y
     
     pla                 ;Restore RAM bank
     sta BNK_SEL
-    
-    ;Increase clipboard pointer
-    inc clipboard_pointer+1
-    bne :+
-    inc clipboard_pointer
 
     ;Increase clipboard end pointer
-:   inc clipboard_end+1
+    inc clipboard_end+1
     bne exit
     inc clipboard_end
 
@@ -117,11 +108,7 @@ exit:
     stz count+1
     stz count+2
 
-    ;Backup clipboard pointer on the stack, should we need to restore on mem full
-    lda clipboard_pointer
-    pha
-    lda clipboard_pointer+1
-    pha
+    ;Backup clipboard end pointer on the stack, should we need to restore on mem full
     lda clipboard_end
     pha
     lda clipboard_end+1
@@ -183,8 +170,6 @@ exit:
     ;Clean stack
     pla
     pla
-    pla
-    pla
 
     ;Set return values
     ldx count
@@ -199,10 +184,6 @@ full:
     sta clipboard_end+1
     pla
     sta clipboard_end
-    pla
-    sta clipboard_pointer+1
-    pla
-    sta clipboard_pointer
 
     ;Exit with C=1 to indicate mem full
     sec
@@ -269,55 +250,55 @@ exit:
 
 ;******************************************************************************
 ;Function name.......: clipboard_paste
-;Purpose.............: Pastes clipboard memory into buffer; clipboard memory
-;                      will be cleared when done
+;Purpose.............: Pastes clipboard memory into buffer
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc clipboard_paste
-    ;Move pointer to start of clipboard mem
+    ;Set vector to start of clipboard memory
+    stz TMP1_ADR
     lda #>clipboard_mem
-    sta clipboard_pointer
-    stz clipboard_pointer+1
+    sta TMP1_ADR+1
+    ldy #0
 
 loop:
-    ;Setup vectors to clipboard mem
-    lda #<clipboard_mem
-    sta TMP1_ADR
-    lda clipboard_pointer
-    sta TMP1_ADR+1
-    ldy clipboard_pointer+1
-    
-    ;Check if we are at end of clipboard mem, exit if so
-    lda clipboard_pointer
+    ;Check if at end of clipboard content
+    lda TMP1_ADR+1
+    pha                     ;Need to store on stack, will be affected by subsequent call to cmd_insert
     cmp clipboard_end
     bcc :+
     cpy clipboard_end+1
-    bcs paste_done
+    bcs exit
 
-    ;Otherwise we insert char into buffer
-:   lda mem_start
+:   ;Get char from clipboard mem
+    lda mem_start
     sta BNK_SEL
     lda (TMP1_ADR),y
+    
+    ;Insert char into text buffer
+    phy                     ;Need to store on stack, will be affected by call to cmd_insert
     jsr cmd_insert
+    ply                     ;Restore Y
+    pla                     ;Restore TMP1_ADR
+    sta TMP1_ADR+1
+    stz TMP1_ADR
 
-    ;Increase clipboard pointer, and start over
-    inc clipboard_pointer+1
+    iny
     bne loop
-    inc clipboard_pointer
+
+    inc TMP1_ADR+1
     bra loop
 
-paste_done:
+exit:
     ;We're done. Set uncut flag
+    pla                     ;Clean stack
     lda clipboard_flags
     ora #CLIPBOARD_UNCUT
     sta clipboard_flags
     rts
-
 .endproc
 
 .segment "VARS"
-    clipboard_pointer:      .res 2              ;2 bytes
     clipboard_end:          .res 2              ;2 bytes
     clipboard_flags:        .res 1
 .CODE
