@@ -124,9 +124,12 @@ TMP2_IDX:   .res 1   ;Index
 ;*****************************************************************************
 .segment "VARS"
 
-bridge_code:            .res 55             ;Bridge code, used by ROM version of the program
+bridge_code:            .res 57             ;Bridge code, used by ROM version of the program
 APP_MOD:                .res 1              ;1 byte, application mode
 APP_QUIT:               .res 1              ;1 byte, used to signal program exit
+.if target_mem=target_rom
+    rom_bank:           .res 1              ;Bank where ROM version of the program is stored
+.endif
 tempvars:               .res 16             ;Temporary variables
 
 .CODE
@@ -141,7 +144,6 @@ dir_entry                               = $b500               ;256 bytes
 ;*****************************************************************************
 ;CONSTANTS
 ;*****************************************************************************
-.define ROM_BNK 7           ;The bank where ROM version of X16 Edit is stored
 .define LF 10
 .define CR 13          
 .define SCREEN_WIDTH 80

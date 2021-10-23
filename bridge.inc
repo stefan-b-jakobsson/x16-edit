@@ -34,7 +34,7 @@
 .endproc
 
 ;******************************************************************************
-;Function name.......: kernal_bridge
+;Function name.......: bridge_kernal
 ;Purpose.............: Bridge code to be copied to RAM on program startup.
 ;                      Necessary to make the program run in ROM
 ;Input...............: Use macro BRIDGE_SETADDR to set the Kernal address
@@ -43,14 +43,14 @@
 ;Error returns.......: None
 
 ;Bridge for Kernal function calls
-bridge_kernal:
+bridge_kernal:         
     stz ROM_SEL        ;Kernal is ROM bank 0
     jsr $ffff          ;$ffff is just placeholder
     pha
-    lda #ROM_BNK       ;Set ROM select to our bank again
+    lda rom_bank       ;Set ROM select to our bank again
     sta ROM_SEL
     pla
-    rts                
+    rts                ;Size: 13 bytes
 
 ;Bridge for interrupt handling, called by the Kernal
 ;on interrupt, switches to X16 Edit's ROM bank and then
@@ -58,12 +58,12 @@ bridge_kernal:
 bridge_irq:
     lda ROM_SEL
     pha
-    lda #ROM_BNK
+    lda rom_bank
     sta ROM_SEL
     jsr irq_handler
     pla
     sta ROM_SEL
-    jmp (irq_default_handler) 
+    jmp (irq_default_handler) ;Size: 17 bytes
 
 ;Bridge for custom keyboard scan code handler
 bridge_scancode:
@@ -72,7 +72,7 @@ bridge_scancode:
 
     lda ROM_SEL
     sta bridge_temp
-    lda #ROM_BNK
+    lda rom_bank
     sta ROM_SEL
     
     pla
@@ -86,9 +86,9 @@ bridge_scancode:
 
     pla
     plp
-    rts
+    rts             ;Size: 27 bytes
 
-bridge_end:
+bridge_end:         ;Total size: 57 bytes
 
 .segment "VARS"
     bridge_temp:    .res 1

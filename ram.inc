@@ -28,14 +28,13 @@
 ;                      and mem_top to be backed up has to be pushed onto 
 ;                      the stack. This function will remove those values from 
 ;                      the stack, but leave the JSR return address unaffected.
-;Input...............: None
+;Input...............: X=mem start
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc ram_backup
     backup = $b000
 
-    lda mem_start
-    sta BNK_SEL
+    stx BNK_SEL
 
     ;Copy golden RAM
     ldx #0
@@ -59,19 +58,7 @@
     inx
     cpx #$14
     bne :-
-
-    ;Get initial values of mem_start and mem_top from stack, stored there at beginning of main function
-    plx     ;First pulling off return address...
-    ply     ;...two bytes, and temporarily store in X and Y
-
-    pla     ;Pull off mem_top
-    sta backup+mem_top-$0400
-    pla     ;Pull off mem_start
-    sta backup+mem_start-$0400
-
-    ;Restore return address on stack
-    phy
-    phx
+    
     rts
 
 .endproc

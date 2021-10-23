@@ -35,6 +35,7 @@
     stz cmd_wordwrap_mode
     lda #80
     sta cmd_wordwrap_pos
+    
     rts
 .endproc
 
@@ -183,9 +184,13 @@ bs_not_found:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_wrap_buffer
-    jsr cmd_go_start
+    ;The buffer is rewrapped in the following two steps:
+    ;1. Remove all line feeds within paragraphs, hereinafter referred to as "merge"
+    ;2. Break each paragraph into lines of selected length, hereinafter referred to as "split"
 
+    ;Merge all paragraphs by removing line feeds within them
 merge:
+    jsr cmd_go_start
     jsr setup
 
 merge_loop:
@@ -279,6 +284,7 @@ merge_ai_on:
     
     jmp merge_loop
 
+    ;Split paragraphs into lines of the selected length
 split:
     jsr cmd_go_start
     jsr setup
@@ -597,22 +603,19 @@ msg:
     stz counter+2
     
 loop:
-    lda counter+2
-    cmp mem_cur_col+2
-    beq :+
-    bcs at_tab_stop
+    lda mem_cur_col+2
+    cmp counter+2
+    bcc at_tab_stop
 
-:   lda counter+1
-    cmp mem_cur_col+1
-    beq :+
-    bcs at_tab_stop
+    lda mem_cur_col+1
+    cmp counter+1
+    bcc at_tab_stop
 
-:   lda counter
-    cmp mem_cur_col
-    beq :+
-    bcs at_tab_stop
+    lda mem_cur_col
+    cmp counter
+    bcc at_tab_stop
 
-:   clc
+    clc
 
     lda counter
     adc keyboard_tabwidth
@@ -628,7 +631,6 @@ loop:
 
     bra loop
     
-
 at_tab_stop:
     lda mem_cur_col
     lda mem_cur_col+1
@@ -679,8 +681,6 @@ at_tab_stop:
     ;Delete one char from memory
     jsr mem_delete
     bcc char_deleted                ;C=1: We're at start of file, nothing was deleted
-    
-    ldx #0
     rts
 
     ;Check if we deleted a line break (indicated by X=1), a special case to handle
@@ -741,27 +741,14 @@ loop:
     jsr mem_lnv_step_right
 
 continue:
-    ;Check if done
-    lda counter
-    bne :+
-    lda counter+1
-    bne :+
-    lda counter+2
-    beq linebreak_deleted_exit
-
     ;Decrease column counter
-:   dec counter
     lda counter
-    cmp #$ff
-    bne loop
-    
-    dec counter+1
+    bne :++
     lda counter+1
-    cmp #$ff
-    bne loop
-
+    bne :+
     dec counter+2
-
+:   dec counter+1
+:   dec counter
     bra loop
     
 linebreak_deleted_exit:
@@ -1037,17 +1024,13 @@ stepto_column:
     jsr mem_lnv_step_right
 
 dec_count:
-    dec count
     lda count
-    cmp #$ff
-    bne stepto_column
-
-    dec count+1
+    bne :++
     lda count+1
-    cmp #$ff
-    bne stepto_column
-
+    bne :+
     dec count+2
+:   dec count+1
+:   dec count
     bra stepto_column
 
 exit:
@@ -1172,17 +1155,13 @@ loop_2:
 
 loop_3:
     ;Decrease counter
-    dec count
     lda count
-    cmp #$ff
-    bne loop
-
-    dec count+1
+    bne :++
     lda count+1
-    cmp #$ff
-    bne loop
-
+    bne :+
     dec count+2
+:   dec count+1
+:   dec count
     bra loop
 
 exit:
@@ -1284,18 +1263,13 @@ loop:
 :   jsr mem_cur_col_inc
 
     ;Decrease counter
-    dec counter
     lda counter
-    cmp #$ff
-    bne loop
-
-    dec counter+1
+    bne :++
     lda counter+1
-    cmp #$ff
-    bne loop
-
+    bne :+
     dec counter+2
-
+:   dec counter+1
+:   dec counter
     bra loop
 
 exit:
@@ -1556,8 +1530,7 @@ msg:
     ;Display in status row
     ldx #<msg
     ldy #>msg
-    jsr screen_print_status
-    rts
+    jmp screen_print_status
 
 msg = cmd_display_msg
 
@@ -1936,8 +1909,7 @@ searchfor = cmd_display_msg
     stz file_cur_filename_len
 
     jsr screen_refresh
-    jsr screen_print_header
-    rts
+    jmp screen_print_header
 
 msg:
     .byt "buffer modified. save before create new buffer? (y/n)",0
@@ -2190,12 +2162,10 @@ msg_off:
     inc screen_mode
 
     lda screen_mode
-    beq iso
     cmp #1
     beq petscii_uc
     cmp #2
     beq petscii_lc
-
     stz screen_mode
 
 iso:
@@ -2243,7 +2213,6 @@ exit:
     sta APP_MOD
 
     lda screen_mode
-    beq iso
     cmp #1
     beq pet_uc
     cmp #2

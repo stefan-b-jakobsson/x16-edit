@@ -54,7 +54,7 @@ jmp main_loadfile_entry
 ;Error returns.......: None
 .proc main_default_entry
     jsr main_init
-    bcs exit
+    bcs exit            ;C=1 => init failed
     jmp main_loop
 exit:
     rts
@@ -69,7 +69,7 @@ exit:
 ;Error returns.......: None
 .proc main_loadfile_entry
     jsr main_init
-    bcs exit
+    bcs exit            ;C=1 => init failed
     ldx r0
     ldy r0+1
     lda r1
@@ -95,53 +95,47 @@ exit:
 .proc main_init
     ;Ensure we are in binary mode
     cld
-    
-    ;Save content of mem_start and mem_top on stack before the values are changed
-    ;These values are to be picked up by the ram_backup function
-    ;Not the cleanest solution, but there's nothing else to do if RAM is to be preserved
-    lda mem_start
-    pha
-    lda mem_top
-    pha
 
-    ;Set banked RAM start and end
+    ;Save mem_start and mem_top on stack
     .if (::target_mem=target_ram)
         ldx #1
         ldy #255
     .endif
-    stx mem_start
-    sty mem_top
 
-    ;Check if banked RAM start<=top
-    ldy mem_top
-    cpy mem_start
-    bcs rambackup
-
-    ;Error: mem_top < mem_start
-    bridge_setaddr KERNAL_CHROUT
-    ldx #0
-print_error:
-    lda errormsg,x
-    beq print_error_done
-    bridge_call KERNAL_CHROUT
+    cpx #0  ;Don't allow bank start = 0, it will mess up the Kernal
+    bne :+
     inx
-    bra print_error
 
-print_error_done:
-    sec
-    rts
+:   phx ;start
+    phy ;top
 
-    ;Backup ZP and low RAM, so we can restore on program exit
-rambackup:
+    ;Backup zero page and golden RAM so it can be restored on program exit
     jsr ram_backup
 
-    ;Set program mode to default
-    stz APP_MOD
+    ;Save ROM bank; used by Kernal bridge code so it knows where to return
+    .if (::target_mem=target_rom)
+        lda ROM_SEL
+        sta rom_bank
+    .endif
+
+    ;Set banked RAM start and end
+    ply
+    plx
+    stx mem_start
+    sty mem_top
 
     ;Copy Kernal bridge code to RAM
     .if (::target_mem=target_rom)
         jsr bridge_copy
     .endif
+
+    ;Check if banked RAM start<=top
+    ldy mem_start
+    cpy mem_top
+    bcs err
+
+    ;Set program mode to default
+    stz APP_MOD
 
     ;Initialize base functions
     jsr mem_init
@@ -156,8 +150,22 @@ rambackup:
     clc
     rts
 
+    ;Error: mem_top < mem_start - display error message, and restore zero page + golden ram
+err:
+    bridge_setaddr KERNAL_CHROUT
+    ldx #0
+
+:   lda errormsg,x
+    beq :+
+    bridge_call KERNAL_CHROUT
+    inx
+    bra :-
+
+:   sec
+    jmp ram_restore
+
 errormsg:
-    .byt "error: banked ram top less than banked ram start",0
+    .byt "banked ram allocation error.",0
 .endproc
 
 ;******************************************************************************
@@ -180,8 +188,11 @@ errormsg:
     cmp #2
     bne :-
 
+    ;Remove custom scancode handler
     jsr scancode_restore
-    jsr ram_restore     ;Restore ZP and low RAM used by the program
+    
+    ;Restore zero page and golden RAM from backup taken during program initialization
+    jsr ram_restore
 
 exit:
     rts

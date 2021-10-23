@@ -61,9 +61,9 @@ msg:
     sty filename+1
     sta filelen
 
-    ;Close prompt and disable cursor
+    ;Close prompt
     jsr prompt_close
-
+    
     ;Write buffer to file
     ldx filename
     ldy filename+1

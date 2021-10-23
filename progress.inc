@@ -60,11 +60,21 @@
     sta VERA_H
     
     ldx #0
+    ldy #4
 :   lda sprite_data,x
     sta VERA_D0
     inx
-    cpx #32
+    cpx #4
     bne :-
+    ldx #0
+    dey
+    bne :-
+
+    ldy #16
+:   stz VERA_D0
+    dey
+    bne :-
+
     rts
 
 config:
@@ -88,7 +98,7 @@ config_data:
     .byt 0
 
 sprite_data:
-    .byt 0,85,85,0,0,85,85,0,0,85,85,0,0,85,85,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    .byt 0,85,85,0
        
 .segment "VARS"
     temp: .res 1
