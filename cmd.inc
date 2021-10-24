@@ -632,12 +632,6 @@ loop:
     bra loop
     
 at_tab_stop:
-    lda mem_cur_col
-    lda mem_cur_col+1
-    lda counter
-    lda counter+1
-    lda counter+2
-
     ;Calculate difference
     sec
     
