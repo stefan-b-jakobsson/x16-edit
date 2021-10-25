@@ -56,19 +56,17 @@
     
     ;Store char in mem
 :   jsr mem_insert
-    bcc :+
-    bra mem_full
+    bcs mem_full
 
     ;Increase current columm index
-:   jsr mem_cur_col_inc
+    jsr mem_cur_col_inc
 
     ;Move cursor one step right
     jsr cursor_move_right
-    bcs :+
-    bra wrap
+    bcc wrap
 
     ;Carry set, cursor at rightmost position, need to scroll
-:   jsr mem_lnv_step_right
+    jsr mem_lnv_step_right
 
 wrap:
     ;Word wrap enabled?
@@ -97,9 +95,9 @@ mem_full:
 ;Error returns.......: C=1 if a line feed char was inserted
 .proc cmd_word_wrap
     ;Check if we're at the column where to wrap the line
-    lda mem_cur_col+1
-    bne nowrap
     lda mem_cur_col+2
+    bne nowrap
+    lda mem_cur_col+1
     bne nowrap
     lda mem_cur_col
     cmp cmd_wordwrap_pos
@@ -135,12 +133,11 @@ wrap_step_back:
     beq wrap_done
 
 :   jsr cmd_go_right
-    
-    dec prevblank
+
     lda prevblank
-    cmp #$ff
-    bne wrap_step_back
+    bne :+
     dec prevblank+1
+:   dec prevblank
     bra wrap_step_back
 
 wrap_done:
@@ -163,7 +160,6 @@ bs_not_found:
     sta CRS_BNK
 
     ;Insert LF
-    lda #LF
     jsr cmd_insert_lf
 
     ;Return value
@@ -226,8 +222,7 @@ merge_loop:
     
     lda stream_bs               ;Line starts with blank space: Keep line break, treated as new paragraph
     and #%00000001
-    beq merge_del
-    bra merge_loop
+    bne merge_loop
 
 merge_del:
     jsr mem_delete              ;Delete line break
@@ -541,17 +536,13 @@ auto_indent_insert_blanks:
 :   lda #32
     jsr cmd_insert
 
-    dec counter2
     lda counter2
-    cmp #$ff
-    bne auto_indent_insert_blanks
-
-    dec counter2+1
+    bne :++
     lda counter2+1
-    cmp #$ff
-    bne auto_indent_insert_blanks
-    
+    bne :+
     dec counter2+2
+:   dec counter2+1
+:   dec counter2
     bra auto_indent_insert_blanks
 
 linefeed_exit:
@@ -1012,9 +1003,8 @@ stepto_column:
 
     ;Move cursor, if at rightmost position (but not end of line), need to scroll line
     jsr cursor_move_right
-    bcs :+
-    bra dec_count
-:   ;C=1, need to scroll
+    bcc dec_count
+    ;C=1, need to scroll
     jsr mem_lnv_step_right
 
 dec_count:
@@ -1405,8 +1395,7 @@ mem_full:
     
     ldx #<msg
     ldy #>msg
-    jsr screen_print_status
-    rts
+    jmp screen_print_status
 
 msg:
     .byt "clipboard full, could not copy line", 0
