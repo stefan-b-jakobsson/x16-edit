@@ -293,15 +293,7 @@ continue:
     ;Store first char
     ldy #0
     lda first_char
-    
-    cmp #CR             ;Convert CR to LF line break
-    bne :+
-    lda #LF
-
-:   sta (CRS_ADR),y
-    
-    lda #1
-    sta curpage_len
+    bra :+
 
 read_loop:
     bridge_setaddr KERNAL_READST
@@ -310,7 +302,7 @@ read_loop:
     bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
 
-    cmp #CR         ;Concert CR to LF line break
+:   cmp #CR         ;Convert CR to LF line break
     bne :+
     lda #LF
 

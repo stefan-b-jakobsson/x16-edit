@@ -46,21 +46,18 @@
     ldx file_cur_device
     ldy #0
     bridge_call KERNAL_SETLFS
-    bcc :+
-    bra io_error
+    bcs io_error
 
-:   bridge_setaddr KERNAL_OPEN
+    bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
-    bcc :+
-    bra io_error
+    bcs io_error
 
-:   bridge_setaddr KERNAL_CHKIN
+    bridge_setaddr KERNAL_CHKIN
     ldx #1
     bridge_call KERNAL_CHKIN
-    bcc :+
-    bra io_error
+    bcs io_error
 
-:   clc
+    clc
     rts
 
 io_error:
@@ -79,6 +76,7 @@ dirpath: .byte "$"
 ;                      filename length  in dir_filename_len
 ;                      file type        in dir_type
 ;                      file block size  in dir_size
+;                      end of listing   in dir_islastpage
 ;Returns.............: C=1 if reached end of file or an error
 ;Error returns.......: Call file_read_disk_status to verify if
 ;                      a disk error occured
@@ -101,24 +99,15 @@ read_loop:
     cmp #0
     bne eof
 
-    pla
-
     ;A state machine parsing a line of dir data
+    lda state
+    asl
+    tax
+    pla
+    jmp (jmp_tbl,x)
 
-    ldy state
-    cpy #2
-    bcc state0      ;State 0-1: Skip first two chars, contains pointer to start of next basic line which is of no interest to us
-    cpy #2
-    beq state2      ;State 2: Set size low byte (3rd char on line)
-    cpy #3
-    beq state3      ;State 3: Set size high byte (4th char on line)
-    cpy #4
-    beq state4      ;State 4: Search for double quote, marking the start of the file/dir name
-    cpy #5
-    beq state5      ;State 5: Search for double quote, marking the end of the file/dir name
-    cpy #6
-    beq state6      ;State 6: Search for first non blank space char and save it as file type (eg d=dir, p=prg ...)
-    bra state7      ;State 7: Search for null char terminating the line, and return
+jmp_tbl:
+    .word state0, state0, state2, state3, state4, state5, state6, state7
 
 state0:
     inc state
@@ -149,12 +138,12 @@ state5:
 
 :   ldy dir_filename_len
     cpy #255
-    beq :+
+    beq read_loop
     
     sta dir_entry,y
     inc dir_filename_len
 
-:   bra read_loop
+    bra read_loop
 
 state6:
     cmp #$20
