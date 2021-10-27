@@ -291,6 +291,7 @@ continue:
     sta CRS_ADR
         
     ;Store first char
+    stz curpage_len
     ldy #0
     lda first_char
     bra :+
