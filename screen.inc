@@ -77,6 +77,14 @@ prepare_screen:
     lda #97
     sta screen_color
 
+    ;Set default header color
+    lda #64
+    sta screen_header_color
+
+    ;Set default status line color
+    lda #160
+    sta screen_status_color
+
     ;Clear screen
     jsr screen_clearall
 
@@ -102,8 +110,8 @@ prepare_screen:
 
     ;Clear header
     ldx #SCREEN_WIDTH
-    ldy #32             ;Blank space
-    lda #64             ;Color
+    ldy #32                     ;Blank space
+    lda screen_header_color     ;Color
     
 :   sty VERA_D0
     sta VERA_D0
@@ -256,7 +264,7 @@ printloop:
     bra printloop
 
 :   dex
-    lda #64             ;Different background color
+    lda screen_header_color             ;Different background color
     sta VERA_D0
     bra printloop
 
@@ -768,7 +776,7 @@ continue:
 
     ;Prepare printing, Y=char index, X=color
     ldy #0
-    ldx #160
+    ldx screen_status_color
 
     ;Print loop
     lda len
@@ -936,4 +944,6 @@ screen_scrcodes:
 .segment "VARS"
     screen_mode:            .res 1              ;1 byte
     screen_color:           .res 1              ;1 byte
+    screen_header_color:    .res 1
+    screen_status_color:    .res 1
 .CODE

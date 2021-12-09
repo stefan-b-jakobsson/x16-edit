@@ -43,16 +43,25 @@
 ;Description.........: Entry points
 jmp main_default_entry
 jmp main_loadfile_entry
+jmp main_loadfile_with_options_entry
 
 ;******************************************************************************
 ;Function name.......: main_default_entry
 ;Purpose.............: Default entry function; starts the editor with an
 ;                      empty buffer
 ;Input...............: First RAM bank used by the program in X and last RAM
-;                      bank used by the program in Y.
+;                      bank used by the program in Y. Settings ignored in
+;                      RAM version of the program, where it defaults to
+;                      X=1 and Y=255.
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_default_entry
+    ;If RAM version, set banked RAM usage to banks 1..255
+    .if (::target_mem=target_ram)
+        ldx #1
+        ldy #255
+    .endif
+
     jsr main_init
     bcs exit            ;C=1 => init failed
     jmp main_loop
@@ -65,6 +74,8 @@ exit:
 ;Purpose.............: Program entry function
 ;Input...............: First RAM bank used by the program in X and last RAM
 ;                      bank used by the program in Y
+;                      Pointer to file name in r0
+;                      File name length in r1L
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_loadfile_entry
@@ -73,15 +84,122 @@ exit:
     ldx r0
     ldy r0+1
     lda r1
+    beq start
     jsr cmd_file_open
     
     ldx #0
     ldy #2
     jsr cursor_move
 
+start:
     jmp main_loop
+
 exit:
     rts
+.endproc
+
+;******************************************************************************
+;Function name.......: main_loadfile_with_options_entry
+;Purpose.............: Program entry function
+;Input...............: First RAM bank used by the program in X and last RAM
+;                      bank used by the program in Y
+;                      
+;                      Reg Bit Description
+;                      -------------------
+;                      r0      Pointer to file name
+;                      r1L     File name length, or 0 if no file
+;                      r1H 0   Auto indent on/off
+;                      r1H 1   Word wrap on/off
+;                      r1H 2-7 Unused
+;                      r2L     Tab width (1..9)
+;                      r2H     Word wrap position (10..250)
+;                      r3L     Current device number (8..30)
+;                      r3H 0-3 Screen text color
+;                      r3H 4-7 Screen background color
+;                      r4L 0-3 Header text color
+;                      r4L 4-7 Header background color
+;                      r4H 0-3 Status bar text color
+;                      r4H 4-7 Status bar background color
+;                      Settings out of range are silently ignored.
+;                      Color settings are ignored if both text and background color is 0, "black on black"
+;Returns.............: Nothing
+;Error returns.......: None
+.proc main_loadfile_with_options_entry
+    jsr main_init
+    bcs exit            ;C=1 => init failed
+    
+    ;Auto indent
+    bbr0 r1+1, :+
+    inc cmd_auto_indent_status
+
+    ;Word wrap
+:   bbr1 r1+1, :+
+    inc cmd_wordwrap_mode
+
+    ;Tab width (1..9)
+:   lda r2
+    beq :+
+    cmp #10
+    bcs :+
+    sta keyboard_tabwidth
+
+    ;Word wrap position (10..250)
+:   lda r2+1
+    cmp #10
+    bcc :+
+    cmp #251
+    bcs :+
+    sta cmd_wordwrap_pos
+
+    ;Current device (8..30)
+:   lda r3
+    cmp #8
+    bcc :+
+    cmp #31
+    bcs :+
+    sta file_cur_device
+
+    ;Screen text and background colors
+:   lda r3+1
+    beq :+                  ;Ignore 0, "black on black"
+    sta screen_color
+
+    ;Header text and background colors
+:   lda r4
+    beq :+                  ;Ignore 0, "black on black"
+    sta screen_header_color
+
+    ;Status bar text and background colors
+:   lda r4+1
+    beq :+                  ;Ignore 0, "black on black"
+    sta screen_status_color
+
+    ;Refresh display
+:   jsr cursor_disable
+    jsr screen_clearall
+    jsr screen_print_header
+    jsr screen_print_default_footer
+    jsr screen_refresh
+    jsr screen_println
+    jsr cursor_activate
+
+    ;Load text file from disk
+    lda r1
+    beq start          ;Len=0 => no file, ignore
+    ldx r0
+    ldy r0+1
+    jsr cmd_file_open
+    
+    ldx #0
+    ldy #2
+    jsr cursor_move
+    
+start:
+    jmp main_loop
+
+exit:
+    rts
+
 .endproc
 
 ;******************************************************************************
@@ -96,13 +214,8 @@ exit:
     ;Ensure we are in binary mode
     cld
 
-    ;Save mem_start and mem_top on stack
-    .if (::target_mem=target_ram)
-        ldx #1
-        ldy #255
-    .endif
-
-    cpx #0  ;Don't allow bank start = 0, it will mess up the Kernal
+    ;Don't allow bank start = 0, it will mess up the Kernal
+    cpx #0
     bne :+
     inx
 

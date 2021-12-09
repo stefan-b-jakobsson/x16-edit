@@ -66,7 +66,7 @@ set_bgcolor:
     sta VERA_L
     
     ldx #SCREEN_WIDTH
-    lda #160    ;Color
+    lda screen_status_color    ;Color
 
 :   sta VERA_D0
     dex

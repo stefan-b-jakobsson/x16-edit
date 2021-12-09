@@ -360,6 +360,110 @@
     By default the file handling functions use device \#8. The device
     number may be changed by pressing Ctrl+D.
 
+\section{Application Interface}
+
+    \subsection{Program Entry points}
+
+        X16 Edit has a small Application Interface (API) that consists of the three
+        entry points described in more detail below.
+
+        The entry points may be used by other programs to start X16 Edit, and to
+        control how it's configured on startup.
+
+    \subsection{Default entry point}
+
+        The default entry point starts the editor with default options and with an
+        empty new text buffer.
+
+        The call address is \$080D in the RAM version and \$C000
+        in the ROM version of the program. The default entry point is called in
+        the RAM version when started with the RUN command.
+
+        Before calling the entry point in the ROM version of the program, you need to set the following
+        parameters.
+
+        \begin{longtable}{l l }
+            \caption{List of parameters} \\
+	        \textbf{Register} & \textbf{Description} \\
+	        \hline \\
+            X  & First RAM bank used by the program \\
+            Y  & Last RAM bank used by the program \\
+        \end{longtable}
+
+        \noindent Those parameters are ignored in the RAM version of the program, and
+        defaults to using all available banked RAM, banks 1--255.
+
+        The purpose of setting the first and last RAM banks, is to reserve parts of banked RAM
+        for other purposes.
+
+    \subsection{Load file entry point}
+
+        On startup, the load file entry point loads a specified text file from the SD Card.
+
+        The call address is \$0810 in the RAM version and \$C003 in the ROM version of the program.
+        Before calling the entry point, you need to set the following parameters.
+
+        \begin{longtable}{l l l}
+            \caption{List of parameters} \\
+	        \textbf{Register} & \textbf{Address} & \textbf{Description} \\
+	        \hline \\
+            X   &          & First RAM bank used by the program \\
+            Y   &          & Last RAM bank used by the program \\
+            r0  & \$02--03 & Pointer to file name \\
+            r1L & \$04     & File name length, or 0=no file \\
+        \end{longtable}
+
+        \noindent If the specified file does not exist, the editor will display display an
+        error message. If the file name length is 0, the program will not try
+        to load any text file on startup.
+
+        The first and last RAM bank settings control what parts of banked RAM is
+        used by the program. This option may be used to reserve parts of banked RAM
+        for other purposes.
+
+    \subsection{Load file with options entry point}
+
+        On startup, the load file with options entry point applies the specified editor options, and then loads
+        a text file from the SD Card.
+
+        The call address is \$0813 in the RAM version and \$C006 in the ROM version of the program.
+        Before calling the entry point, you need to set the following parameters.
+
+        \begin{longtable}{l l l l}
+            \caption{List of parameters} \\
+	        \textbf{Register} & \textbf{Address} & \textbf{Bits} & \textbf{Description} \\
+	        \hline \\
+            X   &          &      & First RAM bank used by the program \\
+            Y   &          &      & Last RAM bank used by the program \\
+            r0  & \$02--03 &      & Pointer to file name \\
+            r1L & \$04     &      & File name length, or 0=no file \\
+            r1H & \$05     & 0    & Auto indent on/off \\
+            r1H & \$05     & 1    & Word wrap on/off \\
+            r1H & \$05     & 2--7 & Unused \\
+            r2L & \$06     &      & Tab width (1..9) \\
+            r2H & \$07     &      & Word wrap position (10..250) \\
+            r3L & \$08     &      & Current device number (8..30) \\
+            r3H & \$09     & 0--3 & Text color \\
+            r3H & \$09     & 4--7 & Background color \\
+            r4L & \$0A     & 0--3 & Header text color \\
+            r4L & \$0A     & 4--7 & Header background color \\
+            r4H & \$0B     & 0--3 & Status bar text color \\
+            r4H & \$0B     & 4--7 & Status bar background color \\
+        \end{longtable}
+
+        \noindent Parameters out of range are ignored silently, and the default
+        values are used instead.
+
+        Color settings are ignored if both the text and background color is 0
+        ("black on black").
+
+        If the specified file does not exist, the editor will display an
+        error message. If the file name length is 0, the program will not try
+        to load any text file on startup.
+
+        The first and last RAM bank settings control what parts of banked RAM is
+        used by the program. This option may be used to reserve parts of banked RAM
+        for other purposes.
 
 \section{License}
 
