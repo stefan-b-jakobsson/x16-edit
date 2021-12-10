@@ -382,7 +382,7 @@
         Before calling the entry point in the ROM version of the program, you need to set the following
         parameters.
 
-        \begin{longtable}{l l }
+        \begin{longtable}{l l}
             \caption{List of parameters} \\
 	        \textbf{Register} & \textbf{Description} \\
 	        \hline \\
@@ -464,6 +464,59 @@
         The first and last RAM bank settings control what parts of banked RAM is
         used by the program. This option may be used to reserve parts of banked RAM
         for other purposes.
+
+    \subsection{Code samples}
+
+        Below are some code samples showing how to use the program entry points. The
+        samples are made to work with the RAM version of the program. More information
+        on how to use the entry points in the ROM version is found in the ROM notes
+        document.
+
+        First, code that invokes the load file entry point.
+
+\begin{verbatim}
+    ldx #1      ;First RAM bank used by the editor
+    ldy #255    ;Last RAM bank used by the editor
+    lda #<fname ;Pointer to file name, LSB
+    sta $02     ;r0L
+    lda #>fname ;Pointer to file name, MSB
+    sta $03     ;r0H
+    lda #4      ;File name length
+    sta $04     ;r1L
+    jsr $080A   ;Load file entry point
+    rts
+    fname: .byt "test"
+\end{verbatim}
+
+        Secondly, code that invokes the load file with options entry point.
+
+\begin{verbatim}
+    ldx #1          ;First RAM bank used by the editor
+    ldy #255        ;Last RAM bank used by the editor
+    lda #<fname     ;Pointer to file name, LSB
+    sta $02         ;r0L
+    lda #>fname     ;Pointer to file name, MSB
+    sta $03         ;r0H
+    lda #4          ;File name length
+    sta $04         ;r1L
+    lda #1
+    sta $05         ;r1H, auto indent on, word wrap off
+    lda #4
+    sta $06         ;r2L, tab width
+    lda #80
+    sta $07         ;r2H, word wrap position
+    lda #8
+    sta $08         ;r3L, device number
+    lda #1|11<<4    ;Text white, background light green
+    sta $09         ;r3H, screen color
+    lda #7|0<<4     ;Text yellow, background black
+    sta $0A         ;r4L, header color
+    lda #0          ;Ignore, use default color
+    sta $0B         ;r4H, status bar color
+    jsr $0813
+    rts
+    fname: .byt "test"
+\end{verbatim}
 
 \section{License}
 

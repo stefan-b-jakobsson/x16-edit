@@ -121,7 +121,7 @@
 
             \tabto{3cm} R0 (\$02--\$03) = Pointer to file name, least significant byte first
 
-            \tabto{3cm} R1 (\$04) = File name length
+            \tabto{3cm} R1 (\$04) = File name length, or 0 = no file
 
         \end{hangparas}
 
@@ -147,6 +147,77 @@
 
             .M 9E23 <FILE NAME DATA, 5 BYTES IN THIS EXAMPLE>
         \end{verbatim}    
+
+\subsection{Load text file with options entry point}
+
+        \begin{hangparas}{3cm}{1}
+
+            \textbf{Description:} \tabto{3cm} Applies specified editor options, and then loads a text file into the editor on startup
+
+            \textbf{Call address:} \tabto{3cm}\$C006
+
+            \textbf{Params:} \tabto{3cm}.X = First RAM bank used by the program
+        
+            \tabto{3cm} .Y = Last RAM bank used by the program
+
+            \tabto{3cm} R0 (\$02--\$03) = Pointer to file name, least significant byte first
+
+            \tabto{3cm} R1L (\$04) = File name length, or 0 = no file
+
+            \tabto{3cm} R1H (\$05) = Auto indent on/off (bit 0), word wrap on/off (bit 1)
+
+            \tabto{3cm} R2L (\$06) = Tab width (1..9)
+
+            \tabto{3cm} R2H (\$07) = Word wrap position (10..250)
+
+            \tabto{3cm} R3L (\$08) = Current device number (8..30)
+
+            \tabto{3cm} R3H (\$09) = Screen color (bits 0-3 text, bits 4-7 background)
+
+            \tabto{3cm} R4L (\$0A) = Header color (bits 0-3 text, bits 4-7 background)
+
+            \tabto{3cm} R4H (\$0B) = Status bar color (bits 0-3 text, bits 4-7 background)
+
+        \end{hangparas}
+
+        \vspace{1em}Options out of range are silently ignored, and the editor default values are used instead. If a color value of 0 is given, the
+        editor will use the default value. And if the file name length is 0, the editor will not try to load a file on startup.
+
+        Example startup code entered into the builtin monitor:
+
+        \begin{verbatim}
+            .A 9E00 LDA $01         ;Get current ROM bank...
+            .A 9E03 PHA             ;... and store it on the stack
+            .A 9E04 LDA #$07        ;Store bank 7...
+            .A 9E06 STA $01         ;...in the ROM select
+            .A 9E09 LDX #$01        ;Set first RAM bank used to 1
+            .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
+            .A 9EOD LDA #$F0        ;Get filename AddressL...
+            .A 9E10 STA $02         ;...and store in $02
+            .A 9E12 LDA #$9E        ;Get filename AddressH...
+            .A 9E15 STA $03         ;...and store in $03
+            .A 9E17 LDA #$05        ;Get filename length...
+            .A 9E19 STA $04         ;...and store in $04
+            .A 9E1B LDA #$01        ;Auto-increment on, and...
+            .A 9E1D STA $05         ;word wrap off
+            .A 9E1F LDA #$05        ;Set tab width...
+            .A 9E21 STA $06         ;to 5
+            .A 9E23 LDA #$28        ;Set word wrap position...
+            .A 9E25 STA $07         ;to 40
+            .A 9E27 LDA #$08        ;Set current device...
+            .A 9E29 STA $08         ;to 8
+            .A 9E2B LDA #$01        ;Set screen color to...
+            .A 9E2D STA $09         ;white on black
+            .A 9E2F LDA #$00        ;Set header color to...
+            .A 9E3B STA $0A         ;default value
+            .A 9E3D STA $0B         ;Set status bar color to default
+            .A 9E3F JSR $C006       ;Call entry point
+            .A 9E4C PLA             ;Retrieve original ROM bank...
+            .A 9E4D STA $01         ;...and write it to ROM select
+            .A 9E4F RTS
+
+            .M 9EF0 <FILE NAME DATA, 5 BYTES IN THIS EXAMPLE>
+        \end{verbatim} 
 
 
 \section{Final comments}
