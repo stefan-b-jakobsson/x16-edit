@@ -87,7 +87,7 @@
     ;Main loop
     jsr keyboard_read_and_dispatch
     jsr cursor_toggle
-    jsr screen_print_mod_status
+    jsr screen_update_status
     
 exit:
     jmp (irq_default_handler)
@@ -128,7 +128,7 @@ shutdown:
     ;Main loop
     jsr keyboard_read_and_dispatch
     jsr cursor_toggle
-    jsr screen_print_mod_status
+    jsr screen_update_status
 
 exit:
     rts

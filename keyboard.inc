@@ -1266,7 +1266,7 @@ exit:
 keyboard_ctrl_keyval:
     .byt $47, $49, $4a, $58, $4f
     .byt $4e, $56, $59, $4b, $50
-    .byt $55, $43, $57, $4c, $41
+    .byt $55, $57, $4c, $41
     .byt $5a, $45, $44, $54, $42
     .byt $4d
 keyboard_ctrl_keyval_end:
@@ -1275,7 +1275,7 @@ keyboard_ctrl_keyval_end:
 keyboard_ctrl_jmptbl:
     .word cmd_show_help, cmd_file_dos_command_prompt, cmd_wrap_buffer, cmd_exit, cmd_file_save_prompt
     .word cmd_new_buffer, keyboard_cmd_pagedown, keyboard_cmd_pageup, cmd_cut, cmd_copy
-    .word cmd_paste, cmd_show_curpos, cmd_find, cmd_goto_line, cmd_auto_indent
+    .word cmd_paste, cmd_find, cmd_goto_line, cmd_auto_indent
     .word cmd_set_word_wrap, cmd_change_encoding, cmd_file_set_device, cmd_rotate_text_color, cmd_rotate_background_color
     .word cmd_mem_usage
 

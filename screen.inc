@@ -182,13 +182,14 @@ filename_len = tempvars     ;1 byte
 .endproc
 
 ;******************************************************************************
-;Function name.......: screen_print_mod_status
+;Function name.......: screen_update_status
 ;Purpose.............: Refresh buffer modified status at top right corner of
-;                      screen
+;                      screen, and updates line and column number at
+;                      bottom right corner of screen
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc screen_print_mod_status
+.proc screen_update_status
     ;Set start print position; row 0, column SCREEN_WIDTH-3
     lda #(SCREEN_WIDTH-3)*2
     sta VERA_L
@@ -207,7 +208,7 @@ filename_len = tempvars     ;1 byte
     jsr screen_put_uc_char
     lda #'d'
     jsr screen_put_uc_char
-    rts
+    bra update_pos
 
 clear:
     ;Clear "MOD"
@@ -216,7 +217,95 @@ clear:
     sta VERA_D0
     sta VERA_D0
 
+;Prepare printing line number at end of line SCREEN_HEIGHT-2
+update_pos:
+    lda APP_MOD
+    cmp #18
+    beq exit
+    cmp #19
+    beq exit
+    bra :+
+
+exit:
     rts
+
+:   lda #(SCREEN_WIDTH-1)*2
+    sta VERA_L
+    lda #SCREEN_HEIGHT-2
+    sta VERA_M
+    lda #%00101000
+    sta VERA_H
+
+    ;Clear 8 chars from right border
+    ldx #8
+    jsr clear_pos
+
+    ;Print label "LN"
+    lda #'n'
+    jsr screen_put_uc_char
+    lda #'l'
+    jsr screen_put_uc_char
+
+    ;Print line number
+    lda #(SCREEN_WIDTH-1)*2     ;Print from right border
+    sta VERA_L
+  
+    ldx mem_cur_line
+    ldy mem_cur_line+1
+    lda mem_cur_line+2
+    jsr bin_to_str
+    jsr print_pos
+
+    ;Prepare printing column number at end of last line
+    lda #(SCREEN_WIDTH-1)*2
+    sta VERA_L
+    lda #SCREEN_HEIGHT-1
+    sta VERA_M
+
+    ;Clear 7 chars from right border
+    ldx #7
+    jsr clear_pos
+
+    ;Print label "COL"
+    lda #'l'
+    jsr screen_put_uc_char
+    lda #'o'
+    jsr screen_put_uc_char
+    lda #'c'
+    jsr screen_put_uc_char
+
+    ;Print column number
+    lda #(SCREEN_WIDTH-1)*2
+    sta VERA_L
+
+    ldx mem_cur_col
+    ldy mem_cur_col+1
+    lda mem_cur_col+2
+    jsr bin_to_str
+    jmp print_pos
+
+bin_to_str:
+    jsr util_bin_to_bcd
+    jsr util_bcd_to_str
+    jsr util_strlen
+    dey
+    rts
+
+clear_pos:
+    lda #32
+:   sta VERA_D0
+    dex
+    bne :-
+    rts
+
+print_pos:
+:   lda (TMP1_ADR),y
+    sta VERA_D0
+    cpy #0
+    beq :+
+    dey
+    bra :-
+:   rts
 .endproc
 
 
