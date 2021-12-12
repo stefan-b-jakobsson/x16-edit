@@ -1457,7 +1457,8 @@ msg:
     jsr mem_insert
 
     ;Update cursor position and refresh screen
-:   jsr mem_cur_col_ret     
+:   jsr mem_cur_col_ret
+    jsr mem_set_lnv_to_crs
     ldy CRS_Y
     ldx #0
     jsr cursor_move
