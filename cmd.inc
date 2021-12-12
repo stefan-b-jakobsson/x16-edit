@@ -1352,8 +1352,7 @@ mem_full:
     
     ldx #<msg
     ldy #>msg
-    jsr screen_print_status
-    rts
+    jmp screen_print_status
 
 msg:
     .byt "clipboard full, could not copy line", 0
@@ -1430,6 +1429,39 @@ not_empty:
 
 msg:
     .byt "clipboard empty", 0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_delete_line
+;Purpose.............: Deletes current line without copying it to clipboard
+;Preparatory routines: None
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_delete_line
+    ;Move memory pointer to end of line
+    jsr mem_crs_move_to_line_end
+
+    ;And one more step to step over the LF char
+    jsr mem_crs_step_right
+    bcs :+                  ;C=1 => We are at EOF, no LF char to delete
+    jsr mem_delete          ;Delete LF at end of line
+
+    ;Loop that deletes content of line
+:   jsr mem_delete
+    bcs :+                  ;C=1 => We are at start of file, just clean up
+    cpx #1                  ;X=1 => We deleted the LF before the start of the line, must be put back
+    bne :-                  ;Continue
+
+    lda #LF                 ;Putting back the LF before start of line
+    jsr mem_insert
+
+    ;Update cursor position and refresh screen
+:   jsr mem_cur_col_ret     
+    ldy CRS_Y
+    ldx #0
+    jsr cursor_move
+    jmp screen_refresh
 .endproc
 
 ;******************************************************************************

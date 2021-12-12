@@ -196,8 +196,8 @@ full:
 
 ;******************************************************************************
 ;Function name.......: clipboard_cut
-;Purpose.............: Cuts current line and copies it to clipboard
-;Input...............: None
+;Purpose.............: Cuts current line into clipboard
+;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: C=1: Clipboard mem full
 .proc clipboard_cut

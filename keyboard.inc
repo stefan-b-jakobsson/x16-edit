@@ -189,6 +189,11 @@ ctrl:
     lda #0
     jmp cmd_replace
 
+    ;Ctrl+Backspace - Delete current line
+:   cmp #$14
+    bne :+
+    jmp cmd_delete_line
+
     ;Exit
 :   rts
 
