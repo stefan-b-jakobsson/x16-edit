@@ -62,6 +62,7 @@
 
 io_error:
     sta file_io_err
+    jsr dir_close
     sec
     rts
 
