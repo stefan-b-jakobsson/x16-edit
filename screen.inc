@@ -237,7 +237,7 @@ exit:
     sta VERA_H
 
     ;Clear 8 chars from right border
-    ldx #8
+    ldx #10
     jsr clear_pos
 
     ;Print label "LN"
@@ -263,7 +263,7 @@ exit:
     sta VERA_M
 
     ;Clear 7 chars from right border
-    ldx #7
+    ldx #9
     jsr clear_pos
 
     ;Print label "COL"
@@ -377,7 +377,7 @@ nextrow:
     ldy #>row1
     jmp screen_print_footer
 row1:
-    .byt ":^g get help :^o write out :^y prev page :^k cut   :^c cur pos", 0 
+    .byt ":^g get help :^o write out :^y prev page :^k cut   :^p copy", 0 
 row2:
     .byt ":^x exit     :^r open file :^v next page :^u uncut :^w where is", 0
 .endproc
