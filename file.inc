@@ -1,5 +1,5 @@
 ;******************************************************************************
-;Copyright 2020-2021, Stefan Jakobsson.
+;Copyright 2020-2022, Stefan Jakobsson.
 ;
 ;This file is part of X16 Edit.
 ;
@@ -289,7 +289,7 @@ continue:
     jsr mem_init
     lda #5
     sta CRS_ADR
-        
+
     ;Store first char
     stz curpage_len
     ldy #0
@@ -371,6 +371,7 @@ alloc_new_page:
 io_err:
     ;Set kernal error
     sta file_io_err
+    stz CRS_ADR
     bra close
 
 eof:

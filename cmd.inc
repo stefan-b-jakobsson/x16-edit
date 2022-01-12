@@ -1,5 +1,5 @@
 ;******************************************************************************
-;Copyright 2020-2021, Stefan Jakobsson.
+;Copyright 2020-2022, Stefan Jakobsson.
 ;
 ;This file is part of X16 Edit.
 ;
@@ -918,7 +918,7 @@ at_bottom:
     jsr mem_set_lnv_to_crs
     jsr mem_scr_move_down
 
-    clc
+    sec
     ldx #0
     rts
 .endproc
@@ -986,6 +986,8 @@ stepto_column:
     beq exit
 
 :   ;If char = LF then exit
+    lda CRS_BNK
+    sta BNK_SEL
     lda #5
     sta CRS_ADR
     ldy CRS_IDX
@@ -1119,6 +1121,8 @@ loop:
     beq exit
 
 loop_2:
+    lda CRS_BNK
+    sta BNK_SEL
     lda #5
     sta CRS_ADR
     ldy CRS_IDX

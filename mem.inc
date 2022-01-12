@@ -1,5 +1,5 @@
 ;******************************************************************************
-;Copyright 2020-2021, Stefan Jakobsson.
+;Copyright 2020-2022, Stefan Jakobsson.
 ;
 ;This file is part of X16 Edit.
 ;
@@ -2046,6 +2046,4 @@ exit:
     mem_top:                .res 1              ;1 byte
     mem_cur_line:           .res 3              ;3 bytes
     mem_cur_col:            .res 3              ;3 bytes
-    backup:                 .res 3
-.CODE
 .CODE

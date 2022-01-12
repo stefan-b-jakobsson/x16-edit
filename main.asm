@@ -1,5 +1,5 @@
 ;******************************************************************************
-;Copyright 2020-2021, Stefan Jakobsson.
+;Copyright 2020-2022, Stefan Jakobsson.
 ;
 ;This file is part of X16 Edit.
 ;
@@ -40,7 +40,7 @@
 .include "bridge_macro.inc"
 
 ;******************************************************************************
-;Description.........: Entry points
+;Description.........: Program entry points
 jmp main_default_entry
 jmp main_loadfile_entry
 jmp main_loadfile_with_options_entry
@@ -48,11 +48,17 @@ jmp main_loadfile_with_options_entry
 ;******************************************************************************
 ;Function name.......: main_default_entry
 ;Purpose.............: Default entry function; starts the editor with an
-;                      empty buffer
-;Input...............: First RAM bank used by the program in X and last RAM
-;                      bank used by the program in Y. Settings ignored in
-;                      RAM version of the program, where it defaults to
-;                      X=1 and Y=255.
+;                      empty buffer and default options
+;Input...............: List of params:
+;
+;                      Reg     Description
+;                      -------------------
+;                      X       First bank in banked RAM used by the program (>0)
+;                      Y       Last bank in banked RAM used by the program (>X)
+;
+;                      Please note that the input params are ignored in the
+;                      RAM version of the program, defaulting to X=1 and Y=255.
+;
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_default_entry
@@ -71,11 +77,17 @@ exit:
 
 ;******************************************************************************
 ;Function name.......: main_loadfile_entry
-;Purpose.............: Program entry function
-;Input...............: First RAM bank used by the program in X and last RAM
-;                      bank used by the program in Y
-;                      Pointer to file name in r0
-;                      File name length in r1L
+;Purpose.............: Program entry function that may load a file from the
+;                      file system on startup
+;Input...............: List of params:
+;
+;                      Reg     Description
+;                      -------------------
+;                      X       First bank in banked RAM used by the program (>0)
+;                      Y       Last bank in banked RAM used by the program (>X)
+;                      r0      Pointer to file name
+;                      r1L     File name length, or 0 if no file
+;
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_loadfile_entry
@@ -100,12 +112,14 @@ exit:
 
 ;******************************************************************************
 ;Function name.......: main_loadfile_with_options_entry
-;Purpose.............: Program entry function
-;Input...............: First RAM bank used by the program in X and last RAM
-;                      bank used by the program in Y
+;Purpose.............: Program entry function that may may set most editor 
+;                      options and load a file from the file system on startup
+;Input...............: List of params:
 ;                      
 ;                      Reg Bit Description
 ;                      -------------------
+;                      X       First bank in banked RAM used by the program (>0)
+;                      Y       Last bank in banked RAM used by the program (>X)
 ;                      r0      Pointer to file name
 ;                      r1L     File name length, or 0 if no file
 ;                      r1H 0   Auto indent on/off
@@ -120,8 +134,12 @@ exit:
 ;                      r4L 4-7 Header background color
 ;                      r4H 0-3 Status bar text color
 ;                      r4H 4-7 Status bar background color
-;                      Settings out of range are silently ignored.
-;                      Color settings are ignored if both text and background color is 0, "black on black"
+;
+;                      Please note:
+;                      - Settings out of range are silently ignored
+;                      - Color settings are ignored if both text and background 
+;                        color is 0, "black on black"
+;
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_loadfile_with_options_entry
@@ -260,6 +278,7 @@ exit:
     jsr scancode_init
     jsr progress_init
     
+    ;Exit without errors, C=0
     clc
     rts
 

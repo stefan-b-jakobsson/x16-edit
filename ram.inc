@@ -1,5 +1,5 @@
 ;******************************************************************************
-;Copyright 2020-2021, Stefan Jakobsson.
+;Copyright 2020-2022, Stefan Jakobsson.
 ;
 ;This file is part of X16 Edit.
 ;
@@ -32,29 +32,25 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc ram_backup
-    backup = $b000
-
     stx BNK_SEL
 
     ;Copy golden RAM
     ldx #0
-
 :   lda $0400,x
-    sta backup,x
+    sta ram_backup_storage,x
     lda $0500,x
-    sta backup+$0100,x
+    sta ram_backup_storage+$0100,x
     lda $0600,x
-    sta backup+$0200,x
+    sta ram_backup_storage+$0200,x
     lda $0700,x
-    sta backup+$0300,x
+    sta ram_backup_storage+$0300,x
     inx
     bne :-
 
     ;Copy zero page
     ldx #0
-
 :   lda $22,x
-    sta backup+$0400,x
+    sta ram_backup_storage+$0400,x
     inx
     cpx #$14
     bne :-
@@ -77,27 +73,22 @@
     lda mem_start
     sta BNK_SEL
 
-    ;Restore zero page
-    backup = $b000
-
     ;Restore golden RAM
     ldx #0
-
-:   lda backup,x
+:   lda ram_backup_storage,x
     sta $0400,x
-    lda backup+$0100,x
+    lda ram_backup_storage+$0100,x
     sta $0500,x
-    lda backup+$0200,x
+    lda ram_backup_storage+$0200,x
     sta $0600,x
-    lda backup+$0300,x
+    lda ram_backup_storage+$0300,x
     sta $0700,x
     inx
     bne :-
     
     ;Restore zero page
     ldx #0
-
-:   lda backup+$0400,x
+:   lda ram_backup_storage+$0400,x
     sta $22,x
     inx
     cpx #$14
