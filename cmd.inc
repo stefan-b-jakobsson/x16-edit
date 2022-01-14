@@ -1082,10 +1082,12 @@ at_first_line:
     lda LNV_IDX
     pha
 
-    ;Move cursor mem pointer to start of line, and save number of chars stepped over
-    jsr mem_crs_move_to_line_start
-    stx count
-    sty count+1
+    ;Save current column
+    lda mem_cur_col
+    sta count
+    lda mem_cur_col+1
+    sta count+1
+    lda mem_cur_col+2
     sta count+2
 
     ;Move cursor mem pointer to end of line, and move one more step to get to next line (carry set = end of file)
@@ -1112,12 +1114,13 @@ at_first_line:
 loop:
     ;Loop to move back to column we came from, however stop if we encounter a line separator
 
-    ;Check column counter, exit if 0
-    lda count
+    ;Check column counter, exit if 1
+    lda count+2
     bne loop_2
     lda count+1
     bne loop_2
-    lda count+2
+    lda count
+    cmp #1
     beq exit
 
 loop_2:
@@ -1513,6 +1516,8 @@ msg:
 ;Now search for that string
 
 search_loop:
+    lda CRS_BNK
+    sta BNK_SEL
     ldy CRS_IDX
     lda #5
     sta CRS_ADR

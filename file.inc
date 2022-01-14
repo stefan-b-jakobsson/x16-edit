@@ -287,6 +287,8 @@ continue:
 
     ;Clear and initialize memory
     jsr mem_init
+    lda CRS_BNK
+    sta BNK_SEL
     lda #5
     sta CRS_ADR
 
