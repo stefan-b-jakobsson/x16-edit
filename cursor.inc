@@ -101,17 +101,17 @@ swap:
 .proc cursor_move
     lda cursor_state
     and #%00000001
-    beq exit
+    beq :+
     jsr cursor_invert
 
-exit:
-    stx CRS_X
+:   stx CRS_X
     sty CRS_Y
     lda cursor_toggle_counter
     beq :+
     jsr cursor_invert
     lda #30
     sta cursor_toggle_counter
+    
 :   rts
 .endproc
 

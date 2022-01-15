@@ -587,70 +587,66 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc cmd_insert_tab
-    ;Find next tab stop by adding the tab width until we pass the current column index
-    lda #1
-    sta counter
-    stz counter+1
-    stz counter+2
-    
-loop:
-    lda mem_cur_col+2
-    cmp counter+2
-    bcc at_tab_stop
+    ;Hide cursor
+    jsr cursor_disable
 
-    lda mem_cur_col+1
-    cmp counter+1
-    bcc at_tab_stop
+    ;Distance to next tab stop = (T + 1) - (X mod T)
+    ;where X is current column number, and
+    ;      T is tab stop width
+    
+    ;Init
+    stz mod
 
     lda mem_cur_col
-    cmp counter
-    bcc at_tab_stop
+    sta col
+    lda mem_cur_col+1
+    sta col+1
+    lda mem_cur_col+2
+    sta col+2
 
-    clc
+    ;Calculate: (X mod T)
+    ldx #24                 ;Number of bits in column number
+fetch_bit:
+    asl col
+    rol col+1
+    rol col+2
+    rol mod
 
-    lda counter
-    adc keyboard_tabwidth
-    sta counter
-    
-    lda counter+1
-    adc #0
-    sta counter+1
-
-    lda counter+2
-    adc #0
-    sta counter+2
-
-    bra loop
-    
-at_tab_stop:
-    ;Calculate difference
+subtract:
     sec
-    
-    lda counter
-    sbc mem_cur_col
-    sta counter
-    
-    lda counter+1
-    sbc mem_cur_col+1
-    sta counter+1
-    
-    lda counter+2
-    sbc mem_cur_col+2
-    sta counter+2
+    lda mod
+:   tay                     ;Subtract tab width until underflow
+    sbc keyboard_tabwidth
+    bcs :-
 
-    ;Insert blank spaces
+    sty mod
+    dex
+    bne fetch_bit
+
+    ;Calculate: (T + 1)
+    lda keyboard_tabwidth
+    ina
+
+    ;Calculate (T + 1) - (X mod T)
+    sec
+    sbc mod
+    sta mod                 ;mod now holds distance to next tab stop
+
+    ;Insert calculated number of blanks
 :   lda #32
     jsr cmd_insert
-    dec counter
+    dec mod
     bne :-
 
-    ;Exit and refresh line
-    jmp screen_println
+    ;Refresh
+    jsr screen_println
+    jmp cursor_activate
 
-.segment "VARS"
-    counter: .res 3
-.CODE
+    col = tempvars          ;3 bytes
 
+    .segment "VARS"
+        mod: .res 1
+    .CODE
 .endproc
 
 ;******************************************************************************
