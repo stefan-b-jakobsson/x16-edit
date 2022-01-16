@@ -410,7 +410,7 @@ no_kernal_err:
     jmp prompt_default_input
 
 msg:
-    .byt "set file storage device number (8-30):",0
+    .byt "set current device number (8-30):",0
 .endproc
 
 ;******************************************************************************

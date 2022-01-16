@@ -43,7 +43,7 @@
     rts
 
 msg:
-    .byt "disk status: ",0
+    .byt "drive status: ",0
 .endproc
 
 ;******************************************************************************
@@ -493,21 +493,21 @@ read_loop:
     cmp #$20
     bcc read_loop       ;Ignore control chars
     ldy index
-    sta file_disk_status+13, y
-    cpy #113            ;Last index = 127 - 13 - 1, where 13 is length of ingress "disk status: " and 1 byte is reserved for end of string marker (a zero)
+    sta file_disk_status+14, y
+    cpy #112            ;Last index = 127 - 14 - 1, where 14 is length of ingress "drive status: " and 1 byte is reserved for end of string marker (a zero)
     beq eof
     inc index
     bra read_loop
 
 io_error:
     sta file_io_err
-    stz file_disk_status+13
+    stz file_disk_status+14
     bra close
 
 eof:
     iny
     lda #0              
-    sta file_disk_status+13,y   ;Set end of string marker
+    sta file_disk_status+14,y   ;Set end of string marker
 
 close:
     bridge_setaddr KERNAL_CLOSE
@@ -518,7 +518,7 @@ close:
 
     ;Return value
     sec
-    lda file_disk_status+13     ;Error code, second digit
+    lda file_disk_status+14     ;Error code, second digit
     sbc #48
     asl                         ;Shift 4 steps left
     asl

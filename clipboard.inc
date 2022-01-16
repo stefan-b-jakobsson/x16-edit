@@ -216,26 +216,20 @@ prepare_delete:
 
 ;Loop to delete the line
 loop:
-    ;First check if we are done, i.e. that the number of copied chars have been deleted
-    lda count
-    bne delete
-    lda count+1
-    bne delete
-    lda count+2
-    beq exit
-
-delete:
-    ;Delete one char (from the end of the line)
-    jsr cmd_delete
-    
     ;Decrease counter
     lda count
     bne :++
     lda count+1
     bne :+
+    lda count+2
+    beq exit
     dec count+2
 :   dec count+1
 :   dec count
+    
+    ;Delete one char (from the end of the line)
+    jsr cmd_delete
+    
     bra loop
 
 exit:
