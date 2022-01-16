@@ -243,11 +243,10 @@ exit:
     dex
     bne :-
 
-    ;Set column
+    ;Print column
     lda #(SCREEN_WIDTH-1)*2
     sta VERA_L
 
-    ;Print column
     ldx mem_cur_col
     ldy mem_cur_col+1
     lda mem_cur_col+2
@@ -260,10 +259,10 @@ exit:
     cpy #0
     bne :-
 
-    ;Add leading zeros if less than 10
+    ;Add leading zero if less than 10
     ply
-    cpy #2
-    bcs :+
+    cpy #2              ;Column string len >= 2?
+    bcs :+              
     lda #'0'
     sta VERA_D0
 
