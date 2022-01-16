@@ -217,7 +217,7 @@ clear:
     sta VERA_D0
     sta VERA_D0
 
-;Prepare printing line number at end of line SCREEN_HEIGHT-2
+;Prepare printing position at bottom right corner
 update_pos:
     lda APP_MOD
     cmp #18
@@ -229,6 +229,7 @@ update_pos:
 exit:
     rts
 
+    ;Clear position
 :   lda #(SCREEN_WIDTH-1)*2
     sta VERA_L
     lda #SCREEN_HEIGHT-2
@@ -236,78 +237,61 @@ exit:
     lda #%00101000
     sta VERA_H
 
-    ;Clear 8 chars from right border
-    ldx #10
-    jsr clear_pos
+    lda #32
+    ldx #17
+:   sta VERA_D0
+    dex
+    bne :-
 
-    ;Print label "LN"
-    lda #'n'
-    jsr screen_put_uc_char
-    lda #'l'
-    jsr screen_put_uc_char
-
-    ;Print line number
-    lda #(SCREEN_WIDTH-1)*2     ;Print from right border
-    sta VERA_L
-  
-    ldx mem_cur_line
-    ldy mem_cur_line+1
-    lda mem_cur_line+2
-    jsr bin_to_str
-    jsr print_pos
-
-    ;Prepare printing column number at end of last line
-    lda #(SCREEN_WIDTH-1)*2
-    sta VERA_L
-    lda #SCREEN_HEIGHT-1
-    sta VERA_M
-
-    ;Clear 7 chars from right border
-    ldx #9
-    jsr clear_pos
-
-    ;Print label "COL"
-    lda #'l'
-    jsr screen_put_uc_char
-    lda #'o'
-    jsr screen_put_uc_char
-    lda #'c'
-    jsr screen_put_uc_char
-
-    ;Print column number
+    ;Set column
     lda #(SCREEN_WIDTH-1)*2
     sta VERA_L
 
+    ;Print column
     ldx mem_cur_col
     ldy mem_cur_col+1
     lda mem_cur_col+2
     jsr bin_to_str
-    jmp print_pos
+    phy
+
+:   dey
+    lda (TMP1_ADR),y
+    sta VERA_D0
+    cpy #0
+    bne :-
+
+    ;Add leading zeros if less than 10
+    ply
+    cpy #2
+    bcs :+
+    lda #'0'
+    sta VERA_D0
+
+    ;Print delimiter
+:   lda #':'
+    sta VERA_D0
+
+    ;Print line
+    ldx mem_cur_line
+    ldy mem_cur_line+1
+    lda mem_cur_line+2
+    jsr bin_to_str
+
+:   dey
+    lda (TMP1_ADR),y
+    sta VERA_D0
+    cpy #0
+    bne :-
+
+    rts
 
 bin_to_str:
     jsr util_bin_to_bcd
     jsr util_bcd_to_str
     jsr util_strlen
-    dey
     rts
 
-clear_pos:
-    lda #32
-:   sta VERA_D0
-    dex
-    bne :-
-    rts
-
-print_pos:
-:   lda (TMP1_ADR),y
-    sta VERA_D0
-    cpy #0
-    beq :+
-    dey
-    bra :-
-:   rts
 .endproc
-
 
 ;******************************************************************************
 ;Function name.......: screen_print_footer
