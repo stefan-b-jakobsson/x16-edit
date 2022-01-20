@@ -527,7 +527,7 @@ close:
     sta index                   ;Just reusing index for temp storage.
 
     sec
-    lda file_disk_status+14     ;Error code, first digit
+    lda file_disk_status+15     ;Error code, first digit
     sbc #48
     ora index                   ;Adding them together
 
