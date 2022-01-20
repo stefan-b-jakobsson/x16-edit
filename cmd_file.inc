@@ -76,7 +76,6 @@ msg:
     
     ;Read disk status
     jsr file_read_disk_status
-    sta $6000
     beq noerr               ;No error
     cmp #$63                ;File exists...
     beq confirm_overwrite   ;...ask user for permission to overwrite
