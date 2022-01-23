@@ -275,7 +275,7 @@ exit:
     jsr cursor_init
     jsr clipboard_init
     jsr cmd_init
-    jsr scancode_init
+    ;jsr scancode_init
     jsr progress_init
     
     ;Exit without errors, C=0

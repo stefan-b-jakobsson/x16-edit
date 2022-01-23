@@ -67,13 +67,13 @@
     beq gotachar
 
     ;Check and handle non-standard extra keys
-    lda scancode_ext
-    beq :+
-    stz scancode_ext
-    bra gotachar
+    ;lda scancode_ext
+    ;beq :+
+    ;stz scancode_ext
+    ;bra gotachar
 
     ;Read standard keys
-:   bridge_setaddr KERNAL_GETIN
+    bridge_setaddr KERNAL_GETIN
     bridge_call KERNAL_GETIN
     bne gotachar
 
@@ -88,9 +88,19 @@ gotachar:
     lda APP_MOD
     asl
     tax
-    
-    ;Restore char in A
+
+    ;Get key modifiers
+    bridge_setaddr KERNAL_KBDBUF_GET_MODIFIERS
+    bridge_call KERNAL_KBDBUF_GET_MODIFIERS
+    sta scancode_modifiers
+    cmp #KBD_MODIFIER_CTRL
+    bne :+
     tya
+    ora #64
+    tay
+
+    ;Restore char in A
+:   tya
 
     ;Jump to APP mode event handler
     jmp (jmptbl,x)

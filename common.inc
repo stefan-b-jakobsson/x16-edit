@@ -24,8 +24,8 @@
 ;*****************************************************************************
 
 ;RAM and ROM select
-.define BNK_SEL $00 
-.define ROM_SEL $01
+.define BNK_SEL $9f61
+.define ROM_SEL $9f60
 
 ;File management
 .define KERNAL_CLALL $ffe7
@@ -43,6 +43,7 @@
 
 ;Keyboard
 .define KERNAL_GETIN $ffe4
+.define KERNAL_KBDBUF_GET_MODIFIERS $ca64
 
 ;Other
 .define KERNAL_SCREEN_SET_CHARSET $ff62

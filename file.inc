@@ -517,18 +517,15 @@ close:
     bridge_call KERNAL_CLRCHN
 
     ;Return value
-    sec
     lda file_disk_status+14     ;Error code, second digit
-    sbc #48
     asl                         ;Shift 4 steps left
     asl
     asl
     asl
     sta index                   ;Just reusing index for temp storage.
 
-    sec
     lda file_disk_status+15     ;Error code, first digit
-    sbc #48
+    and #15
     ora index                   ;Adding them together
 
     rts
