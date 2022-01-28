@@ -74,7 +74,7 @@
 
         \begin{itemize}
 
-            \item Press and hold down the Ctrl key at the same time as you press a command key. This is the
+            \item Press and hold down the Ctrl key or the left Alt key at the same time as you press a command key. This is the
             preferred way of selecting commands.
             
             \item Alternatively you may press and release the Esc key. The program is now ready to receive
@@ -98,9 +98,9 @@
             Y    & F7    & Page up \\
             V    & F8    & Page down \\
             K    & ---   & Cut current line and save it to clipboard \\
-            P    & ---   & Copy current line to clipboard \\
+            C    & ---   & Copy current line to clipboard \\
             U    & ---   & Paste (uncut) all content from clipboard \\
-            BKSP & ---   & Delets current line, no copy to clipboard \\
+            DEL  & ---   & Delets current line, no copy to clipboard \\
             W    & F6    & Search and find string in buffer (case sensitive) \\
             S    & ---   & Replace string (case sensitive) \\
             L    & ---   & Goto line number \\
@@ -116,6 +116,8 @@
         \end{longtable}
 
         \noindent The tab stop width is set by first pressing and releasing Esc and then one of the digits 1--9.
+
+        The command key bindings are user configurable, see section \ref{keybindings}.
 
     \subsection{User interface}
 	
@@ -360,6 +362,17 @@
 
     By default the file handling functions use device \#8. The device
     number may be changed by pressing Ctrl+D.
+
+\section{User-configurable command key bindings}
+\label{keybindings}
+
+It is possible to redefine the command key bindings in X16 Edit. 
+
+On startup the program reads the file X16EDITRC in the root folder of the SD card, if present. 
+That file should contain a stream of bytes identifying the key bindings. The key bindings are 
+sorted in the same order as the commands are listed in section \ref{commands}.
+
+To make setting up the key bindings a bit easier, there is a special configuration tool (X16EDIT-KEYBINDINGS.PRG).
 
 \section{Application Interface}
 
