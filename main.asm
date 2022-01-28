@@ -271,6 +271,7 @@ exit:
     ;Initialize base functions
     jsr mem_init
     jsr file_init
+    jsr keyboard_init
     jsr screen_init
     jsr cursor_init
     jsr clipboard_init

@@ -93,11 +93,17 @@
 ;                      (1=down, 0=up) as follows: Bit 0=Shift, bit 1=Alt,
 ;                      bit 2=Ctrl, bit 3=Windows key, bit 4=Caps lock
 ;
+;                      Ctrl key and left Alt key presses are not relayed
+;                      to the Kernal. The right Alt key is relayed
+;                      to the Kernal as left Alt.
+;
 ;                      The scan code handler supports several extra keys
 ;                      that are ignored by the Kernal. The last pressed
 ;                      extra key is stored in the variable scancode_ext.
 ;                      If it's a printable char the PETSCII/ASCII
-;                      value is stored. The following non-printable
+;                      value is stored. 
+;
+;                      The following non-printable
 ;                      keys are represented by the following non-standard
 ;                      values:
 ;
@@ -155,7 +161,11 @@ keydown:
     ;Modifier key
     ora scancode_modifiers
     sta scancode_modifiers
-    cpy #5              
+
+    ;Consume left Alt and both Ctrl keys
+    cpy #3                      ;3=Left Alt key
+    beq consume_and_exit
+    cpy #5                      ;5-6=Left and right Ctrl key
     bcc exit
     cpy #7
     bcs exit
@@ -176,8 +186,10 @@ keyup:
     and scancode_modifiers
     sta scancode_modifiers
     
-    ;Exit if Ctrl key, else consume and exit
-    cpy #5              
+    ;Consume left Alt and both Ctrl keys
+    cpy #3                      ;3=Left Alt key
+    beq consume_and_exit
+    cpy #5                      ;5-6=Left and right Ctrl key
     bcc exit
     cpy #7
     bcs exit
@@ -197,7 +209,7 @@ scancodes_L:
     .byt $12, $59, $11, $11, $14, $14, $1f, $27, $58,       $71, $69, $7d, $7a, $5a, $70,      $70, $69, $72, $7a, $6b, $73, $74, $6c, $75, $7d, $71, $4a, $7c, $7b, $79
 bitmask:
     .byt KBD_MODIFIER_SHIFT, KBD_MODIFIER_SHIFT, KBD_MODIFIER_ALT
-    .byt KBD_MODIFIER_ALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL
+    .byt KBD_MODIFIER_RALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL
     .byt KBD_MODIFIER_WIN, KBD_MODIFIER_WIN, KBD_MODIFIER_CAPS
 
 keyvals:
@@ -220,6 +232,7 @@ KBD_MODIFIER_ALT   = 2 ; C64:  Commodore
 KBD_MODIFIER_CTRL  = 4 ; C64:  Ctrl
 KBD_MODIFIER_WIN   = 8 ; C128: Alt
 KBD_MODIFIER_CAPS  = 16; C128: Caps
+KBD_MODIFIER_RALT  = 32; Right Alt key
 
 ;Control keys
 KBD_EXT_DELETE     = $15

@@ -53,6 +53,89 @@
 ;PGDN       = $18
 ;INSERT     = $1a
 
+keyboard_shortcut_count = 23
+
+;******************************************************************************
+;Function name.......: keyboard_init
+;Purpose.............: Initiallizes keyboard shortcuts
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_init
+    ;Copy default shortcut table
+    ldx #0
+:   lda keyval,x
+    sta keyboard_ctrl_keyval,x
+    inx
+    cpx #keyboard_shortcut_count
+    bne :-
+
+    ;Read shortcut table from file, if available
+    bridge_setaddr KERNAL_CLOSE         ;Close file #1
+    lda #1
+    bridge_call KERNAL_CLOSE
+
+    bridge_setaddr KERNAL_SETNAM        ;Set file name
+    ldx #<config
+    ldy #>config
+    lda #11
+    bridge_call KERNAL_SETNAM
+
+    bridge_setaddr KERNAL_SETLFS        ;Set file params
+    lda #1
+    ldx file_cur_device
+    ldy #3
+    bridge_call KERNAL_SETLFS
+
+    bridge_setaddr KERNAL_OPEN          ;Open file for reading
+    bridge_call KERNAL_OPEN
+    bcc :+
+    rts
+
+:   bridge_setaddr KERNAL_CHKIN         ;Set file as input
+    ldx #1
+    bridge_call KERNAL_CHKIN
+    bcs close
+
+    ldy #0
+loop:
+    bridge_setaddr KERNAL_CHRIN         ;Get byte
+    bridge_call KERNAL_CHRIN
+    sta val
+    
+    bridge_setaddr KERNAL_READST        ;Check for EOF or errors
+    bridge_call KERNAL_READST
+    bne close
+
+    lda val                             ;Store byte in shortcut list
+    sta keyboard_ctrl_keyval,y
+    iny
+    cpy #keyboard_shortcut_count
+    bne loop
+
+close:
+    bridge_setaddr KERNAL_CLOSE         ;Close file
+    lda #1
+    bridge_call KERNAL_CLOSE
+
+    bridge_setaddr KERNAL_CLRCHN        ;Clear input/output channels
+    bridge_call KERNAL_CLRCHN
+    
+    jmp file_read_disk_status
+
+keyval:                                 ;List of default shortcut keys
+    .byt $47, $58, $4f, $52, $4e
+    .byt $4a, $59, $56, $4b, $43
+    .byt $55, $15, $57, $50, $4c
+    .byt $41, $5a, $45, $49, $44
+    .byt $54, $42, $4d
+
+config:
+    .byt ":/x16editrc"
+
+val = tempvars
+.endproc
+
 ;******************************************************************************
 ;Function name.......: keyboard_read_and_dispatch
 ;Purpose.............: Reads one character from the keyboard buffer and
@@ -130,6 +213,8 @@ jmptbl:
     ldx scancode_modifiers
     cpx #KBD_MODIFIER_CTRL
     beq ctrl
+    cpx #KBD_MODIFIER_ALT
+    beq ctrl
 
 default:
     ;Search key value table for matches (control keys and other keys requiring special actions)
@@ -171,7 +256,7 @@ ctrl:
 :   and #%11011111
 
     ;Look for matches in key value table
-    ldx #keyboard_ctrl_keyval_end-keyboard_ctrl_keyval
+    ldx #keyboard_shortcut_count-1
 :   cmp keyboard_ctrl_keyval-1,x
     beq ctrl_match
     dex
@@ -189,11 +274,6 @@ ctrl:
     lda #0
     jmp cmd_replace
 
-    ;Ctrl+Backspace - Delete current line
-:   cmp #$14
-    bne :+
-    jmp cmd_delete_line
-
     ;Exit
 :   rts
 
@@ -204,6 +284,10 @@ ctrl_match:
     asl
     tax
     jmp (keyboard_ctrl_jmptbl,x)
+
+alt:
+    cmp #'6'
+    jmp cmd_copy
 
 default_keyval:
     .byt $03, $0d, $14, $09, $9d
@@ -269,25 +353,11 @@ default_jmptbl:
 :   and #%11011111
 
     ;Search keyval table
-    ldy #keyboard_ctrl_keyval_end-keyboard_ctrl_keyval
+    ldy #keyboard_shortcut_count
 :   cmp keyboard_ctrl_keyval-1,y
     beq match
     dey
     bne :-
-
-    ;r
-    cmp #$52
-    bne :+
-    jsr cursor_activate
-    lda #0
-    jmp cmd_file_open_prompt
-
-    ;s
-:   cmp #$53
-    bne :+
-    jsr cursor_activate
-    lda #0
-    jmp cmd_replace
 
     ;Uknown command, ignore
     rts
@@ -1267,23 +1337,37 @@ exit:
 
 .endproc
 
-;Ctrl+key value table
-keyboard_ctrl_keyval:
-    .byt $47, $49, $4a, $58, $4f
-    .byt $4e, $56, $59, $4b, $50
-    .byt $55, $57, $4c, $41
-    .byt $5a, $45, $44, $54, $42
-    .byt $4d
-keyboard_ctrl_keyval_end:
-
 ;Ctrl+key jump table
 keyboard_ctrl_jmptbl:
-    .word cmd_show_help, cmd_file_dos_command_prompt, cmd_wrap_buffer, cmd_exit, cmd_file_save_prompt
-    .word cmd_new_buffer, keyboard_cmd_pagedown, keyboard_cmd_pageup, cmd_cut, cmd_copy
-    .word cmd_paste, cmd_find, cmd_goto_line, cmd_auto_indent
-    .word cmd_set_word_wrap, cmd_change_encoding, cmd_file_set_device, cmd_rotate_text_color, cmd_rotate_background_color
+    .word cmd_show_help
+    .word cmd_exit
+    .word cmd_file_save_prompt
+    .word cmd_file_open_prompt
+    .word cmd_new_buffer
+
+    .word cmd_wrap_buffer
+    .word keyboard_cmd_pageup
+    .word keyboard_cmd_pagedown
+    .word cmd_cut
+    .word cmd_copy
+
+    .word cmd_paste
+    .word cmd_delete_line
+    .word cmd_find
+    .word cmd_replace_prompt
+    .word cmd_goto_line
+
+    .word cmd_auto_indent
+    .word cmd_set_word_wrap
+    .word cmd_change_encoding
+    .word cmd_file_dos_command_prompt
+    .word cmd_file_set_device
+
+    .word cmd_rotate_text_color
+    .word cmd_rotate_background_color
     .word cmd_mem_usage
 
 .segment "VARS"
-    keyboard_tabwidth:      .res 1              ;1 byte
+    keyboard_tabwidth:          .res 1              ;1 byte
+    keyboard_ctrl_keyval:       .res keyboard_shortcut_count
 .CODE

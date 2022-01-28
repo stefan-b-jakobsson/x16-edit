@@ -1327,6 +1327,8 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_cut
+    jsr cursor_disable
+
     ;Backup pointers, should we need to restore on mem full
     jsr cmd_backup_pointers
 
@@ -1339,7 +1341,8 @@ msg:
 :   pla
     dex
     bne :-
-    
+
+    jsr cursor_activate
     jmp screen_refresh
 
 mem_full:
@@ -1353,6 +1356,8 @@ mem_full:
     lda #2
     sta APP_MOD
     
+    jsr cursor_activate
+
     ldx #<msg
     ldy #>msg
     jmp screen_print_status
@@ -1576,10 +1581,28 @@ eof:
 .endproc
 
 ;******************************************************************************
+;Function name.......: cmd_replace_prompt
+;Purpose.............: Prompt user to replace string
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_replace_prompt
+    lda #12
+    sta APP_MOD
+
+    ldx #<msg1
+    ldy #>msg1
+    lda #20
+    jmp prompt_init
+
+msg1:
+    .byt "search to replace:", 0
+.endproc
+
+;******************************************************************************
 ;Function name.......: cmd_replace
 ;Purpose.............: Replace string
-;Input...............: A=0: Prompt for string to search for
-;                      A=1: Save string to search for, and prompt for string
+;Input...............: A=1: Save string to search for, and prompt for string
 ;                           to replace with; pointer to string to search for
 ;                           in X (AddressL) and Y (AddressH)
 ;                      A=2: Search for string and prompt user to confirm;
@@ -1590,19 +1613,6 @@ eof:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cmd_replace
-    ;A=0? Prompt for string to search for
-    cmp #0
-    bne prompt_replace
-    
-    lda #12
-    sta APP_MOD
-
-    ldx #<msg1
-    ldy #>msg1
-    lda #20
-    jmp prompt_init
-
-prompt_replace:
     cmp #1
     bne search
 
@@ -1757,9 +1767,6 @@ execute_done:
 
 exit:    
     rts
-
-msg1:
-    .byt "search to replace:", 0
 
 msg2:
     .byt "replace with:", 0
