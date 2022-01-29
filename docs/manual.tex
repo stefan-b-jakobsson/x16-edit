@@ -363,16 +363,47 @@
     By default the file handling functions use device \#8. The device
     number may be changed by pressing Ctrl+D.
 
-\section{User-configurable command key bindings}
+\section{User-configurable key bindings}
 \label{keybindings}
 
-It is possible to redefine the command key bindings in X16 Edit. 
+The shortcut key bindings used in X16 Edit are user-configurable.
 
-On startup the program reads the file X16EDITRC in the root folder of the SD card, if present. 
-That file should contain a stream of bytes identifying the key bindings. The key bindings are 
-sorted in the same order as the commands are listed in section \ref{commands}.
+On startup, the program reads custom key bindings from the file X16EDITRC in the
+root folder of the SD card. If that file is not available, the default key bindings are
+used.
 
-To make setting up the key bindings a bit easier, there is a special configuration tool (X16EDIT-KEYBINDINGS.PRG).
+The X16EDITRC file has a very simple format. It is only a stream of bytes, one for every
+shortcut, with no metadata.
+
+Each key is represented by the value returned by the Kernal function GETIN when pressed
+without Shift, Ctrl, Alt, or any other modifier key held down.
+
+The extra keys suppurted by the editor are represented by the following values:
+
+\begin{itemize}
+    \item \$15 = Delete
+    \item \$16 = End
+    \item \$17 = PgUp
+    \item \$18 = PgDn
+    \item \$1a = Insert 
+\end{itemize}
+
+The values in X16EDITRC are bound to shortcuts in a fixed order, the same order as
+the shortcuts appear in section \ref{commands}.
+
+If X16EDITRC holds fewer values than there are shortcuts, the editor will use
+default bindings for the remaining ones. If there are more values in the file than there
+are bindings, the excess is ignored.
+
+To bind the first three shortcuts -- Show help, Exit, and Write Out -- to other keys,
+the file could for example begin with the following three bytes:
+
+\begin{verbatim}
+    $72, $81, $83 ;ASCII values of H, Q, and S
+\end{verbatim}
+
+To make it a bit easier to setup X16EDITRC, you may use the provided tool for
+this purpuse (X16EDIT-KEYBINDINGS.PRG).
 
 \section{Application Interface}
 
