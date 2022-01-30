@@ -232,10 +232,9 @@ default:
 default_insert:
     ;Insert char into buffer and update screen
     jsr cmd_insert
-    bcs :+
-    jmp screen_println
-:   jsr screen_refresh
-    jmp screen_println
+    bcc :+
+    jsr screen_refresh
+:   jmp screen_println
 
 default_match:
     ;Action for special keys, for example arrow keys and function keys
@@ -262,20 +261,8 @@ ctrl:
     dex
     bne :-
 
-    ;Ctrl+R - Open file
-    cmp #$52
-    bne :+
-    lda #0
-    jmp cmd_file_open_prompt
-
-    ;Ctrl+S - Replace string
-:   cmp #$53
-    bne :+
-    lda #0
-    jmp cmd_replace
-
     ;Exit
-:   rts
+    rts
 
 ctrl_match:
     ;Action for Ctrl+key combinations
@@ -284,10 +271,6 @@ ctrl_match:
     asl
     tax
     jmp (keyboard_ctrl_jmptbl,x)
-
-alt:
-    cmp #'6'
-    jmp cmd_copy
 
 default_keyval:
     .byt $03, $0d, $14, $09, $9d
@@ -337,10 +320,9 @@ default_jmptbl:
     jsr screen_clear_status
     lda #160
     jsr cmd_insert
-    bcs :+
-    jmp screen_println
-:   jsr screen_refresh
-    jmp screen_println
+    bcc :+
+    jsr screen_refresh
+:   jmp screen_println
 
     ;ESC key
 :   cmp #$03
@@ -489,6 +471,8 @@ abort:
     lda scancode_modifiers
     cmp #KBD_MODIFIER_CTRL
     beq tofiles
+    cmp #KBD_MODIFIER_ALT
+    beq tofiles
     
     ;Default, send key to prompt
 :   txa
@@ -581,6 +565,8 @@ write_file:
     lda scancode_modifiers
     cmp #KBD_MODIFIER_CTRL
     beq tofiles
+    cmp #KBD_MODIFIER_ALT
+    beq tofiles
 
     ;Default, send key to prompt
 :   txa
@@ -616,57 +602,33 @@ tofiles:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_mode_file_dir
-    ;Enter key
-    cmp #13
+    ldx #0
+loop:
+    cmp keyvals,x
+    beq match
+    inx
+    cpx #6
+    bcc loop
     bne :+
-    jmp enterkey
 
-    ;ESC key
-:   cmp #$03
-    bne :+
-    jmp abort
-
-    ;Up arrow key
-:   cmp #$91
-    bne :+
-    jmp uparrow
-
-    ;Down arrow key
-:   cmp #$11
-    bne :+
-    jmp downarrow
-
-    ;Page down key
-:   cmp #KBD_EXT_PGDN
-    bne :+
-    jmp nextpage
-
-    ;Page up key
-:   cmp #KBD_EXT_PGUP
-    bne :+
-    jmp prevpage
-
-    ;Ctrl
-:   ldx scancode_modifiers
-    cpx #KBD_MODIFIER_CTRL
-    bne exit
-
-    ;Convert to lower
+    ;Check control
     and #%11011111
 
-    ;Ctrl+Y
-    cmp #$59
-    bne :+
-    jmp prevpage
-    
-    ;Ctrl+V
-:   cmp #$56
-    bne exit
-    jmp nextpage
-
-    ;Default, no action
-exit:
+    ldy scancode_modifiers
+    cpy #KBD_MODIFIER_CTRL
+    beq loop
+    cpy #KBD_MODIFIER_ALT
+    beq loop
     rts
+
+:   cpx #8
+    bcc loop
+
+match:
+    txa
+    asl
+    tax
+    jmp (jmptbl,x)
 
 enterkey:
     clc
@@ -749,6 +711,11 @@ nextpage:
 prevpage:
     jmp dir_prevpage
 
+keyvals:
+    .byt $0d, $03, $91, $11, KBD_EXT_PGDN, KBD_EXT_PGUP
+    .byt $59, $56
+jmptbl:
+    .word enterkey, abort, uparrow, downarrow, nextpage, prevpage, prevpage, nextpage
 .endproc
 
 
