@@ -20,8 +20,7 @@
     naturally, many differences.
     
     One primary design goal is to support editing of large text 
-    files. A lot of care has been put into the design of
-    the internal memory model to make this possible.
+    buffers, and the internal memory model is made with this in mind.
 
     The Commander X16 was devised by David Murray a.k.a. the 
     8-Bit Guy. For more information on the platform, go to 
@@ -67,27 +66,27 @@
 
         Both the Backspace and the Delete keys have their standard meaning.
 
-    \subsection{Commands}
+    \subsection{Keyboard shortcuts}
     \label{commands}
     
-        Commands are selected with keyboard shortcuts. They may be entered in the following three ways:
+        Commands are selected with keyboard shortcuts. They may be entered in the following four ways:
 
         \begin{itemize}
 
-            \item Press and hold down the Ctrl key or the left Alt key at the same time as you press a command key. This is the
+            \item Press and hold down the Ctrl key at the same time as you press a command key. This is the
             preferred way of selecting commands.
+
+            \item Intead of the Ctrl key, you may press and hold down the left Alt key.
             
-            \item Alternatively you may press and release the Esc key. The program is now ready to receive
-            a command key, and a message stating this is displayed in the status bar. 
-            Press a command key, without holding down Ctrl, or Esc to abort. This option is mostly
-            made as a backup, in case the Ctrl+key sequence does not work. 
+            \item As a backup if Ctrl and left Alt don't work, you may press and release the Esc key. A message is displayed in the status bar,
+            indicating that the program is ready to receive a command key. Just press the command key without holding down any modifier key.
             
-            \item Finally, some commands are available via an optional function key.
+            \item Some commands are, finally, available via an optional function key.
         \end{itemize}
 
 	\begin{longtable}{c c l}
 		\caption{List of keyboard shortcuts} \\
-	    \textbf{Ctrl or Esc} & \textbf{F-key} & \textbf{Description} \\
+	    \textbf{Key} & \textbf{F-key} & \textbf{Description} \\
 	    \hline \\
             G    & F1    & Display built-in help screen \\
             X    & F2    & Exit from the program \\
@@ -117,7 +116,8 @@
 
         \noindent The tab stop width is set by first pressing and releasing Esc and then one of the digits 1--9.
 
-        The command key bindings are user configurable, see section \ref{keybindings}.
+        The shortcut key bindings are user-configurable. On startup, the program reads custom key bindings from the file
+        X16EDITRC in the SD card root folder. Read more about this in section \ref{keybindings}.
 
     \subsection{User interface}
 	
@@ -155,7 +155,7 @@
         
         To prevent typing errors, the editor will, however, insert a normal space character even if the Shift key is held down.
         Non-breaking spaces are rarely used when you edit plain text files. And it is quite easy to type them by mistake,
-        especially if the character immediately before or after the space requires the Shift key.
+        especially if you need to hold down Shift for the character before or after a blank space.
 
         If you actually want to insert a non-breaking space you may type Ctrl+space.
 
@@ -227,7 +227,7 @@
 
         X16 Edit supports the traditional cut, copy, and paste features.
 
-        The copy (Ctrl+P) and cut (Ctrl+K) commands copy all of the current line to the clipboard. It is not possible to select 
+        The copy (Ctrl+C) and cut (Ctrl+K) commands copy all of the current line to the clipboard. It is not possible to select 
         a part of a line. The lines you copy or cut are placed in the clipboard in the order they were copied or cut.
         
         The clipboard may hold a maximum of 3 kB of data. If you reach that limit, the program will inform you.
@@ -351,6 +351,7 @@
             \item "R:dst=src", rename src file to dst file
             \item "S:filename", delete filename
             \item "CD:dirname", change current directory
+            \item "MD:dirname", create directory
             \item "RD:dirname", remove directory
     \end{itemize}
     
@@ -393,7 +394,7 @@ the shortcuts appear in section \ref{commands}.
 
 If X16EDITRC holds fewer values than there are shortcuts, the editor will use
 default bindings for the remaining ones. If there are more values in the file than there
-are bindings, the excess is ignored.
+are shortcuts, the excess is ignored.
 
 To bind the first three shortcuts -- Show help, Exit, and Write Out -- to other keys,
 the file could for example begin with the following three bytes:
@@ -565,7 +566,7 @@ this purpuse (X16EDIT-KEYBINDINGS.PRG).
 
 \section{License}
 
-	Copyright 2020--2021, Stefan Jakobsson.
+	Copyright 2020--2022, Stefan Jakobsson.
 
 	The X16 Edit program, including this manual, is released under the GNU General Public License version 3 or later.
     The program is free software and comes with ABSOLUTELY NO WARRANTY. You may redistribute and/or modify it under the 
