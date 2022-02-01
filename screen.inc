@@ -360,7 +360,7 @@ nextrow:
     ldy #>row1
     jmp screen_print_footer
 row1:
-    .byt ":^g get help :^o write out :^y prev page :^k cut   :^p copy", 0 
+    .byt ":^g get help :^o write out :^y prev page :^k cut   :^c copy", 0 
 row2:
     .byt ":^x exit     :^r open file :^v next page :^u uncut :^w where is", 0
 .endproc
