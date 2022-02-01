@@ -27,8 +27,8 @@
 
     The first task is to prepare a custom ROM image that may be mounted in the emulator.
 
-    You got the standard ROM image when you downloaded the emulator. It's the file
-    rom.bin, normally in the same folder as the emulator.
+    The standard ROM image is stored in the file rom.bin, normally found in the same folder as the emulator. If you compile the Kernal yourself,
+    rom.bin is in the Kernal project's build folder.
 
     The standard ROM image uses banks 0--6 as follows:
 
@@ -41,7 +41,6 @@
         \item BASIC interpreter
         \item Machine language monitor
         \item Charset data
-        \item Unused
     \end{enumerate}
 
     \noindent The most user-friendly option would be to distribute a complete custom ROM image with
@@ -55,24 +54,24 @@
     In Linux and MacOS this may be done with the cat utility as follows: 
     
     \begin{verbatim}
-        cat rom.bin x16edit-rom-x.x.x.bin > customrom.bin
+    cat rom.bin x16edit-rom-x.x.x.bin > customrom.bin
     \end{verbatim}
 
     If you're using Windows, and cat is not available, you may try using the type command instead (not tested):
     
     \begin{verbatim}
-        type rom.bin x16edit-rom-x.x.x.bin > customrom.bin
+    type rom.bin x16edit-rom-x.x.x.bin > customrom.bin
     \end{verbatim}
 
     Select the custom rom on starting the emulator: 
     
     \begin{verbatim}
-        xemu -rom customrom.bin
+    xemu -rom customrom.bin -sdcard sdcard.img
     \end{verbatim}
 
 \section{Create startup code using the X16 Edit API}
 
-    Running the X16 Edit ROM version requires that you enter a small startup
+    Starting the X16 Edit ROM version requires that you enter a small startup
     routine in RAM.
 
     The startup code must use the public API of the program, which currently
@@ -222,11 +221,11 @@
 
 \section{Final comments}
 
-    The X16 Edit ROM version is currently a proof of concept, showing that the code is ready to be installed and run in ROM.
+    The installation and startup process is not very convenient for the end-user at this stage. 
     
-    The installation and startup process is not very convenient for the end-user at this stage. The editor version is of most
-    interest if you like to install your own custom ROM image or if the X16 project would like to officially include the
-    editor in the standard ROM. In the latter case, there could be a BASIC command to start the editor in a similar way
-    that the built-in monitor is started.
+    In order for a ROM based program to be usable, there needs to be a BASIC command to run the program. 
+    
+    For now the X16 Edit ROM version it is of  most interest to those who want to integrate a text 
+    editor with their program, for example assemblers, compilers and other development tools.
 
 \end{document}
