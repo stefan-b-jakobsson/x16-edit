@@ -519,7 +519,7 @@ linefeed_store:
     ;C=1: We're at bottom of screen, need to scroll
     jsr mem_scr_move_down
 
-:   jsr mem_set_lnv_to_crs        ;Set first visible char of line to cursor position, i.e. start of line
+:   jsr mem_cp_crs_lnv        ;Set first visible char of line to cursor position, i.e. start of line
 
     ;If auto indent on, insert blank spaces
     lda cmd_auto_indent_status
@@ -696,7 +696,7 @@ linebreak_deleted:
     sta counter+2
 
     ;Set first visible char of that line to start of line (cursor position)
-    jsr mem_set_lnv_to_crs
+    jsr mem_cp_crs_lnv
 
     ;Set line and column index
     jsr mem_cur_col_ret
@@ -828,7 +828,7 @@ at_linebreak:
     jsr mem_crs_move_to_line_start
 
     ;Also set first visible char to start of line
-    jsr mem_set_lnv_to_crs
+    jsr mem_cp_crs_lnv
 
     ;Set line and column index
     jsr mem_cur_col_ret
@@ -903,7 +903,7 @@ at_eol:
     jsr cursor_move_crlf
     bcs at_bottom
 
-    jsr mem_set_lnv_to_crs  ;Set first visible char to cursor, i.e. start of line
+    jsr mem_cp_crs_lnv  ;Set first visible char to cursor, i.e. start of line
 
     sec
     ldx #0
@@ -911,7 +911,7 @@ at_eol:
 
 at_bottom:
     ;Cursor at bottom of screen, but not end of file, need to scroll
-    jsr mem_set_lnv_to_crs
+    jsr mem_cp_crs_lnv
     jsr mem_scr_move_down
 
     sec
@@ -957,7 +957,7 @@ at_bottom:
     jsr mem_crs_move_to_line_start
 
     ;Set pointer to first visible char on line to cursor position
-    jsr mem_set_lnv_to_crs
+    jsr mem_cp_crs_lnv
 
     ;Set current line and column index to start of line above
     jsr mem_cur_col_ret
@@ -1092,7 +1092,7 @@ at_first_line:
     bcs at_last_line
 
     ;Set pointer to first visible char on the line to cursor
-    jsr mem_set_lnv_to_crs
+    jsr mem_cp_crs_lnv
 
     ;Set current line and column index to start of next line
     jsr mem_cur_col_ret
@@ -1211,7 +1211,7 @@ at_last_line:
     
     ;Move cursor mem pointer to start of line, and set first visible char to same
     jsr mem_crs_move_to_line_start
-    jsr mem_set_lnv_to_crs
+    jsr mem_cp_crs_lnv
 
     rts
 .endproc
@@ -1466,7 +1466,7 @@ msg:
 
     ;Update cursor position and refresh screen
 :   jsr mem_cur_col_ret
-    jsr mem_set_lnv_to_crs
+    jsr mem_cp_crs_lnv
     ldy CRS_Y
     ldx #0
     jsr cursor_move

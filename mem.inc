@@ -1801,23 +1801,13 @@ exit:
     jsr mem_crs_backup
 
     ;Move LNV pointers to CRS
-    lda LNV_BNK
-    sta CRS_BNK
-    lda LNV_ADR+1
-    sta CRS_ADR+1
-    lda LNV_IDX
-    sta CRS_IDX
+    jsr mem_cp_lnv_crs
 
     ;Call CRS step function
     jsr mem_crs_step_left
 
     ;Copy result to LNV pointers
-    lda CRS_BNK
-    sta LNV_BNK
-    lda CRS_ADR+1
-    sta LNV_ADR+1
-    lda CRS_IDX
-    sta LNV_IDX
+    jsr mem_cp_crs_lnv
 
     ;Restore CRS pointers
     jsr mem_crs_restore
@@ -1838,24 +1828,14 @@ exit:
     jsr mem_crs_backup
 
     ;Move LNV pointers to CRS
-    lda LNV_BNK
-    sta CRS_BNK
-    lda LNV_ADR+1
-    sta CRS_ADR+1
-    lda LNV_IDX
-    sta CRS_IDX
-
+    jsr mem_cp_lnv_crs
+    
     ;Call CRS step function
     jsr mem_crs_step_right
 
     ;Copy result to LNV pointers
-    lda CRS_BNK
-    sta LNV_BNK
-    lda CRS_ADR+1
-    sta LNV_ADR+1
-    lda CRS_IDX
-    sta LNV_IDX
-
+    jsr mem_cp_crs_lnv
+    
     ;Restore CRS pointers
     jsr mem_crs_restore
     
@@ -1871,25 +1851,16 @@ exit:
 ;                      otherwise .C=0
 ;Error returns.......: Nothing
 .proc mem_scr_move_down
+    ;Prepare: backup CRS and copy SCR
     jsr mem_crs_backup
+    jsr mem_cp_scr_crs
 
-    lda SCR_BNK
-    sta CRS_BNK
-    lda SCR_ADR+1
-    sta CRS_ADR+1
-    lda SCR_IDX
-    sta CRS_IDX
-
+    ;Move pointer
     jsr mem_crs_move_to_line_end
     jsr mem_crs_step_right
 
-    lda CRS_BNK
-    sta SCR_BNK
-    lda CRS_ADR+1
-    sta SCR_ADR+1
-    lda CRS_IDX
-    sta SCR_IDX
-
+    ;Copy SCR back and restore CRS
+    jsr mem_cp_crs_scr
     jsr mem_crs_restore
     
     rts
@@ -1904,26 +1875,17 @@ exit:
 ;                      otherwise .C=0
 ;Error returns.......: Nothing
 .proc mem_scr_move_up
+    ;Prepare: backup CRS and copy SCR
     jsr mem_crs_backup
+    jsr mem_cp_scr_crs
 
-    lda SCR_BNK
-    sta CRS_BNK
-    lda SCR_ADR+1
-    sta CRS_ADR+1
-    lda SCR_IDX
-    sta CRS_IDX
-
+    ;Move pointer
     jsr mem_crs_move_to_line_start
     jsr mem_crs_step_left
     jsr mem_crs_move_to_line_start
 
-    lda CRS_BNK
-    sta SCR_BNK
-    lda CRS_ADR+1
-    sta SCR_ADR+1
-    lda CRS_IDX
-    sta SCR_IDX
-
+    ;Copy SCR back and restore CRS
+    jsr mem_cp_crs_scr
     jsr mem_crs_restore
     
     rts
@@ -1931,12 +1893,12 @@ exit:
 
 
 ;**********************************************************
-;Procedure name......: mem_set_lnv_to_crs
-;Description.........: Inserts a char at cursor location
+;Procedure name......: mem_cp_crs_lnv
+;Description.........: Copies CRS pointer to LNV pointer
 ;Input...............: .A = char to insert
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
-.proc mem_set_lnv_to_crs
+.proc mem_cp_crs_lnv
     lda CRS_BNK
     sta LNV_BNK
     
@@ -1951,6 +1913,73 @@ exit:
 
     rts
 .endproc
+
+;**********************************************************
+;Procedure name......: mem_cp_lnv_crs
+;Description.........: Copies LNV pointer to CRS pointer
+;Input...............: .A = char to insert
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc mem_cp_lnv_crs
+    lda LNV_BNK
+    sta SCR_BNK
+    
+    lda LNV_ADR
+    sta SCR_ADR
+    
+    lda LNV_ADR+1
+    sta SCR_ADR+1
+    
+    lda LNV_IDX
+    sta SCR_IDX
+
+    rts
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_cp_crs_scr
+;Description.........: Copies CRS pointer to SCR pointer
+;Input...............: .A = char to insert
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc mem_cp_crs_scr
+    lda CRS_BNK
+    sta SCR_BNK
+    
+    lda CRS_ADR
+    sta SCR_ADR
+    
+    lda CRS_ADR+1
+    sta SCR_ADR+1
+    
+    lda CRS_IDX
+    sta SCR_IDX
+
+    rts
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_cp_scr_crs
+;Description.........: Copies SCR pointer to CRS pointer
+;Input...............: .A = char to insert
+;Returns.............: Nothing
+;Error returns.......: Nothing
+.proc mem_cp_scr_crs
+    lda SCR_BNK
+    sta CRS_BNK
+    
+    lda SCR_ADR
+    sta CRS_ADR
+    
+    lda SCR_ADR+1
+    sta CRS_ADR+1
+    
+    lda SCR_IDX
+    sta CRS_IDX
+
+    rts
+.endproc
+
 
 ;**********************************************************
 ;Procedure name......: mem_cur_col_inc
@@ -1980,7 +2009,6 @@ exit:
     bne :++
     lda mem_cur_col+1
     bne :+
-
     dec mem_cur_col+2
 :   dec mem_cur_col+1
 :   dec mem_cur_col
@@ -2030,7 +2058,6 @@ exit:
     bne :++
     lda mem_cur_line+1
     bne :+
-
     dec mem_cur_line+2
 :   dec mem_cur_line+1
 :   dec mem_cur_line
