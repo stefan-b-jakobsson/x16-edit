@@ -30,3 +30,55 @@ help_bin:
     .incbin "helptxt.bin"
 
 .endproc
+
+;******************************************************************************
+;Function name.......: help_show
+;Purpose.............: Displays help screen
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc help_show
+    ;Clear editable part of screen
+    jsr screen_clear_editor
+
+    ;Set VERA address to start printing from start of row 2
+    stz VERA_L
+    lda #2
+    sta VERA_M
+    lda #(2<<4)
+    sta VERA_H
+
+    ;Set zero page vector to help screen content
+    lda mem_start
+    sta BNK_SEL
+
+    lda #<help_txt
+    sta TMP1_ADR
+    lda #>help_txt
+    sta TMP1_ADR+1
+
+    ldy #0
+loop:
+    ;Get next char
+    lda (TMP1_ADR),y
+    beq exit
+
+    cmp #LF
+    beq :+
+    jsr screen_put_uc_char
+    bra next
+
+    ;Line feed
+:   stz VERA_L
+    inc VERA_M
+
+next:
+    iny
+    bne loop
+    inc TMP1_ADR+1
+    bra loop
+
+exit:
+    rts
+
+.endproc

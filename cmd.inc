@@ -1313,7 +1313,7 @@ msg:
     ldy #>msg
     jsr screen_print_status
     
-    jmp screen_show_help
+    jmp help_show
 
 msg:
     .byt "press esc to exit help screen",0
