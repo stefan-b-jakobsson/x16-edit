@@ -114,7 +114,12 @@ loop:
     bne loop
 
 close:
-    bridge_setaddr KERNAL_CLOSE         ;Close file
+    and #2                              ;Read time out? Will be true if file was not found, then skip saving last value
+    bne :+
+    lda val
+    sta keyboard_ctrl_keyval,y
+
+:   bridge_setaddr KERNAL_CLOSE         ;Close file
     lda #1
     bridge_call KERNAL_CLOSE
 
@@ -255,7 +260,7 @@ ctrl:
 :   and #%11011111
 
     ;Look for matches in key value table
-    ldx #keyboard_shortcut_count-1
+    ldx #keyboard_shortcut_count
 :   cmp keyboard_ctrl_keyval-1,x
     beq ctrl_match
     dex

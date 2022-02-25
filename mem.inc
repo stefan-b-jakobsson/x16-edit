@@ -122,8 +122,8 @@
     bcs :+
     sta mem_top
 
-    ;Mark pages in banks 0 to mem_start as allocated/not free; these pages may not be used by the program
-:   lda mem_start
+    ;Setup mem map values
+:   lda mem_start       ;Prepare
     sta BNK_SEL
 
     lda #<mem_map
@@ -131,63 +131,30 @@
     lda #>mem_map
     sta TMP1_ADR+1
     
-    ldx #0
     ldy #0
-    lda #255
-mem_start_init:
-    sta (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    iny
-    bne :+
-    inc TMP1_ADR+1
-:   inx
-    cpx mem_start
-    bcc mem_start_init
-    beq mem_start_init
 
-    ;Mark pages in banks mem_start+1 to mem_top as free, except the head of buffer
-    lda #%00000001  ;Needed to mark head of buffer as allocated
-mem_usable_init:
-    sta (TMP1_ADR),y
-    lda #0          ;Rest of pages marked as free
-    iny
-    sta (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    iny
-    bne :+
-    inc TMP1_ADR+1
-:   cpx mem_top
-    bcs :+
+    lda #255            ;Bank 0 to mem_start: Not part of the text buffer, mark as allocated
+    ldx mem_start
     inx
-    bra mem_usable_init
+    jsr init_map
 
-;Mark pages in banks mem_top+1 to 255 as allocated/not free; these pages may not be used by the program, or are unpopulated memory
-:   cpx #255
-    beq blocks_free_counter     ;Mem top at end of memory, nothing more to mark
+    lda #%00000001      ;Mark first page in the text buffer as allocated
+    sta (TMP1_ADR),y
+    iny
+    
+    sec                 ;Bank mem_start+1 to mem_top: Rest of the text buffer, mark as free
+    lda mem_top
+    sbc mem_start
+    tax
+    lda #0
+    jsr init_map
 
-    inx
+    sec                 ;Bank mem_top+1 to 255: Memory above text buffer, mark as allocated
     lda #255
-mem_top_init:
-    sta (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    iny
-    sta (TMP1_ADR),y
-    iny
-    bne :+
-    inc TMP1_ADR+1
-:   inx
-    bne mem_top_init
+    sbc mem_top
+    tax
+    lda #255
+    jsr init_map
 
 blocks_free_counter:
     ;Calculate number of free blocks, (mem_top-mem_start)*256/8 = (mem_top-mem_start)*32
@@ -240,21 +207,11 @@ blocks_free_counter:
 
     ;Setup initial memory page metadata (bank mem_start+1, page $a0), bank selected above already
     lda #0
-    
     ldy #0
-    sta (CRS_ADR),y     ;Previous bank = 0, doesn't really matter
-    
-    ldy #1
-    sta (CRS_ADR),y     ;Previous page = 0, i.e. null
-
-    ldy #2
-    sta (CRS_ADR),y     ;Next bank = 0, doesn't really matter
-
-    ldy #3
-    sta (CRS_ADR),y     ;Next page = 0, i.e. null
-
-    ldy #4
-    sta (CRS_ADR),y     ;Len = 0
+:   sta (CRS_ADR),y
+    iny
+    cpy #5
+    bne :-
 
     ;Set initial memory page for defrag runner
     lda mem_start
@@ -278,6 +235,31 @@ blocks_free_counter:
     stz mem_modified
 
     rts
+
+    ;Internal subroutine to set mem_map values
+    ;Input: A=value, X=number of banks to write, Y should 
+init_map:
+    cpx #0              ;Exit if bank count=0
+    beq init_map_exit
+
+    sta tempvars        ;Save input
+init_map_loop:
+    lda tempvars
+    sta (TMP1_ADR),y
+    iny
+    bne :+
+    inc TMP1_ADR+1
+
+:   tya
+    and #3
+    bne init_map_loop
+
+    dex
+    bne init_map_loop
+
+init_map_exit:
+    rts
+
 .endproc
 
 ;**********************************************************

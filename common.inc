@@ -40,6 +40,7 @@
 .define KERNAL_CHRIN $ffcf
 .define KERNAL_READST $ffb7
 .define KERNAL_MEMTOP $ff99
+.define KERNAL_DECOMPRESS $feed
 
 ;Keyboard
 .define KERNAL_GETIN $ffe4
@@ -141,6 +142,7 @@ mem_map                                 = $a000               ;1024 bytes ($a000
 clipboard_mem                           = $a400               ;3072 bytes ($a400-$afff)
 ram_backup_storage                      = $b000               ;1280 bytes ($b000-$b4ff)
 dir_entry                               = $b500               ;256 bytes
+help_txt                                = $b600
 
 ;*****************************************************************************
 ;CONSTANTS

@@ -278,7 +278,8 @@ exit:
     jsr cmd_init
     jsr scancode_init
     jsr progress_init
-    
+    jsr help_decompress
+
     ;Exit without errors, C=0
     clc
     rts
@@ -347,6 +348,7 @@ exit:
 .include "ram.inc"
 .include "dir.inc"
 .include "progress.inc"
+.include "help.inc"
 
 .if target_mem=target_rom
     .include "bridge.inc"
