@@ -24,7 +24,11 @@
     lda #>help_txt
     sta r1+1
 
-    jmp KERNAL_DECOMPRESS
+    jsr KERNAL_DECOMPRESS
+    
+    lda #0              ;Add zero to mark end of text
+    sta (r1)
+    rts
 
 help_bin: 
     .incbin "helptxt.bin"
