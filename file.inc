@@ -274,8 +274,10 @@ suffix: .byt "w,s,"     ;Read backwards
 :   bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
     sta first_char
+
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
+    and #2                              ;Bit 1 (read timeout) will be set if file not found
     beq continue
     jmp close
 
@@ -302,6 +304,7 @@ read_loop:
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     bne eof
+
     bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
 

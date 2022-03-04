@@ -89,10 +89,9 @@ keyboard_shortcut_count = 23
 
     bridge_setaddr KERNAL_OPEN          ;Open file for reading
     bridge_call KERNAL_OPEN
-    bcc :+
-    rts
+    bcs close
 
-:   bridge_setaddr KERNAL_CHKIN         ;Set file as input
+    bridge_setaddr KERNAL_CHKIN         ;Set file as input
     ldx #1
     bridge_call KERNAL_CHKIN
     bcs close
@@ -105,7 +104,7 @@ loop:
     
     bridge_setaddr KERNAL_READST        ;Check for EOF or errors
     bridge_call KERNAL_READST
-    bne close
+    bne last
 
     lda val                             ;Store byte in shortcut list
     sta keyboard_ctrl_keyval,y
@@ -113,13 +112,14 @@ loop:
     cpy #keyboard_shortcut_count
     bne loop
 
-close:
+last:
     and #2                              ;Read time out? Will be true if file was not found, then skip saving last value
-    bne :+
+    bne close
     lda val
     sta keyboard_ctrl_keyval,y
 
-:   bridge_setaddr KERNAL_CLOSE         ;Close file
+close:
+    bridge_setaddr KERNAL_CLOSE         ;Close file
     lda #1
     bridge_call KERNAL_CLOSE
 
@@ -140,6 +140,10 @@ config:
 
 val = tempvars
 .endproc
+
+;not present     -
+;not found       $42    bits 1 and 6 = Read timeout + EOI
+;found - eof     $40    bit 6        = EOI
 
 ;******************************************************************************
 ;Function name.......: keyboard_read_and_dispatch
