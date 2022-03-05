@@ -277,7 +277,7 @@ suffix: .byt "w,s,"     ;Read backwards
 
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
-    and #2                              ;Bit 1 (read timeout) will be set if file not found
+    and #%10111111            ;Check if any other bit than bit 6 (EOI) is set => an error condition
     beq continue
     jmp close
 
