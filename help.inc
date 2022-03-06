@@ -11,27 +11,64 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc help_decompress
-    lda mem_start       ;Select first RAM bank used by the program
+    ;Select first RAM bank used by the program
+    lda mem_start
     sta BNK_SEL
 
-    lda #<help_bin      ;Vector to compressed text (input)
+    ;Vector to compressed text (input)
+    lda #<help_bin
     sta r0
     lda #>help_bin
     sta r0+1
 
-    lda #<help_txt      ;Vector to decompressed text (output)
+    ;Copy compressed text to clipboard mem, clipboard mem used temporarily for this purpose during editor initialization
+    lda #<clipboard_mem
+    sta r1
+    lda #>clipboard_mem
+    sta r1+1
+    ldy #0
+
+copy:   
+    lda r0+1
+    cmp #>help_bin_end
+    bne :+
+    cpy #<help_bin_end
+    beq decompress
+
+:   lda (r0),y
+    sta (r1),y
+    iny
+    bne copy
+    inc r0+1
+    inc r1+1
+    bra copy
+
+decompress:  
+    ;Vector to compressed text (input)
+    lda #<clipboard_mem
+    sta r0
+    lda #>clipboard_mem
+    sta r0+1
+
+    ;Vector to decompressed text (output)
+    lda #<help_txt
     sta r1
     lda #>help_txt
     sta r1+1
 
-    jsr KERNAL_DECOMPRESS
+    ;Call Kernal decompress function
+    bridge_setaddr KERNAL_DECOMPRESS
+    bridge_call KERNAL_DECOMPRESS
     
-    lda #0              ;Add zero to mark end of text
+    ;Add trailing zero to mark end of text
+    lda #0
     sta (r1)
+
     rts
 
-help_bin: 
+help_bin:
     .incbin "helptxt.bin"
+help_bin_end:
 
 .endproc
 

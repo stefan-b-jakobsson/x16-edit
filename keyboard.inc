@@ -111,6 +111,7 @@ loop:
     iny
     cpy #keyboard_shortcut_count
     bne loop
+    bra close
 
 last:
     and #2                              ;Read time out? Will be true if file was not found, then skip saving last value
@@ -131,7 +132,7 @@ close:
 keyval:                                 ;List of default shortcut keys
     .byt $47, $58, $4f, $52, $4e
     .byt $4a, $59, $56, $4b, $43
-    .byt $55, $15, $57, $50, $4c
+    .byt $55, $15, $57, $53, $4c
     .byt $41, $5a, $45, $49, $44
     .byt $54, $42, $4d
 

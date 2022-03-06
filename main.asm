@@ -278,7 +278,6 @@ exit:
     jsr cmd_init
     jsr scancode_init
     jsr progress_init
-    jsr help_decompress
 
     ;Exit without errors, C=0
     clc
@@ -311,6 +310,9 @@ errormsg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_loop
+    ;Decompress help text
+    jsr help_decompress
+    
     ;Init IRQ
     jsr irq_init
 
