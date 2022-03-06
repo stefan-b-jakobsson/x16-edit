@@ -269,6 +269,7 @@ exit:
     stz APP_MOD
 
     ;Initialize base functions
+    jsr help_decompress
     jsr mem_init
     jsr file_init
     jsr keyboard_init
@@ -310,9 +311,6 @@ errormsg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_loop
-    ;Decompress help text
-    jsr help_decompress
-    
     ;Init IRQ
     jsr irq_init
 

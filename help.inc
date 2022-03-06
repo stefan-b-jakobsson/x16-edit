@@ -11,6 +11,16 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc help_decompress
+    ;Backup r0 and r1
+    lda r0
+    pha
+    lda r0+1
+    pha
+    lda r1
+    pha
+    lda r1+1
+    pha
+
     ;Select first RAM bank used by the program
     lda mem_start
     sta BNK_SEL
@@ -63,6 +73,16 @@ decompress:
     ;Add trailing zero to mark end of text
     lda #0
     sta (r1)
+
+    ;Restore r0 and r1
+    pla
+    sta r1+1
+    pla
+    sta r1
+    pla
+    sta r0+1
+    pla
+    sta r0
 
     rts
 
