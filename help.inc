@@ -31,10 +31,14 @@
     lda #>help_bin
     sta r0+1
 
+    ;Calculate end of copy
     sec
     lda #<help_bin_end
     sbc #<help_bin
-    sta index_end
+    sta endL
+    lda #>help_bin_end
+    sbc #0
+    sta endH
 
     ;Copy compressed text to clipboard mem, clipboard mem used temporarily for this purpose during editor initialization
     lda #<clipboard_mem
@@ -46,9 +50,9 @@
 
 copy:   
     lda r0+1
-    cmp #>help_bin_end
+    cmp endH
     bne :+
-    cpy index_end
+    cpy endL
     beq decompress
 
 :   lda (r0),y
@@ -96,7 +100,8 @@ help_bin:
     .incbin "helptxt.bin"
 help_bin_end:
 
-index_end = tempvars
+endL = tempvars
+endH = tempvars+1
 
 .endproc
 
