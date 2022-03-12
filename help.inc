@@ -97,7 +97,7 @@ decompress:
     rts
 
 help_bin:
-    .incbin "helptxt.bin"
+    .incbin "help.bin"
 help_bin_end:
 
 endL = tempvars
