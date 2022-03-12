@@ -277,7 +277,7 @@ suffix: .byt "w,s,"     ;Read backwards
 
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
-    and #%10111111            ;Check if any other bit than bit 6 (EOI) is set => an error condition
+    and #%10000010            ;Check if bit 1 (read timeout) or 7 (device not present)
     beq continue
     jmp close
 
@@ -338,25 +338,15 @@ alloc_new_page:
     sty newpage
     stx newpage+1
 
-    lda CRS_BNK
+    lda CRS_BNK     ;Set cur page len
     sta BNK_SEL
-
-    tya
-    ldy #2
-    sta (CRS_ADR),y ;Next bank
-    
-    txa
-    ldy #3
-    sta (CRS_ADR),y ;Next page
-    
     ldy #4
     lda curpage_len
-    sta (CRS_ADR),y ;Next len
+    sta (CRS_ADR),y
     
-    lda newpage
+    lda newpage     ;Select the newly allocated page
     sta BNK_SEL
     sta CRS_BNK
-
     lda newpage+1
     sta CRS_ADR+1
     
