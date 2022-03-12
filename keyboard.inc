@@ -70,14 +70,24 @@ keyboard_shortcut_count = 23
     cpx #keyboard_shortcut_count
     bne :-
 
+    ;Copy config file name to clipboard mem, temporarily used for this purpose during editor setup
+    lda mem_start
+    sta BNK_SEL
+
+    ldx #11
+:   lda config-1,x
+    sta clipboard_mem-1,x
+    dex
+    bne :-
+
     ;Read shortcut table from file, if available
     bridge_setaddr KERNAL_CLOSE         ;Close file #1
     lda #1
     bridge_call KERNAL_CLOSE
 
     bridge_setaddr KERNAL_SETNAM        ;Set file name
-    ldx #<config
-    ldy #>config
+    ldx #<clipboard_mem
+    ldy #>clipboard_mem
     lda #11
     bridge_call KERNAL_SETNAM
 
