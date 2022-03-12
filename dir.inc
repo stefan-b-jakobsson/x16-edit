@@ -30,6 +30,10 @@
     ;Set default = no kernal error
     stz file_io_err
 
+    ;Copy dirpath ("$"") to RAM
+    lda #'$'
+    sta dirpath
+
     ;Close file #1, and open file #1
     bridge_setaddr KERNAL_CLOSE
     lda #1
@@ -66,7 +70,7 @@ io_error:
     sec
     rts
 
-dirpath: .byte "$"
+dirpath = tempvars
 .endproc
 
 ;******************************************************************************

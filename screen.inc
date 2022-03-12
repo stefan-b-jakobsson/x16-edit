@@ -90,9 +90,7 @@ prepare_screen:
 
     ;Init screen header and footer
     jsr screen_print_header
-    jsr screen_print_default_footer
-
-    rts
+    jmp screen_print_default_footer
 .endproc
 
 ;******************************************************************************
