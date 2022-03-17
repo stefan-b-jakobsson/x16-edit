@@ -1904,16 +1904,16 @@ exit:
 ;Error returns.......: Nothing
 .proc mem_cp_lnv_crs
     lda LNV_BNK
-    sta SCR_BNK
+    sta CRS_BNK
     
     lda LNV_ADR
-    sta SCR_ADR
+    sta CRS_ADR
     
     lda LNV_ADR+1
-    sta SCR_ADR+1
+    sta CRS_ADR+1
     
     lda LNV_IDX
-    sta SCR_IDX
+    sta CRS_IDX
 
     rts
 .endproc
