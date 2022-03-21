@@ -1793,8 +1793,8 @@ exit:
 
     ;Restore CRS pointers
     jsr mem_crs_restore
-    
-    rts
+
+    rts                 ;Can't be simplified to a jmp statement due to stack handling by mem_crs_restore!
 .endproc
 
 ;**********************************************************
@@ -1821,7 +1821,7 @@ exit:
     ;Restore CRS pointers
     jsr mem_crs_restore
     
-    rts
+    rts                 ;Can't be simplified to a jmp statement due to stack handling by mem_crs_restore!
 .endproc
 
 ;**********************************************************
@@ -1845,7 +1845,7 @@ exit:
     jsr mem_cp_crs_scr
     jsr mem_crs_restore
     
-    rts
+    rts                 ;Can't be simplified to a jmp statement due to stack handling by mem_crs_restore!
 .endproc
 
 ;**********************************************************
@@ -1870,14 +1870,13 @@ exit:
     jsr mem_cp_crs_scr
     jsr mem_crs_restore
     
-    rts
+    rts                 ;Can't be simplified to a jmp statement due to stack handling by mem_crs_restore!
 .endproc
-
 
 ;**********************************************************
 ;Procedure name......: mem_cp_crs_lnv
 ;Description.........: Copies CRS pointer to LNV pointer
-;Input...............: .A = char to insert
+;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_cp_crs_lnv
@@ -1899,7 +1898,7 @@ exit:
 ;**********************************************************
 ;Procedure name......: mem_cp_lnv_crs
 ;Description.........: Copies LNV pointer to CRS pointer
-;Input...............: .A = char to insert
+;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_cp_lnv_crs
@@ -1921,7 +1920,7 @@ exit:
 ;**********************************************************
 ;Procedure name......: mem_cp_crs_scr
 ;Description.........: Copies CRS pointer to SCR pointer
-;Input...............: .A = char to insert
+;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_cp_crs_scr
@@ -1943,7 +1942,7 @@ exit:
 ;**********************************************************
 ;Procedure name......: mem_cp_scr_crs
 ;Description.........: Copies SCR pointer to CRS pointer
-;Input...............: .A = char to insert
+;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc mem_cp_scr_crs

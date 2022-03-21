@@ -332,23 +332,19 @@ alloc_new_page:
 
 :   stz CRS_ADR
 
-    jsr mem_alloc   ;Y=bank, X=page
-    cpx #0          ;Mem full?
-    beq mem_full
-    sty newpage
-    stx newpage+1
-
-    lda CRS_BNK     ;Set cur page len
+    lda CRS_BNK     ;Set current page length
     sta BNK_SEL
     ldy #4
     lda curpage_len
     sta (CRS_ADR),y
+
+    jsr mem_alloc   ;Y=bank, X=page
+    cpx #0          ;Mem full?
+    beq mem_full
     
-    lda newpage     ;Select the newly allocated page
-    sta BNK_SEL
-    sta CRS_BNK
-    lda newpage+1
-    sta CRS_ADR+1
+    sty BNK_SEL     ;Select the newly allocated page
+    sty CRS_BNK
+    stx CRS_ADR+1
     
     lda #5          ;Offset to skip mem page metadata
     sta CRS_ADR
