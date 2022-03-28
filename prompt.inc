@@ -43,9 +43,9 @@
     
     ;Print prompt message at third row from bottom of screen
     stz VERA_L
-    lda #SCREEN_HEIGHT-3
+    lda #SCREEN_HEIGHT-3+VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ldy #0
@@ -134,9 +134,9 @@ exit:
     lda prompt_start
     asl
     sta VERA_L
-    lda #SCREEN_HEIGHT-3
+    lda #SCREEN_HEIGHT-3+VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Set indexes

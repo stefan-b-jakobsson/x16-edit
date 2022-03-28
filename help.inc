@@ -117,9 +117,9 @@ endH = tempvars+1
 
     ;Set VERA address to start printing from start of row 2
     stz VERA_L
-    lda #2
+    lda #2+VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Set zero page vector to help screen content

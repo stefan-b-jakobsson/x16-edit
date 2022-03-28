@@ -34,16 +34,18 @@
     lda VERA_L1_CONFIG
     and #%11110000
     sta VERA_L1_CONFIG
-    lda VERA_L1_TILEBASE
 
     ;Read tile data to detect charset mode
+    lda VERA_L1_TILEBASE
     and #%11111100                  ;Set VERA mid (TILEBASE*2, discarding the lowest two bits in TILEBASE)
-    asl
     sta VERA_M
+    stz VERA_H
+
+    asl VERA_M
+    rol VERA_H
 
     lda #8                          ;8 => second char, as first char is the same in petscii uc and lc
     sta VERA_L
-    stz VERA_H
 
     lda VERA_D0                     ;Get first byte of the char definition, and use that value to detect charset mode
     
@@ -102,8 +104,9 @@ prepare_screen:
 .proc screen_print_header
     ;Prepare printing
     stz VERA_L
-    stz VERA_M
-    lda #(1<<4)
+    lda #VERA_BUFADR_M
+    sta VERA_M
+    lda #(1<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Clear header
@@ -118,7 +121,7 @@ prepare_screen:
 
     ;Print program name
     stz VERA_L
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ldx #0
@@ -191,8 +194,9 @@ filename_len = tempvars     ;1 byte
     ;Set start print position; row 0, column SCREEN_WIDTH-3
     lda #(SCREEN_WIDTH-3)*2
     sta VERA_L
-    stz VERA_M
-    lda #(2<<4)
+    lda VERA_BUFADR_M
+    sta VERA_M
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Get modified status
@@ -230,9 +234,11 @@ exit:
     ;Clear position
 :   lda #(SCREEN_WIDTH-1)*2
     sta VERA_L
+    clc
     lda #SCREEN_HEIGHT-2
+    adc #VERA_BUFADR_M
     sta VERA_M
-    lda #%00101000
+    lda #%00101000 | VERA_BUFADR_H
     sta VERA_H
 
     lda #32
@@ -309,9 +315,11 @@ bin_to_str:
 
     ;Set VERA address to print from start of SCREEN_HEIGHT-2
     stz VERA_L
+    clc
     lda #SCREEN_HEIGHT-2
+    adc #VERA_BUFADR_M
     sta VERA_M
-    lda #(1<<4)
+    lda #(1<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Print footer
@@ -342,7 +350,7 @@ nextrow:
     stz VERA_L
     inc VERA_M
     lda VERA_M
-    cmp #SCREEN_HEIGHT             ;End if we are at row SCREEN_HEIGHT
+    cmp #SCREEN_HEIGHT+VERA_BUFADR_M      ;End if we are at row SCREEN_HEIGHT
     bcc printloop
 
     rts
@@ -425,9 +433,9 @@ row2:
 
     ;Set VERA address to print from start of row 2
     stz VERA_L
-    lda #2
+    lda #2+VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Get length of mem page where we start printing
@@ -600,9 +608,11 @@ exit_2:
 .proc screen_println
     ;Set VERA address to print from start of row
     stz VERA_L
+    clc
     lda CRS_Y
+    adc #VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Setup temporary vector to first visible char on line
@@ -726,9 +736,9 @@ continue:
     sbc len
     and #%11111110
     sta VERA_L
-    lda #SCREEN_HEIGHT-3
+    lda #SCREEN_HEIGHT-3+VERA_BUFADR_M
     sta VERA_M
-    lda #(1<<4)
+    lda #(1<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Prepare printing, Y=char index, X=color
@@ -800,9 +810,16 @@ start_at = tempvars+1   ;1 byte
 .proc screen_clear_lines
     ;Prepare
     stz VERA_L
-    stx VERA_M
-    lda #(1<<4)
+    clc
+    txa
+    adc #VERA_BUFADR_M
+    sta VERA_M
+    lda #(1<<4 | VERA_BUFADR_H)
     sta VERA_H
+
+    tya
+    adc #VERA_BUFADR_M
+    tay
 
     ;Clear screen
     ldx #SCREEN_WIDTH

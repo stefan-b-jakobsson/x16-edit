@@ -46,7 +46,8 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc cursor_invert
-    stz VERA_H
+    lda #VERA_BUFADR_H
+    sta VERA_H
 
     lda cursor_state
     and #%00000001
@@ -67,7 +68,9 @@ show:
     asl
     ina
     sta VERA_L
+    clc
     lda CRS_Y
+    adc #VERA_BUFADR_M
     sta last_shown_at+1
     sta VERA_M
 

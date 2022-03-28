@@ -288,9 +288,9 @@ prepare:
     jsr screen_clear_editor
 
     stz VERA_L
-    lda #3
+    lda #3+VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
 skip_loop:
@@ -341,7 +341,7 @@ print_size:
     jsr util_strlen
     dey
     
-    lda #%00101000
+    lda #%00101000 | VERA_BUFADR_H
     sta VERA_H
 
 :   lda (TMP1_ADR),y
@@ -352,7 +352,7 @@ print_size:
     bne :-
 
 print_filename:
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
     lda #12*2
     sta VERA_L
@@ -439,10 +439,10 @@ nomorelbl:
     lda #1
     sta VERA_L
     clc
-    lda #3
+    lda #3 + VERA_BUFADR_M
     adc dir_selected
     sta VERA_M
-    lda #(2<<4)
+    lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ldx #80
@@ -456,7 +456,7 @@ nomorelbl:
     pla
     sta dir_selected
     clc
-    adc #3
+    adc #3+VERA_BUFADR_M
     sta VERA_M
 
     lda screen_color

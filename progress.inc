@@ -56,7 +56,7 @@
     stz VERA_L
     lda #$40
     sta VERA_M
-    lda #1<<4
+    lda #1+(1<<4)
     sta VERA_H
     
     ldx #0
@@ -88,8 +88,8 @@ config:
     rts
 
 config_data:
-    .byt ($4000>>5) & 255
-    .byt ($4000>>13) & 255
+    .byt ($14000>>5) & 255
+    .byt ($14000>>13) & 255
     .byt 40
     .byt 1
     .byt 200
