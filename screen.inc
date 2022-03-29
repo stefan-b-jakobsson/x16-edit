@@ -198,7 +198,7 @@ filename_len = tempvars     ;1 byte
     ;Set start print position; row 0, column SCREEN_WIDTH-3
     lda #(SCREEN_WIDTH-3)*2
     sta VERA_L
-    lda VERA_BUFADR_M
+    lda #VERA_BUFADR_M
     sta VERA_M
     lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
