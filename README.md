@@ -26,11 +26,9 @@ The second target is a 16 KB image to be stored in one of the ROM banks (the ROM
 | X16 Edit version | Kernal/Emulator version |
 | ---------------- | ----------------------- |
 | 0.0.1 - 0.3.6    | R38                     |
-|                  |                         |
 | 0.4.0 - 0.4.5    | Github master branch,   |
 |                  | any commit between      |
 |                  | 7bfa81a and f62e25a     |
-|                  |                         |
 | 0.5.0 -          | R39                     |
 
 # Running the RAM version
