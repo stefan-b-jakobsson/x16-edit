@@ -35,6 +35,10 @@
     and #%11110000
     sta VERA_L1_CONFIG
 
+    ;Ensure we are using default Map Base Address
+    lda #(VERA_BUFADR_H<<7) | (VERA_BUFADR_M >> 1)
+    sta VERA_L1_MAPBASE
+
     ;Read tile data to detect charset mode
     lda VERA_L1_TILEBASE
     and #%11111100                  ;Set VERA mid (TILEBASE*2, discarding the lowest two bits in TILEBASE)

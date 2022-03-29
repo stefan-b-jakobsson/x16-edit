@@ -66,6 +66,7 @@
 .define VERA_L0_TILEBASE $9f2f
 
 .define VERA_L1_CONFIG $9f34
+.define VERA_L1_MAPBASE $9f35
 .define VERA_L1_TILEBASE $9f36
 
 .define VERA_BUFADR_M $b0
