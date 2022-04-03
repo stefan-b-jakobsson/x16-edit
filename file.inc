@@ -291,24 +291,76 @@ continue:
     jsr mem_init
     lda CRS_BNK
     sta BNK_SEL
-    lda #5
-    sta CRS_ADR
 
     ;Store first char
-    stz curpage_len
-    ldy #0
-    lda first_char
-    bra :+
+    lda #5                  ;Set offset to first char
+    sta CRS_ADR
 
-read_loop:
+    ldy #0                  ;Store char
+    lda first_char
+    sta (CRS_ADR),y
+
+    lda #1
+    sta curpage_len
+
+block_read:
+    bridge_setaddr KERNAL_MACPTR
+    ldx #$06                ;Read first block
+    ldy #$a0
+    lda #250
+    bridge_call KERNAL_MACPTR
+    bcs byte_read_loop      ;Block read not supported, fall back to byte read
+
+    stz CRS_ADR             ;Store first block length (number of bytes read + 1)
+    inx
+    txa
+    ldy #4
+    sta (CRS_ADR),y
+    jsr cr2lf
+
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST       ;Check status
+    beq block_read_loop
+    jmp goto_start
+
+block_read_loop:   
+    bridge_setaddr KERNAL_MACPTR
+    
+    jsr mem_alloc           ;Allocate new page
+    cpx #0
+    bne :+
+    jmp mem_full2
+
+:   sty CRS_BNK
+    stx CRS_ADR+1
+
+    txa                     ;Prepare calling MACPTR
+    tay
+    ldx #$05
+    lda #251
+    bridge_call KERNAL_MACPTR
+
+    txa                     ;Store block length
+    ldy #4
+    sta (CRS_ADR),y
+
+    jsr cr2lf               ;Convert CR to LF
+    
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST       ;Check status
+    beq block_read_loop
+    bra goto_start
+
+byte_read_loop:             ;Read one byte at a time, fallback if the device doesn't support block read
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
-    bne eof
+    beq :+
+    jmp eof
 
-    bridge_setaddr KERNAL_CHRIN
+:   bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
 
-:   cmp #CR         ;Convert CR to LF line break
+    cmp #CR         ;Convert CR to LF line break
     bne :+
     lda #LF
 
@@ -318,7 +370,7 @@ read_loop:
 
     sta (CRS_ADR),y
     inc curpage_len
-    bra read_loop
+    bra byte_read_loop
 
 alloc_new_page:
     pha             ;Save char to insert on stack
@@ -357,7 +409,7 @@ alloc_new_page:
     ldy #1          ;Set page len = 1
     sty curpage_len
 
-    bra read_loop
+    bra byte_read_loop
 
 io_err:
     ;Set kernal error
@@ -374,6 +426,7 @@ eof:
     sta (CRS_ADR),y
       
     ;Set cursor mem pointer to start of text
+goto_start:
     lda mem_start
     ina
     sta CRS_BNK
@@ -399,10 +452,22 @@ close:
 mem_full:
     pla             ;Clean stack
 
+mem_full2:
     jsr eof
 
     lda #10         ;Set memory full error
     bra io_err      
+
+cr2lf:              ;Convert CR to LF in current page
+    ldy #5
+:   lda (CRS_ADR),y
+    cmp #CR
+    bne :+
+    lda #LF
+    sta (CRS_ADR),y
+:   iny
+    bne :--
+    rts
 
 .segment "VARS"
     first_char: .res 1

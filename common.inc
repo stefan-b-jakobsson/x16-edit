@@ -41,6 +41,7 @@
 .define KERNAL_READST $ffb7
 .define KERNAL_MEMTOP $ff99
 .define KERNAL_DECOMPRESS $feed
+.define KERNAL_MACPTR $ff44
 
 ;Keyboard
 .define KERNAL_GETIN $ffe4
