@@ -310,13 +310,16 @@ block_read:
     lda #250
     bridge_call KERNAL_MACPTR
     bcs byte_read_loop      ;Block read not supported, fall back to byte read
-
+    
     stz CRS_ADR             ;Store first block length (number of bytes read + 1)
     inx
     txa
     ldy #4
     sta (CRS_ADR),y
     jsr cr2lf
+
+    lda #70
+    sta progress_cnt
 
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST       ;Check status
@@ -345,8 +348,14 @@ block_read_loop:
     sta (CRS_ADR),y
 
     jsr cr2lf               ;Convert CR to LF
+
+    dec progress_cnt
+    bne :+
+    jsr progress_tick
+    lda #70
+    sta progress_cnt
     
-    bridge_setaddr KERNAL_READST
+:   bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST       ;Check status
     beq block_read_loop
     bra goto_start
