@@ -30,7 +30,7 @@
     The standard ROM image is stored in the file rom.bin, normally found in the same folder as the emulator. If you compile the Kernal yourself,
     rom.bin is in the Kernal project's build folder.
 
-    The standard ROM image uses banks 0--7 as follows:
+    The standard ROM image uses banks 0--8 as follows:
 
     \begin{enumerate}
         \setcounter{enumi}{-1}
@@ -42,10 +42,11 @@
         \item Machine language monitor
         \item Charset data
         \item CodeX
+        \item Demo
     \end{enumerate}
 
     \noindent The most user-friendly option would be to distribute a complete custom ROM image with
-    banks 0--7 from the standard rom.bin, and with X16 Edit ROM code in bank 8.
+    banks 0--8 from the standard rom.bin, and with X16 Edit ROM code in bank 9.
 
     The X16 Kernal is, however, not free software, and I am probably not allowed to distribute it in its
     original form or in an amended form. Consequently, the X16 Edit ROM version contains only the X16 Edit code (one bank, 16 kB). To get a 
@@ -97,7 +98,7 @@
         \begin{verbatim}
             .A 9E00 LDA $01         ;Get current ROM bank...
             .A 9E03 PHA             ;... and store it on the stack
-            .A 9E04 LDA #$08        ;Store bank 8...
+            .A 9E04 LDA #$09        ;Store bank 9...
             .A 9E06 STA $01         ;...in the ROM select
             .A 9E09 LDX #$01        ;Set first RAM bank used to 1
             .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
@@ -130,7 +131,7 @@
         \begin{verbatim}
             .A 9E00 LDA $01         ;Get current ROM bank...
             .A 9E03 PHA             ;... and store it on the stack
-            .A 9E04 LDA #$08        ;Store bank 8...
+            .A 9E04 LDA #$09        ;Store bank 9...
             .A 9E06 STA $01         ;...in the ROM select
             .A 9E09 LDX #$01        ;Set first RAM bank used to 1
             .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
@@ -188,7 +189,7 @@
         \begin{verbatim}
             .A 9E00 LDA $01         ;Get current ROM bank...
             .A 9E03 PHA             ;... and store it on the stack
-            .A 9E04 LDA #$08        ;Store bank 8...
+            .A 9E04 LDA #$09        ;Store bank 9...
             .A 9E06 STA $01         ;...in the ROM select
             .A 9E09 LDX #$01        ;Set first RAM bank used to 1
             .A 9E0B LDY #$FF        ;Set last RAM bank used to 255
@@ -219,6 +220,22 @@
             .M 9EF0 <FILE NAME DATA, 5 BYTES IN THIS EXAMPLE>
         \end{verbatim} 
 
+\section{X16 Edit application signature}
+    
+    Even though it is likely that X16 Edit will be stored in the first available ROM
+    bank, it is not recommended to make that assumption when you write code that starts the program.
+
+    The Kernal ROM bank layout may change over time, and the user may also store other ROM based utilities.
+
+    Instead of hard coding the ROM bank, you may let your program step through all ROM banks looking for the X16 Edit application
+    signature stored at address \$FFF0.
+    
+    The application signature consists of ten bytes: the text "X16EDIT" followed by
+    the version number (major, minor and patch) stored as three byte values, for example as follows:
+
+    \begin{verbatim}
+    $58,$31,$36,$45,$44,$49,$54,$00,$05,$00 ;X16EDIT v 0.5.0
+    \end{verbatim}
 
 \section{Final comments}
 
