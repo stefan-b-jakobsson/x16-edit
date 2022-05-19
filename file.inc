@@ -605,10 +605,6 @@ eof:
     lda #0              
     sta file_disk_status+14,y   ;Set end of string marker
 
-    lda is_cd
-    beq close
-    sta file_dir_changed
-
 close:
     bridge_setaddr KERNAL_CLOSE
     lda #15
@@ -631,7 +627,14 @@ close:
     sbc #48
     ora index                   ;Adding them together
 
-    rts
+    cmp #0
+    bne :+
+
+    ldx is_cd
+    beq :+
+    stx file_dir_changed
+
+:   rts
 
 cd_cmd_begin:
     .byt "cd"
