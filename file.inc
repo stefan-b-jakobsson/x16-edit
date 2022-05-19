@@ -40,6 +40,9 @@
     lda #8
     sta file_cur_device
 
+    ;Set dir changed = false
+    stz file_dir_changed
+
     rts
 
 msg:
@@ -166,10 +169,12 @@ get_next_page:
     ;Next page
     ldy #3
     lda (TMP1_ADR),y
-    beq close_file          ;Next page = 0 means end of file
+    bne :+                      ;Next page = 0 means (successfully) reached end of file
+    stz file_dir_changed        ;Clear dir changed flag
+    bra close_file              
     
     ;Set pointer to next page
-    sta TMP1_ADR+1
+:   sta TMP1_ADR+1
     stx BNK_SEL
 
     ;Get next page len
@@ -444,6 +449,9 @@ goto_start:
     sta CRS_ADR+1
     
     stz CRS_IDX
+
+    ;Set dir changed = false
+    stz file_dir_changed
     
 close:
     bridge_setaddr KERNAL_CLOSE
@@ -518,6 +526,31 @@ suffix: .byt "r,s,"     ;Read backwards
     ;Set default = no kernal error
     stz file_io_err
 
+    ;Check if change dir command
+    stz is_cd
+
+    sta len
+    phy
+    cmp #4
+    bcc :++             ;Too short for CD command
+    
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+
+    ldy #0
+:   lda (TMP1_ADR),y
+    and #%01011111      ;Convert upper/lower case
+    cmp cd_cmd_begin,y
+    bne :+
+    iny
+    cpy #2
+    bne :-
+
+    inc is_cd
+
+:   lda len
+    ply
+
     ;Close file #15, and open file #15, secondary address 15
     pha
     bridge_setaddr KERNAL_SETNAM
@@ -572,6 +605,10 @@ eof:
     lda #0              
     sta file_disk_status+14,y   ;Set end of string marker
 
+    lda is_cd
+    beq close
+    sta file_dir_changed
+
 close:
     bridge_setaddr KERNAL_CLOSE
     lda #15
@@ -596,7 +633,12 @@ close:
 
     rts
 
+cd_cmd_begin:
+    .byt "cd"
+
 index = tempvars        ;1 byte
+len = tempvars+1        ;1 byte
+is_cd = tempvars+2      ;1 byte
 
 .endproc
 
@@ -659,5 +701,5 @@ file_ioerr_10:
     file_io_err:            .res 1              ;1 byte
     file_cur_filename_len:  .res 1              ;1 byte
     file_cur_device:        .res 1              ;1 byte
-    file_format:            .res 1              ;1 byte
+    file_dir_changed:       .res 1              ;1 byte
 .CODE

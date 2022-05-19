@@ -505,7 +505,40 @@ abort:
 
 write_file:
     jsr screen_print_default_footer
-    ldx #<prompt_input
+
+    lda file_dir_changed            ;Dir was changed, do normal save
+    bne :++
+    
+    lda prompt_len                  ;Check if same length as current file name, do normal save if not
+    beq :++
+    cmp file_cur_filename_len
+    bne :++
+
+    lda #<prompt_input              ;Check if new file name is same as current file name, do save with overwrite if so
+    sta TMP1_ADR
+    lda #>prompt_input
+    sta TMP1_ADR+1
+
+    lda #<file_cur_filename
+    sta TMP2_ADR
+    lda #>file_cur_filename
+    sta TMP2_ADR+1
+    
+    ldy #0
+
+:   lda (TMP1_ADR),y
+    cmp (TMP2_ADR),y
+    bne :+
+    iny
+    cpy prompt_len
+    bne :-
+
+    ldx #<prompt_input              ;Overwrite current file without prompt
+    ldy #>prompt_input
+    lda prompt_len
+    jmp cmd_file_save_overwrite
+    
+:   ldx #<prompt_input              ;Save normally, will prompt for overwriting a file
     ldy #>prompt_input
     lda prompt_len
     jmp cmd_file_save
