@@ -169,12 +169,10 @@ get_next_page:
     ;Next page
     ldy #3
     lda (TMP1_ADR),y
-    bne :+                      ;Next page = 0 means (successfully) reached end of file
-    stz file_dir_changed        ;Clear dir changed flag
-    bra close_file              
+    beq close_file                      ;Next page = 0 means (successfully) reached end of file
     
     ;Set pointer to next page
-:   sta TMP1_ADR+1
+    sta TMP1_ADR+1
     stx BNK_SEL
 
     ;Get next page len
@@ -449,9 +447,6 @@ goto_start:
     sta CRS_ADR+1
     
     stz CRS_IDX
-
-    ;Set dir changed = false
-    stz file_dir_changed
     
 close:
     bridge_setaddr KERNAL_CLOSE
@@ -539,8 +534,8 @@ suffix: .byt "r,s,"     ;Read backwards
 
     ldy #0
 :   lda (TMP1_ADR),y
-    and #%01011111      ;Convert upper/lower case
-    cmp cd_cmd_begin,y
+    and #%11011111      ;Convert upper/lower case
+    cmp cd_cmd,y
     bne :+
     iny
     cpy #2
@@ -627,16 +622,16 @@ close:
     sbc #48
     ora index                   ;Adding them together
 
+    ;Set dir_changed flag if successful directory change was made
     cmp #0
-    bne :+
-
-    ldx is_cd
+    bne :+                      ;Error => directory wasn't changed
+    ldx is_cd                   ;Flag telling us if it was a CD command
     beq :+
     stx file_dir_changed
 
 :   rts
 
-cd_cmd_begin:
+cd_cmd:
     .byt "cd"
 
 index = tempvars        ;1 byte
@@ -653,6 +648,10 @@ is_cd = tempvars+2      ;1 byte
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc file_set_filename
+    ;Clear dir changed flag
+    stz file_dir_changed
+
+    ;Copy file name
     stx TMP1_ADR
     sty TMP1_ADR+1
     
@@ -704,5 +703,5 @@ file_ioerr_10:
     file_io_err:            .res 1              ;1 byte
     file_cur_filename_len:  .res 1              ;1 byte
     file_cur_device:        .res 1              ;1 byte
-    file_dir_changed:       .res 1              ;1 byte
+    file_dir_changed:       .res 1              ;1 byte, flag indicating whether directory was changed since current file was last read/saved
 .CODE
