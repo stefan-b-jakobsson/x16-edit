@@ -676,6 +676,7 @@ loop:
 
 :   cpx #8
     bcc loop
+    rts
 
 match:
     txa
