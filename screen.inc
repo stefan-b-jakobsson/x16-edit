@@ -31,9 +31,10 @@
     sta VERA_VIDEO
 
     ;Set screen mode (width/height)
+    bridge_setaddr KERNAL_SCREEN_MODE
     clc
     lda #SCREEN_TEXTMODE
-    jsr $ff5f
+    bridge_call KERNAL_SCREEN_MODE
 
     ;Set 16 color text mode
     lda VERA_L1_CONFIG
