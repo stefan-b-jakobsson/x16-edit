@@ -154,5 +154,30 @@ help_txt                                = $b600
 ;*****************************************************************************
 .define LF 10
 .define CR 13          
-.define SCREEN_WIDTH 80
-.define SCREEN_HEIGHT 60
+
+.define SCREEN_TEXTMODE 1
+
+.if SCREEN_TEXTMODE = 0
+    .define SCREEN_WIDTH 80
+    .define SCREEN_HEIGHT 60
+.elseif SCREEN_TEXTMODE = 1
+    .define SCREEN_WIDTH 80
+    .define SCREEN_HEIGHT 30
+.elseif SCREEN_TEXTMODE = 2
+    .define SCREEN_WIDTH 40
+    .define SCREEN_HEIGHT 60
+.elseif SCREEN_TEXTMODE = 3
+    .define SCREEN_WIDTH 40
+    .define SCREEN_HEIGHT 30
+.elseif SCREEN_TEXTMODE = 4
+    .define SCREEN_WIDTH 40
+    .define SCREEN_HEIGHT 15
+.elseif SCREEN_TEXTMODE = 5
+    .define SCREEN_WIDTH 20
+    .define SCREEN_HEIGHT 30
+.elseif SCREEN_TEXTMODE = 6
+    .define SCREEN_WIDTH 20
+    .define SCREEN_HEIGHT 15
+.else
+    .error "Unsupported screen mode"
+.endif

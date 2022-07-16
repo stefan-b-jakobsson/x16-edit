@@ -30,6 +30,11 @@
     ora #%00100000
     sta VERA_VIDEO
 
+    ;Set screen mode (width/height)
+    clc
+    lda #SCREEN_TEXTMODE
+    jsr $ff5f
+
     ;Set 16 color text mode
     lda VERA_L1_CONFIG
     and #%11110000
@@ -404,9 +409,9 @@ row2:
     ldy #>row1
     jmp screen_print_footer
 row1:
-    .byt ":^y prev page", 0
+    .byt ":^y prev page (pgup)", 0
 row2:
-    .byt ":^v next page",0
+    .byt ":^v next page (pgdn)",0
 .endproc
 
 ;******************************************************************************

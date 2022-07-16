@@ -145,6 +145,13 @@ loop:
     ;Line feed
 :   stz VERA_L
     inc VERA_M
+    clc
+    lda #VERA_BUFADR_M
+    adc #SCREEN_HEIGHT
+    sec
+    sbc #5
+    cmp VERA_M
+    bcc exit
 
 next:
     iny

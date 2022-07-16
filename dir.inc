@@ -17,7 +17,7 @@
 ;along with X16 Edit.  If not, see <https://www.gnu.org/licenses/>.
 ;******************************************************************************
 
-.define dir_entries_per_page 50
+.define dir_entries_per_page SCREEN_HEIGHT-10
 
 ;******************************************************************************
 ;Function name.......: dir_open
