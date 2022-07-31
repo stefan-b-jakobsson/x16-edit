@@ -231,6 +231,10 @@ build_str:
     dex
     bne build_str
 
+add_null:
+    lda #0
+    sta output,y
+
 strip_leading_zeros:
     ;Look for first non "0" value, and set the start of the output string to that position
     ldx #0
@@ -253,7 +257,7 @@ exit:
     rts
     
 input = tempvars            ;4 bytes
-output = tempvars+4         ;9 bytes
+output = tempvars+4         ;9 bytes (8 figures + null)
 .endproc
 
 ;******************************************************************************
