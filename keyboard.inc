@@ -54,6 +54,7 @@
 ;INSERT     = $1a
 
 keyboard_shortcut_count = 23
+ESC_KEY_VAL = $1b
 
 ;******************************************************************************
 ;Function name.......: keyboard_init
@@ -187,10 +188,10 @@ gotachar:
     ;Store char in Y temporarily
     tay
 
-    ;Convert ESC key value
-    cmp #$1b
+    ;Convert ESC key value sent by emulator to real key value - We could hopefully delete this later on
+    cmp #$03
     bne :+
-    ldy #$03
+    ldy #ESC_KEY_VAL
 
     ;Calculate index in jump table
 :   lda APP_MOD
@@ -298,7 +299,7 @@ ctrl_match:
     jmp (keyboard_ctrl_jmptbl,x)
 
 default_keyval:
-    .byt $03, $0d, $14, $09, $9d
+    .byt ESC_KEY_VAL, $0d, $14, $09, $9d
     .byt $1d, $91, $11, $13, $93
     .byt $85, $89, $86, $8a
     .byt $87, $8b, $88, $8c
@@ -350,7 +351,7 @@ default_jmptbl:
 :   jmp screen_println
 
     ;ESC key
-:   cmp #$03
+:   cmp #ESC_KEY_VAL
     bne :+
     stz APP_MOD
     jsr cursor_activate
@@ -399,7 +400,7 @@ match:
 
     ;If other than Esc key, send it to default handler
     pla
-    cmp #3
+    cmp #ESC_KEY_VAL
     beq :+
     jmp keyboard_mode_default
 :   rts
@@ -414,7 +415,7 @@ match:
 ;Error returns.......: None
 .proc keyboard_mode_helpscreen
     ;Exit help screen if ESC was pressed, ignore all other input
-    cmp #03
+    cmp #ESC_KEY_VAL
     beq exit_help
     rts
 
@@ -434,7 +435,7 @@ exit_help:
 ;Error returns.......: None
 .proc keyboard_mode_exit_save_before
     ;ESC key pressed
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
     
     ;Clear bit 5 to make upper and lower case the same value
@@ -481,7 +482,7 @@ abort:
     beq write_file
     
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Temp store char
@@ -567,7 +568,7 @@ tofiles:
 ;Error returns.......: None
 .proc keyboard_mode_file_save_overwrite
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Clear bit 5 to make upper and lower case the same value
@@ -608,7 +609,7 @@ write_file:
     beq read_file
 
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Temp store
@@ -771,7 +772,7 @@ prevpage:
     jmp dir_prevpage
 
 keyvals:
-    .byt $0d, $03, $91, $11, KBD_EXT_PGDN, KBD_EXT_PGUP
+    .byt $0d, ESC_KEY_VAL, $91, $11, KBD_EXT_PGDN, KBD_EXT_PGUP
     .byt $59, $56
 jmptbl:
     .word enterkey, abort, uparrow, downarrow, nextpage, prevpage, prevpage, nextpage
@@ -787,7 +788,7 @@ jmptbl:
 ;Error returns.......: None
 .proc keyboard_mode_file_open_save_before
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Clear bit 5 to make upper and lower case the same value
@@ -835,7 +836,7 @@ abort:
     beq enterkey
 
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Default
@@ -858,7 +859,7 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_new_buffer_save_before
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Clear bit 5 to make upper and lower case the same value
@@ -901,7 +902,7 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_set_device
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Enter
@@ -932,7 +933,7 @@ enter:
     beq search
 
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     jmp prompt_keypress
@@ -983,7 +984,7 @@ msg:
     beq search
 
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     jmp prompt_keypress
@@ -1015,7 +1016,7 @@ abort:
     beq search
 
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     jmp prompt_keypress
@@ -1045,7 +1046,7 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_replace_2
     ;ESC
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Clear bit 5 to make upper and lower case the same value
@@ -1090,7 +1091,7 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_word_wrap_prompt
     ;ESC
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Enter
@@ -1122,7 +1123,7 @@ abort:
     beq goto_line
 
     ;ESC key
-    cmp #$03
+    cmp #ESC_KEY_VAL
     beq abort
 
     ;Default action
