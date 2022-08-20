@@ -187,8 +187,13 @@ gotachar:
     ;Store char in Y temporarily
     tay
 
+    ;Convert ESC key value
+    cmp #$1b
+    bne :+
+    ldy #$03
+
     ;Calculate index in jump table
-    lda APP_MOD
+:   lda APP_MOD
     asl
     tax
     
