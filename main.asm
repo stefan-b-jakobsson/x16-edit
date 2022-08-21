@@ -38,6 +38,7 @@
 .include "common.inc"
 .include "charset.inc"
 .include "bridge_macro.inc"
+.include "keyval.inc"
 
 ;******************************************************************************
 ;Description.........: Program entry points

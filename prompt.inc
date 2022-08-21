@@ -191,31 +191,31 @@ clear_line:
 ;Error returns.......: None
 .proc prompt_keypress
     ;Backspace key
-    cmp #$14
+    cmp #KEYVAL_BACKSPACE
     beq delete
 
     ;Left arrow key
-    cmp #$9d
+    cmp #KEYVAL_LEFT
     beq left_arrow
 
     ;Right arrow key
-    cmp #$1d
+    cmp #KEYVAL_RIGHT
     beq right_arrow
 
     ;Home key
-    cmp #$13
+    cmp #KEYVAL_HOME
     beq home
 
     ;Shift+Home = End key
-    cmp #$93
+    cmp #KEYVAL_SHIFT_HOME
     beq end
 
     ;End key
-    cmp #KBD_EXT_END
+    cmp #KEYVAL_END
     beq end
 
     ;Ignore other control chars
-    cmp #$20
+    cmp #KEYVAL_SPACE
     bcc exit
 
     ;Default insert
