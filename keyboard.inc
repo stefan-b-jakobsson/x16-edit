@@ -54,7 +54,6 @@
 ;INSERT     = $1a
 
 keyboard_shortcut_count = 23
-ESC_KEY_VAL = $1b
 
 ;******************************************************************************
 ;Function name.......: keyboard_init
@@ -153,10 +152,6 @@ config:
 val = tempvars
 .endproc
 
-;not present     -
-;not found       $42    bits 1 and 6 = Read timeout + EOI
-;found - eof     $40    bit 6        = EOI
-
 ;******************************************************************************
 ;Function name.......: keyboard_read_and_dispatch
 ;Purpose.............: Reads one character from the keyboard buffer and
@@ -191,7 +186,7 @@ gotachar:
     ;Convert ESC key value sent by emulator to real key value - We could hopefully delete this later on
     cmp #$03
     bne :+
-    ldy #ESC_KEY_VAL
+    ldy #KEYVAL_ESC
 
     ;Calculate index in jump table
 :   lda APP_MOD
@@ -251,9 +246,9 @@ default:
     bne :-
 
     ;Convert non-breaking space (Shift+space, ASCII 160) to normal space char (ASCII 32)
-    cmp #$a0
+    cmp #KEYVAL_SHIFT_SPACE
     bne default_insert
-    lda #$20
+    lda #KEYVAL_SPACE
 
 default_insert:
     ;Insert char into buffer and update screen
@@ -272,9 +267,9 @@ default_match:
 
 ctrl:
     ;Insert non-breaking space if Ctrl+Space
-    cmp #$20
+    cmp #KEYVAL_SPACE
     bne :+
-    lda #$a0
+    lda #KEYVAL_SHIFT_SPACE
     jmp default_insert
 
     ;Convert lower case letters to upper case
@@ -299,12 +294,12 @@ ctrl_match:
     jmp (keyboard_ctrl_jmptbl,x)
 
 default_keyval:
-    .byt ESC_KEY_VAL, $0d, $14, $09, $9d
-    .byt $1d, $91, $11, $13, $93
-    .byt $85, $89, $86, $8a
-    .byt $87, $8b, $88, $8c
-    .byt $15, $16, $17, $18, $19
-    .byt $1a
+    .byt KEYVAL_ESC, KEYVAL_ENTER, KEYVAL_BACKSPACE, KEYVAL_TAB, KEYVAL_LEFT
+    .byt KEYVAL_RIGHT, KEYVAL_UP, KEYVAL_DOWN, KEYVAL_HOME, KEYVAL_SHIFT_HOME
+    .byt KEYVAL_F1, KEYVAL_F2, KEYVAL_F3, KEYVAL_F4
+    .byt KEYVAL_F5, KEYVAL_F6, KEYVAL_F7, KEYVAL_F8
+    .byt KEYVAL_DELETE, KEYVAL_END, KEYVAL_PGUP, KEYVAL_PGDN
+    .byt KEYVAL_INSERT
 default_keyval_end:
 
 default_jmptbl:
@@ -312,8 +307,8 @@ default_jmptbl:
     .word keyboard_rightarrow_key, keyboard_uparrow_key, keyboard_downarrow_key, keyboard_home_key, keyboard_end_key
     .word cmd_show_help, cmd_exit, cmd_file_save_prompt, cmd_wrap_buffer
     .word cmd_file_open_prompt, cmd_find, keyboard_cmd_pageup, keyboard_cmd_pagedown
-    .word keyboard_delete_key, keyboard_end_key, keyboard_cmd_pageup, keyboard_cmd_pagedown, keyboard_enter_key
-    .word mem_run_defrag
+    .word keyboard_delete_key, keyboard_end_key, keyboard_cmd_pageup, keyboard_cmd_pagedown
+    .word mem_run_defrag ;=Ignore Insert key
 .endproc
 
 ;******************************************************************************
@@ -339,19 +334,19 @@ default_jmptbl:
     jmp cursor_activate
 
     ;Space, convert to non-breaking space
-:   cmp #$20
+:   cmp #KEYVAL_SPACE
     bne :++
     stz APP_MOD
     jsr cursor_activate
     jsr screen_clear_status
-    lda #160
+    lda #KEYVAL_SHIFT_SPACE
     jsr cmd_insert
     bcc :+
     jsr screen_refresh
 :   jmp screen_println
 
     ;ESC key
-:   cmp #ESC_KEY_VAL
+:   cmp #KEYVAL_ESC
     bne :+
     stz APP_MOD
     jsr cursor_activate
@@ -400,7 +395,7 @@ match:
 
     ;If other than Esc key, send it to default handler
     pla
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq :+
     jmp keyboard_mode_default
 :   rts
@@ -415,7 +410,7 @@ match:
 ;Error returns.......: None
 .proc keyboard_mode_helpscreen
     ;Exit help screen if ESC was pressed, ignore all other input
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq exit_help
     rts
 
@@ -435,18 +430,18 @@ exit_help:
 ;Error returns.......: None
 .proc keyboard_mode_exit_save_before
     ;ESC key pressed
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
     
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
     ;Y key pressed
-    cmp #$59
+    cmp #KEYVAL_Y
     beq save
 
     ;N key pressed
-    cmp #$4e
+    cmp #KEYVAL_N
     beq discard
 
     ;Else ignore keypress
@@ -478,11 +473,11 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_file_save
     ;Enter key
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq write_file
     
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Temp store char
@@ -492,7 +487,7 @@ abort:
     and #%11011111
 
     ;Ctrl+T
-    cmp #$54
+    cmp #KEYVAL_T
     bne :+
     lda scancode_modifiers
     cmp #KBD_MODIFIER_CTRL
@@ -568,18 +563,18 @@ tofiles:
 ;Error returns.......: None
 .proc keyboard_mode_file_save_overwrite
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
 
     ;Y key pressed
-    cmp #$59
+    cmp #KEYVAL_Y
     beq write_file
 
     ;N key
-    cmp #$4e
+    cmp #KEYVAL_N
     beq abort
 
     ;Else ignore key
@@ -605,11 +600,11 @@ write_file:
 ;Error returns.......: None
 .proc keyboard_mode_file_open
     ;Enter key
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq read_file
 
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Temp store
@@ -619,7 +614,7 @@ write_file:
     and #%11011111
 
     ;Ctrl+T
-    cmp #$54
+    cmp #KEYVAL_T
     bne :+
     lda scancode_modifiers
     cmp #KBD_MODIFIER_CTRL
@@ -772,8 +767,8 @@ prevpage:
     jmp dir_prevpage
 
 keyvals:
-    .byt $0d, ESC_KEY_VAL, $91, $11, KBD_EXT_PGDN, KBD_EXT_PGUP
-    .byt $59, $56
+    .byt KEYVAL_ENTER, KEYVAL_ESC, KEYVAL_UP, KEYVAL_DOWN, KEYVAL_PGDN, KEYVAL_PGUP
+    .byt KEYVAL_Y, KEYVAL_V
 jmptbl:
     .word enterkey, abort, uparrow, downarrow, nextpage, prevpage, prevpage, nextpage
 .endproc
@@ -788,18 +783,18 @@ jmptbl:
 ;Error returns.......: None
 .proc keyboard_mode_file_open_save_before
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
     ;Y key pressed
-    cmp #$59
+    cmp #KEYVAL_Y
     beq save
 
     ;N key pressed
-    cmp #$4e
+    cmp #KEYVAL_N
     beq discard
 
     ;Else ignore keypress
@@ -832,11 +827,11 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_dos_cmd
     ;Enter key
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq enterkey
 
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Default
@@ -859,18 +854,18 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_new_buffer_save_before
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
     ;Y key pressed
-    cmp #$59
+    cmp #KEYVAL_Y
     beq save
 
     ;N key pressed
-    cmp #$4e
+    cmp #KEYVAL_N
     beq discard
 
     ;Else ignore keypress
@@ -902,11 +897,11 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_set_device
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Enter
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq enter
 
     ;Default
@@ -929,11 +924,11 @@ enter:
 ;Error returns.......: None
 .proc keyboard_mode_find
     ;Enter key
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq search
 
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     jmp prompt_keypress
@@ -980,11 +975,11 @@ msg:
 ;Error returns.......: None
 .proc keyboard_mode_replace_0
     ;Enter key
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq search
 
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     jmp prompt_keypress
@@ -1012,11 +1007,11 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_replace_1
     ;Enter key
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq search
 
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     jmp prompt_keypress
@@ -1046,18 +1041,18 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_replace_2
     ;ESC
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Clear bit 5 to make upper and lower case the same value
     and #%11011111
     
     ;Y
-    cmp #121-32
+    cmp #KEYVAL_Y
     beq yes
 
     ;A
-    cmp #97-32
+    cmp #KEYVAL_A
     beq all
 
     ;Ignore all other input
@@ -1091,11 +1086,11 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_word_wrap_prompt
     ;ESC
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Enter
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq enter
 
     ;Default
@@ -1119,11 +1114,11 @@ abort:
 ;Error returns.......: None
 .proc keyboard_mode_goto_line
     ;Enter key
-    cmp #13
+    cmp #KEYVAL_ENTER
     beq goto_line
 
     ;ESC key
-    cmp #ESC_KEY_VAL
+    cmp #KEYVAL_ESC
     beq abort
 
     ;Default action
