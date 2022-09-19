@@ -318,10 +318,20 @@ errormsg:
     ;Set program in running state
     stz APP_QUIT
 
+    ;Disable emulator Ctrl/Cmd key interception
+    lda $9fb7
+    pha
+    lda #1
+    sta $9fb7
+
     ;Wait for the program to terminate    
 :   lda APP_QUIT        ;0=running, 1=closing down, 2=close now
     cmp #2
     bne :-
+
+    ;Restore emulator Ctrl/Cmd key interception
+    pla
+    sta $9fb7
 
     ;Remove custom scancode handler
     jsr scancode_restore
