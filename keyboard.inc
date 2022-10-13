@@ -117,8 +117,10 @@ loop:
     bne last
 
     lda val                             ;Store byte in shortcut list
+    beq :+                              ;Ignore zeros - invalid value
     sta keyboard_ctrl_keyval,y
-    iny
+
+:   iny
     cpy #keyboard_shortcut_count
     bne loop
     bra close
