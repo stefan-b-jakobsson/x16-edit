@@ -74,7 +74,7 @@ keyboard_shortcut_count = 23
     lda mem_start
     sta BNK_SEL
 
-    ldx #11
+    ldx #config_end-config
 :   lda config-1,x
     sta clipboard_mem-1,x
     dex
@@ -88,7 +88,7 @@ keyboard_shortcut_count = 23
     bridge_setaddr KERNAL_SETNAM        ;Set file name
     ldx #<clipboard_mem
     ldy #>clipboard_mem
-    lda #11
+    lda #config_end-config
     bridge_call KERNAL_SETNAM
 
     bridge_setaddr KERNAL_SETLFS        ;Set file params
@@ -149,7 +149,8 @@ keyval:                                 ;List of default shortcut keys
     .byt $54, $42, $4d
 
 config:
-    .byt ":/x16editrc"
+    .byt "//:x16editrc"
+config_end:
 
 val = tempvars
 .endproc
