@@ -95,7 +95,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         file name you like to use, and press the ENTER key. You will
         be prompted to confirm before overwriting av file that already exists.
          
-        To load an already existing file from the SD card, press Ctrl+R. 
+        To load a file from the SD card, press Ctrl+R. 
         Just type in the name of the file you want to load, and then press the ENTER key.
         
     \subsection{Keyboard shortcuts}
@@ -123,7 +123,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         \end{itemize}
 
         The \textit{title bar} is at the top row of the screen. The name of the current file
-        is displayed at the center. If the text buffer hasn not been saved to file, it displays
+        is displayed at the center. If the text buffer has not been saved to file, it displays
         "New text buffer". At the right edge the letters "MOD" are shown if the
         text buffer has been changed since last saved to file.
 
@@ -145,7 +145,7 @@ The Commander X16 was devised by David Murray a.k.a. the
 
     \subsection{Built-in help}
         A help screen that lists the available keyboard shortcuts and a short description 
-        of what each command do is displayed in the built-in help screen (Ctrl+G). 
+        of what each command does is displayed in the built-in help screen (Ctrl+G). 
     
 \section{More on text editing}
 
@@ -157,8 +157,8 @@ The Commander X16 was devised by David Murray a.k.a. the
 
             \item PETSCII upper/lower case. This is the same mode as is available on the C64.
 
-            \item ISO character set. This mode is new, and there is no corresponding mode supported by 
-            Commodore 8 bit computers. Text is encoded according to ISO-8859-15, making it
+            \item ISO character set. This mode is new for the X16, and there is no corresponding mode 
+            supported by Commodore 8 bit computers. Text is encoded according to ISO-8859-15, making it
             easier to transfer files to and from modern computers.
         \end{itemize}
 
@@ -179,7 +179,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         Auto-indent is turned off when the editor starts. To toggle the feature on or off, press Ctrl+A.
 
     \subsection{Word wrap}
-        The editor does not do automatic line breaks by default. Instead the current line is scrolled horizontally
+        The editor does not automatically insert line breaks by default. Instead the current line is scrolled horizontally
         when you reach the right margin.
 
         Automatic word wrap may be toggled on or off by pressing Ctrl+Z. When turned on you are prompted for the column
@@ -210,37 +210,47 @@ The Commander X16 was devised by David Murray a.k.a. the
             \item if the level of indent is different from the previous line.
         \end{itemize}
 
-    \subsection{Cut, copy and paste}
-        The editor supports cut, copy, and paste.
+    \subsection{Cut, copy and uncut}
+        The editor supports cut, copy, and uncut (commonly called paste in other editors).
 
-        The copy (Ctrl+C) and cut (Ctrl+K) commands copy a whole line to the clipboard. It is not possible to select 
-        just a part of a line.
-        
-        The clipboard may hold a maximum of 3 kB of data.
+        The copy (Ctrl+C) and cut (Ctrl+K) commands always copy a whole line to the clipboard. You may
+        copy or cut multiple lines into the clipboard. The clipboard may hold a maximum of 3 kB of data.
 
-        Uncut (Ctrl+U) pastes all content in the clipboard at the cursor position. It is possible
-        to do repeated pastes. The clipboard is cleared upon the first cut or copy after uncutting.
+        Uncut (Ctrl+U) copies the content of clipboard into the text buffer at the cursor position. It is possible
+        to do repeated uncuts. The clipboard is cleared upon the first cut or copy after uncutting.
 
     \subsection{Search and replace}
         The search command (Ctrl+W) lets you search the text buffer for
-        the occurence of a particular string. The replace function (Ctrl+S)
+        a particular string. The replace function (Ctrl+S)
         lets you replace it with another string.
 
-        Both search and replace are case sensitive. Search starts from the
-        cursor position and is forward looking.
+        Both search and replace are case sensitive. Search starts from the character right of the cursor
+        and is forward looking.
 
-        If the string you are searching for is found, the editor moves the cursor to the start of the
-        search match.
+        If the string you are searching for is found, the cursor is moved to that position.
 
         When replacing a string, you are given the option to only replace the
         next occurrence or all subsequent occurrences.
 
 \section{More on file handling}
+    \subsection{Commodore DOS file paths}
+    The editor accepts full Commodore DOS file paths when prompting you for a file name.
+
+    A Commodore DOS file path consists of a directory and a file name separated by a colon, for
+    example:
+
+    \begin{itemize}
+        \item //MY-APP/:APPNAME.PRG
+        \item /MY-APP/:APPNAME.PRG
+    \end{itemize}
+    
+    The first example starting with double slashes is an absolute path from the root of the SD card. The second
+    example starting with a single slash is a realtive path starting from the current directory.
 
     \subsection{The built-in file browser}
-        At the prompt where a file name is typed in you may alternatively press Ctrl+T to show the
-        built-in file browser. The file browser is used to move between directories and select
-        files.
+        At the prompt where a file name is entered you may alternatively press Ctrl+T to show the
+        built-in file browser. The file browser is there to make it easier to move between directories 
+        and select files.
         
         To select an item in the file browser, first highlight it with the up or down arrow keys, and then press Enter.
 
@@ -249,7 +259,7 @@ The Commander X16 was devised by David Murray a.k.a. the
 
         The file browser shows at most 50 files or directories on one page. If not all items fit on one page 
         the listing is ended with "--- MORE ---". In case the items are spread over several pages, you may go to 
-        the next page with PgUp or Ctrl+V and back to a previous page with PgDn or Ctrl+Y.
+        the next page with PgDn or Ctrl+V and back to a previous page with PgUp or Ctrl+Y.
 
         If there are no more items to show the listing is ended with "--- END ---".
 
@@ -278,15 +288,14 @@ The Commander X16 was devised by David Murray a.k.a. the
 \section{Miscellaneous functions}
 
     \subsection{User-configurable keybindings}
-        The shortcut key bindings in X16 Edit are user-configuarable.
+        The shortcut key bindings in X16 Edit are user-configurable.
 
         On startup the editor reads custom key bindings from the file X16EDITRC in the root directory
         of the SD card. If that file is not found, the default key bindings are
         used.
         
-        X16EDITRC is simply a stream of bytes representing each custom shortcut without any metadata. 
-        Each key is represented by the value returned by the Kernal function GETIN when pressed
-        without any other modifier key.
+        X16EDITRC is simply a stream of bytes representing the custom hortcuts without any metadata. 
+        Each key is represented by the value returned from the Kernal function GETIN.
         
         The extra keys supported by the editor are represented by the following values:
         
@@ -305,22 +314,15 @@ The Commander X16 was devised by David Murray a.k.a. the
         default bindings for the remaining ones. If there are more values in the file than there
         are shortcuts, the excess is ignored.
         
-        To bind the first three shortcuts -- Show help, Exit, and Write Out -- to other keys,
-        the file could for example begin with the following three bytes:
-        
-\begin{verbatim}
-    $48, $51, $53 ;ASCII values of H, Q, and S
-\end{verbatim}
-        
         To make it a bit easier to setup X16EDITRC, you may use the provided tool
         (X16EDIT-KEYBINDINGS.PRG).
 
     \subsection{Line break encoding}
-
         X16 Edit internally uses LF (ASCII \$0A) as a line break marker.
 
-        When reading a file, X16 Edit interprets every occurence of LF (ASCII \$0A) and CR (ASCII \$0C) as
-        a line break.
+        When reading a file, X16 Edit interprets every occurrence of LF (ASCII \$0A) and CR (ASCII \$0C) as
+        a line break. If a text file was created on Windows with CRLF style line breaks, each line break
+        will in X16 Edit be intrepreted as two line breaks.
 
         The selected character set determines how line breaks are encoded when saving the text buffer
         to file. If in one of the PETSCII modes, line breaks are encoded with CR. If in ISO mode, line
@@ -338,9 +340,8 @@ The Commander X16 was devised by David Murray a.k.a. the
 
         The text buffer may not exceed the available banked RAM.
 
-        If you press Ctrl+M you get information on the remaining memory that can be
-        used by the text buffer. It reports the 
-        number of blocks free. A block may at most hold 251 characers.
+        Press Ctrl+M to you get information on the remaining memory reserved for the
+        text buffer. It will be reported as blocks free. A block may at most hold 251 characters.
 
 \section{Advanced topics}
 
@@ -359,11 +360,12 @@ The Commander X16 was devised by David Murray a.k.a. the
         \end{itemize}
 
     \subsection{X16 Edit HI version}
-        The high RAM version is to be loaded into RAM at address \$6000. The purpose is to
+        The high RAM version is loaded into RAM at address \$6000. The purpose is to
         free up the start of BASIC RAM for other programs that can be loaded there at
         the same time.
 
-        If present on an SD card, you may load the program with the command \texttt{LOAD"X16EDIT-HI-x.x.x.PRG",8,1}, and then
+        If present on an SD card, you may load the program with the command \break
+        \texttt{LOAD"X16EDIT-HI-x.x.x.PRG",8,1}, and then
         start it with \texttt{SYS\$6000}.
 
         To run it in the emulator you may type the following command in the terminal:
@@ -384,7 +386,7 @@ The Commander X16 was devised by David Murray a.k.a. the
     cat rom.bin x16edit-rom-x.x.x.bin > customrom.bin
 \end{verbatim}
 
-        You need to write the custom ROM image to the actual ROM circuit to use it on
+        You then need to write the custom ROM image to the actual ROM circuit to use it on
         real hardware.
 
         A custom ROM image can easily be attached to the emulator with
@@ -394,16 +396,22 @@ The Commander X16 was devised by David Murray a.k.a. the
     x16emu -sdcard sdcard.img -rom customrom.bin
 \end{verbatim}
 
-        The editor's default entry point can be started from BASIC:
+    The Kernal is in development, and the ROM bank layout may change over time. A user
+    may also store other utilities in ROM. In order to programatically find in which
+    ROM bank X16 Edit is stored, there is an application signature at \$FFF0. The
+    signature consists of the text "X16EDIT" followed by three bytes representing
+    the program version (major, minor, patch).
+        
+    If the editor is placed in ROM bank 10, it can be started from BASIC like this:
 
 \begin{verbatim}
-    BANK XX         ; where XX is the ROM bank number
+    BANK 10
     SYS $C000
 \end{verbatim}
 
-        If you like to use one of the other entry points,
-        you must write a startup program that is stored in RAM. Code samples doing this
-        are found in Appendix B.
+        If you like to use one of the other entry points that are described in Appendix B,
+        you need to write a startup program stored in RAM. Code samples doing this
+        are also found in Appendix B.
 
     \subsection{The X16 Edit API}
         The X16 Edit API consists of the following three entry points:
