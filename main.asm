@@ -49,26 +49,19 @@ jmp main_loadfile_with_options_entry
 ;******************************************************************************
 ;Function name.......: main_default_entry
 ;Purpose.............: Default entry function; starts the editor with an
-;                      empty buffer and default options
-;Input...............: List of params:
-;
-;                      Reg     Description
-;                      -------------------
-;                      X       First bank in banked RAM used by the program (>0)
-;                      Y       Last bank in banked RAM used by the program (>X)
-;
-;                      Please note that the input params are ignored in the
-;                      RAM version of the program, defaulting to X=1 and Y=255.
-;
+;                      empty buffer and default options. To make it easier
+;                      to call there are no parameters. All available RAM
+;                      banks (except bank 0) are used by the program. If you
+;                      need to limit what RAM banks the program uses, please
+;                      call one of the other entry points.
+;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_default_entry
-    ;If RAM version, set banked RAM usage to banks 1..255
-    .if (::target_mem=target_ram)
-        ldx #1
-        ldy #255
-    .endif
-
+    ;First RAM bank=1, last RAM bank=255
+    ldx #1
+    ldy #255
+    
     jsr main_init
     bcs exit            ;C=1 => init failed
     jmp main_loop
