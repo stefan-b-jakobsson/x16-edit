@@ -224,6 +224,7 @@ jmptbl:
     .word keyboard_mode_file_dir                ;APP mode 18
     .word keyboard_mode_file_dir                ;APP mode 19
     .word keyboard_mode_dos_cmd                 ;APP mode 20
+    .word keyboard_mode_justify                 ;APP mode 21
 .endproc
 
 ;******************************************************************************
@@ -308,7 +309,7 @@ default_keyval_end:
 default_jmptbl:
     .word keyboard_esc_key, keyboard_enter_key, keyboard_backspace_key, cmd_insert_tab, keyboard_leftarrow_key
     .word keyboard_rightarrow_key, keyboard_uparrow_key, keyboard_downarrow_key, keyboard_home_key, keyboard_end_key
-    .word cmd_show_help, cmd_exit, cmd_file_save_prompt, cmd_wrap_buffer
+    .word cmd_show_help, cmd_exit, cmd_file_save_prompt, cmd_justify
     .word cmd_file_open_prompt, cmd_find, keyboard_cmd_pageup, keyboard_cmd_pagedown
     .word keyboard_delete_key, keyboard_end_key, keyboard_cmd_pageup, keyboard_cmd_pagedown
     .word mem_run_defrag ;=Ignore Insert key
@@ -1135,6 +1136,35 @@ abort:
     jmp prompt_close
 
 .endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_justify
+;Purpose.............: Key dispatcher: Prompting the user to confirm buffer 
+;                      justify
+;Input...............: A=char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_justify
+    cmp #KEYVAL_ESC
+    beq no
+
+    ;Clear bit 5 to make upper and lower case the same value
+    and #%11011111
+    cmp #KEYVAL_Y
+    beq yes
+    cmp #KEYVAL_N
+    beq no
+    rts
+
+yes:
+    jsr cmd_do_justify
+    ;Fallthrouh
+
+no:
+    stz APP_MOD
+    jsr screen_clear_status
+    jmp cursor_activate
+.endproc
     
 ;******************************************************************************
 ;Function name.......: keyboard_esc_key
@@ -1370,7 +1400,7 @@ keyboard_ctrl_jmptbl:
     .word cmd_file_open_prompt
     .word cmd_new_buffer
 
-    .word cmd_wrap_buffer
+    .word cmd_justify
     .word keyboard_cmd_pageup
     .word keyboard_cmd_pagedown
     .word cmd_cut

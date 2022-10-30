@@ -173,13 +173,31 @@ bs_not_found:
 .endproc
 
 ;******************************************************************************
-;Function name.......: cmd_wrap_buffer
+;Function name.......: cmd_justify
+;Purpose.............: Prompts the user to confirm buffer justify
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_justify
+    jsr cursor_disable
+    ldx #<msg
+    ldy #>msg
+    jsr screen_print_status
+    lda #21
+    sta APP_MOD
+    rts
+msg:
+    .byt "justify buffer? (y/n)",0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_do_justify
 ;Purpose.............: Recalculates line wrapping for the whole buffer. Lines are
 ;                      wrapped at the column set by the line wrap feature.
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc cmd_wrap_buffer
+.proc cmd_do_justify
     ;The buffer is rewrapped in the following two steps:
     ;1. Remove all line feeds within paragraphs, hereinafter referred to as "merge"
     ;2. Break each paragraph into lines of selected length, hereinafter referred to as "split"
