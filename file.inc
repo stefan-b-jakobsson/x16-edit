@@ -344,6 +344,7 @@ block_read_loop:
     tay
     ldx #$05
     lda #251
+    clc
     bridge_call KERNAL_MACPTR
 
     txa                     ;Store block length
