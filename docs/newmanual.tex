@@ -73,7 +73,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         to find the program.
  
         The "-run" option automatically starts the editor after the emulator
-        is launched. You may remove this option and start the editor manually
+        is booted. You may remove this option and start the editor manually
         by typing \texttt{RUN} in the emulator.
  
     \subsection{Entering text}
@@ -85,15 +85,15 @@ The Commander X16 was devised by David Murray a.k.a. the
 
         The go to line feature (Ctrl+L) lets you move the cursor to a specific line number.
  
-        As you type and reach the right margin the editor does not insert a line break
-        by default. Instead the current line is scrolled horizontally to
+        As you type and reach the right margin, the editor does not by default insert a line break. 
+        Instead the current line is scrolled horizontally to
         make room for more characters. There is no limit to the length of a line
         other than the available memory.
  
     \subsection{Saving and loading text files}
         The current text buffer is saved to file on the SD card when you press Ctrl+O. Type in the 
         file name you like to use, and press the ENTER key. You will
-        be prompted to confirm before overwriting av file that already exists.
+        be prompted to confirm before overwriting a file that already exists.
          
         To load a file from the SD card, press Ctrl+R. 
         Just type in the name of the file you want to load, and then press the ENTER key.
@@ -144,8 +144,8 @@ The Commander X16 was devised by David Murray a.k.a. the
         of the screen.
 
     \subsection{Built-in help}
-        A lists of available keyboard shortcuts and a short description 
-        of what each command does is displayed in the built-in help screen (Ctrl+G). 
+        A lists of all keyboard shortcuts and a short description 
+        of each command is available in the built-in help screen (Ctrl+G). 
     
 \section{More on text editing}
 
@@ -166,7 +166,7 @@ The Commander X16 was devised by David Murray a.k.a. the
 
         You may change the character set by pressing Ctrl+E, which cycles through the options.
 
-    \subsection{Tab stops}
+    \subsection{Tab stop}
         The default tab stop width is four spaces. 
         
         You may change the width by pressing and releasing the ESC key followed
@@ -213,8 +213,8 @@ The Commander X16 was devised by David Murray a.k.a. the
     \subsection{Cut, copy and uncut}
         The editor supports cut, copy, and uncut (commonly called paste in other editors).
 
-        The copy (Ctrl+C) and cut (Ctrl+K) commands always copy a whole line to the clipboard. You may
-        copy or cut multiple lines into the clipboard. The clipboard may hold a maximum of 3 kB of data.
+        The copy (Ctrl+C) and cut (Ctrl+K) commands always copy a whole line into the clipboard. You may
+        copy or cut multiple lines. The clipboard holds a maximum of 3 kB of data.
 
         Uncut (Ctrl+U) copies the content of clipboard into the text buffer at the cursor position. It is possible
         to do repeated uncuts. The clipboard is cleared upon the first cut or copy after uncutting.
@@ -224,7 +224,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         a particular string. The replace function (Ctrl+S)
         lets you replace it with another string.
 
-        Both search and replace are case sensitive. Search starts from the character right of the cursor
+        Both search and replace are case sensitive. Search starts from the character after the cursor
         and is forward looking.
 
         If the string you are searching for is found, the cursor is moved to that position.
@@ -287,14 +287,14 @@ The Commander X16 was devised by David Murray a.k.a. the
 
 \section{Miscellaneous functions}
 
-    \subsection{User-configurable keybindings}
+    \subsection{User-configurable key bindings}
         The shortcut key bindings in X16 Edit are user-configurable.
 
         On startup the editor reads custom key bindings from the file X16EDITRC in the root directory
         of the SD card. If that file is not found, the default key bindings are
         used.
         
-        X16EDITRC is simply a stream of bytes representing the custom hortcuts without any metadata. 
+        X16EDITRC is simply a stream of bytes representing the custom shortcuts without any metadata. 
         Each key is represented by the value returned from the Kernal function GETIN.
         
         The extra keys supported by the editor are represented by the following values:
@@ -463,7 +463,8 @@ The Commander X16 was devised by David Murray a.k.a. the
         T    &  ---  & Cycle through text colors \\
         B    &  ---  & Cycle through background colors \\
         M    &  ---  & Show memory usage (1 block=251 bytes) \\
-        space& ---   & Insert non-breaking space 
+        space& ---   & Insert non-breaking space \\
+        1..9 & ---   & Set tab stop width
     \end{longtable}
 
 \newpage
@@ -520,7 +521,7 @@ The Commander X16 was devised by David Murray a.k.a. the
             r1H & \$05     & 0    & Auto indent on/off \\
             r1H & \$05     & 1    & Word wrap on/off \\
             r1H & \$05     & 2--7 & Unused \\
-            r2L & \$06     &      & Tab width (1..9) \\
+            r2L & \$06     &      & Tab stop width (1..9) \\
             r2H & \$07     &      & Word wrap position (10..250) \\
             r3L & \$08     &      & Current device number (8..30) \\
             r3H & \$09     & 0--3 & Text color \\
