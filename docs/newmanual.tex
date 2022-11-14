@@ -234,7 +234,7 @@ The Commander X16 was devised by David Murray a.k.a. the
 
 \section{More on file handling}
     \subsection{Commodore DOS file paths}
-    The editor accepts full Commodore DOS file paths when prompting you for a file name.
+    The editor accepts a full Commodore DOS file path when prompting you for a file name.
 
     A Commodore DOS file path consists of a directory and a file name separated by a colon, for
     example:
@@ -340,7 +340,7 @@ The Commander X16 was devised by David Murray a.k.a. the
 
         The text buffer may not exceed the available banked RAM.
 
-        Press Ctrl+M to you get information on the remaining memory reserved for the
+        Press Ctrl+M to get information on the remaining memory reserved for the
         text buffer. It will be reported as blocks free. A block may at most hold 251 characters.
 
 \section{Advanced topics}
@@ -495,12 +495,12 @@ The Commander X16 was devised by David Murray a.k.a. the
             r1L & \$04     & File name length, or 0=no file \\
         \end{longtable}
 
-        If the specified file does not exist, the editor will display display an
+        If the specified file does not exist, the editor will display an
         error message. If the file name length is 0, the program will not try
-        to load any text file on startup.
+        to load a text file on startup.
 
-        The first and last RAM bank settings control what parts of banked RAM is
-        used by the program. This option may be used to reserve parts of banked RAM
+        The first and last RAM bank settings control what part of banked RAM is
+        used by the program. This option may be used to reserve the rest of banked RAM
         for other purposes.
 
     \subsection{Load file with options entry point}
@@ -537,23 +537,23 @@ The Commander X16 was devised by David Murray a.k.a. the
 
         Color settings are ignored if both the text and background color is 0.
 
-        If the specified file doesn't exist, the editor will display an
+        If the specified file does not exist, the editor will display an
         error message. If the file name length is 0, the program will not try
         to load a text file.
 
-        The first and last RAM bank settings control what parts of banked RAM is
-        used by the program. This option may be used to reserve parts of banked RAM
+        The first and last RAM bank settings control what part of banked RAM is
+        used by the program. This option may be used to reserve the rest of banked RAM
         for other purposes.
 
     \subsection{Code samples for the RAM version}
 
-    \textbf{Default entry point}
+    \subsubsection{Default entry point}
 \begin{verbatim}
     jsr $080d  ; No parameters, just call the entry point
     rts
 \end{verbatim}
 
-    \textbf{Load file entry point}
+    \subsubsection{Load file entry point}
 \begin{verbatim}
     ldx #$01               ; First RAM bank used by the editor
     ldy #$ff               ; And last RAM bank
@@ -571,7 +571,7 @@ The Commander X16 was devised by David Murray a.k.a. the
     fname_end:
 \end{verbatim}
 
-\textbf{Load file with options entry point}
+\subsubsection{Load file with options entry point}
 \begin{verbatim}
     ldx #$01               ; First RAM bank used by the editor
     ldy #$ff               ; And last RAM bank
@@ -605,7 +605,7 @@ fname_end:
 
     \subsection{Code samples for the ROM version}
     
-    \textbf{Search ROM banks for X16 Edit}
+    \subsubsection{Search ROM banks for X16 Edit}
 
     The X16 Edit ROM bank may be identified by the
     application signature ("X16EDIT") stored at \$FFF0. This
@@ -647,20 +647,21 @@ exit:
 signature: .byt $58,$31,$36,$45,$44,$49,$54     ; = "X16EDIT"
 \end{verbatim}
 
-    \textbf{Default entry point}
+    \subsubsection{Default entry point}
 \begin{verbatim}
     lda $01                ; Store current ROM bank on stack
     pha
     jsr find_me            ; Search ROM banks
     bcs done               ; Exit if X16 Edit wasn't found
     sta $01                ; Set ROM bank
-    jsr $c003              ; Call entry point
+    jsr $c000              ; Call entry point
 done:
     pla                    ; Restore original ROM bank
     sta $01
+    rts
 \end{verbatim}
 
-    \textbf{Load file entry point}
+    \subsubsection{Load file entry point}
 \begin{verbatim}
     lda $01                ; Store current ROM bank on stack
     pha
@@ -686,7 +687,7 @@ fname:
 fname_end:
 \end{verbatim}
 
-    \textbf{Load file with options entry point}
+    \subsubsection{Load file with options entry point}
 \begin{verbatim}
     lda $01                ; Store current ROM bank on stack
     pha
