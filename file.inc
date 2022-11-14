@@ -59,25 +59,6 @@ msg:
 .proc file_write   
     ;Set default = no i/o error
     stz file_io_err
-    
-    ;Append ",s,w" to file name
-    stx TMP1_ADR
-    sty TMP1_ADR+1
-    
-    phy
-    phx
-    
-    ldx #4
-    tay
-:   lda suffix-1,x
-    sta (TMP1_ADR),y
-    iny
-    dex
-    bne :-
-    
-    tya
-    plx
-    ply
 
     ;Close file #1, and open file #1 for writing
     pha
@@ -92,7 +73,7 @@ msg:
     bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx file_cur_device
-    ldy #3
+    ldy #1
     bridge_call KERNAL_SETLFS
     bcc :+
     jmp io_err
@@ -212,8 +193,6 @@ close_file:
 
 page_len = tempvars     ;1 byte
 progress_cnt = tempvars+1
-
-suffix: .byt "w,s,"     ;Read backwards
 .endproc
 
 ;******************************************************************************
@@ -226,25 +205,6 @@ suffix: .byt "w,s,"     ;Read backwards
 .proc file_read
     ;Set default = no I/O error
     stz file_io_err
-
-    ;Append ",s,r" to file name
-    stx TMP1_ADR
-    sty TMP1_ADR+1
-    
-    phy
-    phx
-    
-    ldx #4
-    tay
-:   lda suffix-1,x
-    sta (TMP1_ADR),y
-    iny
-    dex
-    bne :-
-    
-    tya
-    plx
-    ply
 
     ;Close file #1, and open file #1 for reading
     pha
@@ -259,7 +219,7 @@ suffix: .byt "w,s,"     ;Read backwards
     bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx file_cur_device
-    ldy #3
+    ldy #0
     bridge_call KERNAL_SETLFS
 
     bridge_setaddr KERNAL_OPEN
@@ -491,8 +451,6 @@ cr2lf:              ;Convert CR to LF in current page
 
 msg:
     .byt "memory full",0
-
-suffix: .byt "r,s,"     ;Read backwards
 .endproc
 
 ;******************************************************************************
