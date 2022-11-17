@@ -279,7 +279,7 @@ block_read:
     txa
     ldy #4
     sta (CRS_ADR),y
-    jsr cr2lf
+    jsr convert             ;Convert CR to LF and tab to blank space
 
     lda #70
     sta progress_cnt
@@ -311,7 +311,7 @@ block_read_loop:
     ldy #4
     sta (CRS_ADR),y
 
-    jsr cr2lf               ;Convert CR to LF
+    jsr convert             ;Convert CR to LF and tab to blank space
 
     dec progress_cnt
     bne :+
@@ -333,9 +333,13 @@ byte_read_loop:             ;Read one byte at a time, fallback if the device doe
 :   bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
 
-    cmp #CR         ;Convert CR to LF line break
+    cmp #CR                 ;Convert CR to LF line break
     bne :+
     lda #LF
+
+:   cmp #KEYVAL_TAB         ;Convert tab to blank space
+    bne :+
+    lda #KEYVAL_SPACE
 
 :   ldy curpage_len
     cpy #251
@@ -431,15 +435,25 @@ mem_full2:
     lda #10         ;Set memory full error
     bra io_err      
 
-cr2lf:              ;Convert CR to LF in current page
+convert:            ;Convert CR to LF and tab to blank space
     ldy #5
-:   lda (CRS_ADR),y
+
+convert_loop:
+    lda (CRS_ADR),y
     cmp #CR
     bne :+
+
     lda #LF
-    sta (CRS_ADR),y
+    bra :++
+
+:   cmp #KEYVAL_TAB
+    bne :++
+    lda #KEYVAL_SPACE
+
+:   sta (CRS_ADR),y
+
 :   iny
-    bne :--
+    bne convert_loop
     rts
 
 .segment "VARS"
