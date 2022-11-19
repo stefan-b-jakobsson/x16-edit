@@ -271,6 +271,7 @@ block_read:
     ldx #$06                ;Read first block
     ldy #$a0
     lda #250
+    clc
     bridge_call KERNAL_MACPTR
     bcs byte_read_loop      ;Block read not supported, fall back to byte read
     
