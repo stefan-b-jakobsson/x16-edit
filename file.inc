@@ -323,7 +323,7 @@ block_read_loop:
 :   bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST       ;Check status
     beq block_read_loop
-    bra goto_start
+    jmp goto_start
 
 byte_read_loop:             ;Read one byte at a time, fallback if the device doesn't support block read
     bridge_setaddr KERNAL_READST
