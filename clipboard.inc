@@ -249,6 +249,11 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc clipboard_paste
+    ;Ensure auto-indent is disabled
+    lda cmd_auto_indent_status
+    pha
+    stz cmd_auto_indent_status
+    
     ;Set vector to start of clipboard memory
     stz TMP1_ADR
     lda #>clipboard_mem
@@ -289,6 +294,11 @@ exit:
     lda clipboard_flags
     ora #CLIPBOARD_UNCUT
     sta clipboard_flags
+
+    ;Restore auto-indent status
+    pla
+    sta cmd_auto_indent_status
+    
     rts
 .endproc
 
