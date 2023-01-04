@@ -103,12 +103,12 @@ The Commander X16 was devised by David Murray a.k.a. the
         of shortcuts in Appendix A.
 
         Shortcuts are primarily selected by pressing and holding down Ctrl at the
-        same time as you press a key that is linked to the wanted command. Instead of
-        the Ctrl key, you may hold down the Left Alt key.
+        same time as you press a shortcut key. Instead of
+        the Ctrl key, you may hold down the left Alt key.
 
-        It is also possible to press and release the ESC key. A message is displayed
+        You may also press and release the ESC key. A message is displayed
         in the status bar indicating that the program is ready to receive a command.
-        Just press the wanted command key without holding down any modifier key.
+        Just press a shortcut key without holding down any modifier.
       
     \subsection{User interface}
         X16 Edit's user interface is similar to GNU Nano, and should be mostly self-explanatory.
@@ -169,8 +169,7 @@ The Commander X16 was devised by David Murray a.k.a. the
     \subsection{Tab stop}
         The default tab stop width is four spaces. 
         
-        You may change the width by pressing and releasing the ESC key followed
-        by one of the digits 1--9.
+        You may change the width by Ctrl+1--9.
                 
     \subsection{Auto-indent}
         The auto-indent feature is used to keep the level of indentation when line breaks are inserted manually or automatically by
@@ -214,10 +213,10 @@ The Commander X16 was devised by David Murray a.k.a. the
         The editor supports cut, copy, and uncut (commonly called paste in other editors).
 
         The copy (Ctrl+C) and cut (Ctrl+K) commands always copy a whole line into the clipboard. You may
-        copy or cut multiple lines. The clipboard holds a maximum of 3 kB of data.
+        copy or cut multiple lines one at a time. The clipboard holds a maximum of 3 kB of data.
 
-        Uncut (Ctrl+U) copies the content of clipboard into the text buffer at the cursor position. It is possible
-        to do repeated uncuts. The clipboard is cleared upon the first cut or copy after uncutting.
+        Uncut (Ctrl+U) copies the content of the clipboard into the text buffer at the cursor position. It is possible
+        to do repeated uncuts. The clipboard is cßleared upon the first cut or copy after uncutting.
 
     \subsection{Search and replace}
         The search command (Ctrl+W) lets you search the text buffer for
@@ -257,8 +256,8 @@ The Commander X16 was devised by David Murray a.k.a. the
         If the selected item is a directory, it will be made the new current directory, and its content will
         be displayed in the file browser.
 
-        The file browser shows at most 50 files or directories on one page. If not all items fit on one page 
-        the listing is ended with "--- MORE ---". In case the items are spread over several pages, you may go to 
+        If not all items fit on one page the listing is ended with "--- MORE ---". 
+        In case the items are spread over several pages, you may go to 
         the next page with PgDn or Ctrl+V and back to a previous page with PgUp or Ctrl+Y.
 
         If there are no more items to show the listing is ended with "--- END ---".
@@ -318,7 +317,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         (X16EDIT-KEYBINDINGS.PRG).
 
     \subsection{Line break encoding}
-        X16 Edit internally uses LF (ASCII \$0A) as a line break marker.
+        X16 Edit internally uses LF (ASCII \$0A) as line break marker.
 
         When reading a file, X16 Edit interprets every occurrence of LF (ASCII \$0A) and CR (ASCII \$0C) as
         a line break. If a text file was created on Windows with CRLF style line breaks, each line break
@@ -431,9 +430,9 @@ The Commander X16 was devised by David Murray a.k.a. the
     by X16 Edit. You may select commands in any of the following ways:
 
     \begin{itemize}
-        \item Ctrl+key
-        \item Left Alt+key
-        \item Press and release ESC+key
+        \item Ctrl+shortcut key
+        \item Left Alt+shortcut key
+        \item Press and release ESC+shortcut key
         \item A function key from the F-key column
     \end{itemize}
 
