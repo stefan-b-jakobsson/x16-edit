@@ -1,5 +1,5 @@
 ;******************************************************************************
-;Copyright 2020-2022, Stefan Jakobsson.
+;Copyright 2020-2023, Stefan Jakobsson.
 ;
 ;This file is part of X16 Edit.
 ;
@@ -275,6 +275,15 @@ ctrl:
     bne :+
     lda #KEYVAL_SHIFT_SPACE
     jmp default_insert
+
+    ;Key 1..9 sets tab width
+:   cmp #$31
+    bcc :+
+    cmp #$3b
+    bcs :+
+    sec
+    sbc #48
+    jmp cmd_set_tab_width
 
     ;Convert lower case letters to upper case
 :   and #%11011111
