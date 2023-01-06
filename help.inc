@@ -5,7 +5,7 @@
 ;                      utility that you may get here:
 ;                      https://github.com/emmanuel-marty/lzsa
 ;                      Compress with the following command:
-;                      lzsa -r -f2 help.txt helptxt.bin
+;                      lzsa -r -f2 help.txt help.bin
 ;                      The decompressed text is stored in banked RAM.
 ;Input...............: Nothing
 ;Returns.............: Nothing

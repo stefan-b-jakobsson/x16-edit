@@ -1,11 +1,11 @@
 HELP
 
 
-X16 Edit is a modeless editor similar to GNU Nano. 
+X16 Edit is a modeless editor similar to GNU Nano.
 
 Commands are primarily selected by holding down Ctrl or left Alt and pressing
-a command key at the same time. It is also possible to press and release ESC,
-and then a command key. Some functions are finally available via a function 
+a shortcut key at the same time. It is also possible to press and release ESC,
+and then a shortcut key. Some functions are finally available via a function 
 key.
  
 ^G  (F1)  Display built-in help screen
@@ -32,9 +32,7 @@ key.
 ^B        Set background color (default blue)
 ^M        Show memory usage (1 bank=251 bytes of text)
 ^SPACE    Insert non-breaking space
-
-Tab width is set by first pressing and releasing ESC and then a digit (1..9).
-
+^1..9     Set tab width
 
 
 
@@ -42,7 +40,9 @@ Tab width is set by first pressing and releasing ESC and then a digit (1..9).
 
 
 
-X16 Edit, Copyright 2020-2022, Stefan Jakobsson.
+
+
+X16 Edit, Copyright 2020-2023, Stefan Jakobsson.
 
 This program is free software and comes with ABSOLUTELY NO WARRANTY. You may
 redistribute and/or modify it under the terms of the GNU General Public License
