@@ -298,15 +298,20 @@ errormsg:
 
 ;******************************************************************************
 ;Function name.......: main_loop
-;Purpose.............: Initializes custom interrupt handler and then goes
-;                      to the program main loop that just waits for program
-;                      to terminate.
+;Purpose.............: Program main loop and shutdown
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_loop
     ;Init IRQ
     jsr irq_init
+
+    ;If RAM based variant: Save current ROM bank on stack and select ROM bank 0 - improves performance of calling Kernal functions
+    .if (::target_mem=target_ram)
+        lda ROM_SEL
+        pha
+        stz ROM_SEL
+    .endif
 
     ;Set program in running state
     stz APP_QUIT
@@ -317,10 +322,29 @@ errormsg:
     lda #1
     sta $9fb7
 
-    ;Wait for the program to terminate    
-:   lda APP_QUIT        ;0=running, 1=closing down, 2=close now
-    cmp #2
-    bne :-
+mainloop:
+    ;Application main loop
+    lda APP_QUIT                        ;Time to quit?
+    bne shutdown
+
+    lda irq_flag                        ;Wait for IRQ flag
+    beq mainloop
+    stz irq_flag
+
+    jsr keyboard_read_and_dispatch      ;Do some work...
+    jsr cursor_toggle
+    jsr screen_update_status
+
+    bra mainloop
+    
+shutdown:
+    ;Clear screen
+    bridge_setaddr KERNAL_CHROUT
+    lda #147
+    bridge_call KERNAL_CHROUT
+
+    ;Restore IRQ
+    jsr irq_restore
 
     ;Restore emulator Ctrl/Cmd key interception
     pla
@@ -332,7 +356,12 @@ errormsg:
     ;Restore zero page and golden RAM from backup taken during program initialization
     jsr ram_restore
 
-exit:
+    ;Restore ROM bank
+    .if (::target_mem=target_ram)
+        pla
+        sta ROM_SEL
+    .endif
+
     rts
 .endproc
 

@@ -35,6 +35,7 @@
     ;Set vectors to our custom handler
     sei
     
+    stz irq_flag
     lda #<irq_handler
     sta $0314
     lda #>irq_handler
@@ -67,94 +68,48 @@
 .endif
 
 ;******************************************************************************
-;Function name.......: irq_handler
-;Purpose.............: Custom interrupt handler, effectively the main loop of
-;                      the program
+;Function name.......: irq_restore
+;Purpose.............: Restores original IRQ handler
 ;Input...............: None
 ;Returns.............: Nothing
 ;Error returns.......: None
-.if target_mem=target_ram
-.proc irq_handler
-    ;Check if the program is closing down, i.e. if APP_QUIT!=0
-    lda APP_QUIT
-    bne shutdown
+.proc irq_restore
+    sei
+    lda irq_default_handler
+    sta $0314
+    lda irq_default_handler+1
+    sta $0315
+    cli
+    rts
+.endproc
 
+;******************************************************************************
+;Function name.......: irq_handler
+;Purpose.............: Custom interrupt handler
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc irq_handler
     ;Verify vblank interrupt
     lda VERA_ISR
     and #$01
     beq exit
 
-    ;Main loop
-    jsr keyboard_read_and_dispatch
-    jsr cursor_toggle
-    jsr screen_update_status
+    ;Set IRQ flag
+    lda #1
+    sta irq_flag
     
 exit:
-    jmp (irq_default_handler)
+    .if (::target_mem=target_ram)
+        jmp (irq_default_handler)
+    .endif
 
-shutdown:
-    ;The program is closing, restore irq handler to default
-
-    ;Restore irq handler
-    lda irq_default_handler
-    sta $0314
-    lda irq_default_handler+1
-    sta $0315
-
-    ;Clear screen
-    bridge_setaddr KERNAL_CHROUT
-    lda #147
-    bridge_call KERNAL_CHROUT
-
-    ;Signal to program main process that it's safe to quit
-    lda #2
-    sta APP_QUIT
-
-    jmp (irq_default_handler)
+    .if (::target_mem=target_rom)
+        rts
+    .endif
 .endproc
-.endif
-
-.if target_mem=target_rom
-.proc irq_handler
-    ;Check if the program is closing down, i.e. if APP_QUIT!=0
-    lda APP_QUIT
-    bne shutdown
-
-    ;Verify vblank interrupt
-    lda VERA_ISR
-    and #$01
-    beq exit
-
-    ;Main loop
-    jsr keyboard_read_and_dispatch
-    jsr cursor_toggle
-    jsr screen_update_status
-
-exit:
-    rts
-
-shutdown:
-    ;The program is closing, restore irq handler to default
-
-    ;Restore irq handler
-    lda irq_default_handler
-    sta $0314
-    lda irq_default_handler+1
-    sta $0315
-
-    ;Clear screen
-    bridge_setaddr KERNAL_CHROUT
-    lda #147
-    bridge_call KERNAL_CHROUT
-
-    ;Signal to program main process that it's safe to quit
-    lda #2
-    sta APP_QUIT
-    
-    rts
-.endproc
-.endif
 
 .segment "VARS"
     irq_default_handler:    .res 2              ;2 bytes
+    irq_flag:               .res 1
 .CODE
