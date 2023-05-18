@@ -103,8 +103,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         of shortcuts in Appendix A.
 
         Shortcuts are primarily selected by pressing and holding down Ctrl at the
-        same time as you press a shortcut key. Instead of
-        the Ctrl key, you may hold down the left Alt key.
+        same time as you press a shortcut key.
 
         You may also press and release the ESC key. A message is displayed
         in the status bar indicating that the program is ready to receive a command.
@@ -296,16 +295,6 @@ The Commander X16 was devised by David Murray a.k.a. the
         X16EDITRC is simply a stream of bytes representing the custom shortcuts without any metadata. 
         Each key is represented by the value returned from the Kernal function GETIN.
         
-        The extra keys supported by the editor are represented by the following values:
-        
-        \begin{itemize}
-            \item \$15 = Delete
-            \item \$16 = End
-            \item \$17 = PgUp
-            \item \$18 = PgDn
-            \item \$1a = Insert 
-        \end{itemize}
-        
         The values in X16EDITRC are bound to shortcuts in a fixed order, the same order as
         the shortcuts appear in Appendix A.
         
@@ -431,7 +420,6 @@ The Commander X16 was devised by David Murray a.k.a. the
 
     \begin{itemize}
         \item Ctrl+shortcut key
-        \item Left Alt+shortcut key
         \item Press and release ESC+shortcut key
         \item A function key from the F-key column
     \end{itemize}

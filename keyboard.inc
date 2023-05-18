@@ -21,8 +21,7 @@
 ;General information on keyboard functions
 ;---------------------------------------------
 ;X16 Edit uses a custom PS/2 scan code handler to read status of modifier
-;keys and to get keys not supported by the Kernal (for instance numerical key pad 
-;keys). The scan code handler is implemented in source file "scancode.inc".
+;keys. The scan code handler is implemented in source file "scancode.inc".
 ;
 ;The status of each modifier key is represented by one bit (1=down, 0=up) in 
 ;variable "scancode_modifiers" as follows:
@@ -34,24 +33,10 @@
 ;3      WIN
 ;4      CAPS
 ;
-;The scan code handler consumes Ctrl key events. This means that the
-;the Kernal GETIN function returns the same result for A and Ctrl+A.
-;The only way to know whether the Ctrl key is pressed is to check the value 
-;of scancode_modifiers.
-;
-;The value of extra keys supported by the scan code handler is stored in
-;variable "scancode_ext". That variable holds the last pressed extra key.
-;
-;Printable chars have their default PETSCII/ASCII value. 
-;
-;List of non-printable extra keys:
-;
-;Key        Value
-;DELETE     = $15
-;END        = $16
-;PGUP       = $17
-;PGDN       = $18
-;INSERT     = $1a
+;The scan code handler consumes Ctrl key events. This means 
+;that the Kernal GETIN function returns the same result for A and Ctrl+A.
+;The only way to know whether the Ctrl key key is pressed is 
+;to check the value of scancode_modifiers.
 
 keyboard_shortcut_count = 23
 
@@ -144,7 +129,7 @@ close:
 keyval:                                 ;List of default shortcut keys
     .byt $47, $58, $4f, $52, $4e
     .byt $4a, $59, $56, $4b, $43
-    .byt $55, $15, $57, $53, $4c
+    .byt $55, $19, $57, $53, $4c
     .byt $41, $5a, $45, $49, $44
     .byt $54, $42, $4d
 
@@ -168,14 +153,8 @@ val = tempvars
     cmp #16
     beq gotachar
 
-    ;Check and handle non-standard extra keys
-    lda scancode_ext
-    beq :+
-    stz scancode_ext
-    bra gotachar
-
-    ;Read standard keys
-:   bridge_setaddr KERNAL_GETIN
+    ;Read keys
+    bridge_setaddr KERNAL_GETIN
     bridge_call KERNAL_GETIN
     bne gotachar
 
@@ -237,8 +216,6 @@ jmptbl:
     ;Check modifier key status
     ldx scancode_modifiers
     cpx #KBD_MODIFIER_CTRL
-    beq ctrl
-    cpx #KBD_MODIFIER_ALT
     beq ctrl
 
 default:
@@ -505,8 +482,6 @@ abort:
     lda scancode_modifiers
     cmp #KBD_MODIFIER_CTRL
     beq tofiles
-    cmp #KBD_MODIFIER_ALT
-    beq tofiles
     
     ;Default, send key to prompt
 :   txa
@@ -632,8 +607,6 @@ write_file:
     lda scancode_modifiers
     cmp #KBD_MODIFIER_CTRL
     beq tofiles
-    cmp #KBD_MODIFIER_ALT
-    beq tofiles
 
     ;Default, send key to prompt
 :   txa
@@ -683,8 +656,6 @@ loop:
 
     ldy scancode_modifiers
     cpy #KBD_MODIFIER_CTRL
-    beq loop
-    cpy #KBD_MODIFIER_ALT
     beq loop
     rts
 

@@ -3,8 +3,8 @@ HELP
 
 X16 Edit is a modeless editor similar to GNU Nano.
 
-Commands are primarily selected by holding down Ctrl or left Alt and pressing
-a shortcut key at the same time. It is also possible to press and release ESC,
+Commands are primarily selected by holding down Ctrl and pressing a
+shortcut key at the same time. It is also possible to press and release ESC,
 and then a shortcut key. Some functions are finally available via a function 
 key.
  

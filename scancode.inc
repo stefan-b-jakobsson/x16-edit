@@ -31,7 +31,6 @@
     sta scancode_default_handler+1
     
     stz scancode_modifiers
-    stz scancode_ext
 
     sei
     lda #<scancode_handler
@@ -52,7 +51,6 @@
     sta scancode_default_handler+1
 
     stz scancode_modifiers
-    stz scancode_ext
 
     sei
     lda #<(bridge_code+bridge_scancode-bridge_kernal)
@@ -85,144 +83,89 @@
 
 ;******************************************************************************
 ;Function name.......: scancode_handler
-;Purpose.............: Custom keyboard scan code handler
-;Input...............: Input set by Kernal, X=PS/2 prefix, A=PS/2 scan code,
-;                      carry clear=keydown, and carry set=keyup
+;Purpose.............: Custom keycode handler
+;Input...............: Input set by Kernal, A=key code
 ;Returns:............: Modifier key status is stored in variable
 ;                      scancode_modifier, each bit representing one key
 ;                      (1=down, 0=up) as follows: Bit 0=Shift, bit 1=Alt,
 ;                      bit 2=Ctrl, bit 3=Windows key, bit 4=Caps lock
-;
-;                      Ctrl key and left Alt key presses are not relayed
-;                      to the Kernal. The right Alt key is relayed
-;                      to the Kernal as left Alt.
-;
-;                      The scan code handler supports several extra keys
-;                      that are ignored by the Kernal. The last pressed
-;                      extra key is stored in the variable scancode_ext.
-;                      If it's a printable char the PETSCII/ASCII
-;                      value is stored. 
-;
-;                      The following non-printable
-;                      keys are represented by the following non-standard
-;                      values:
-;
-;                      Key        Value
-;                      DELETE     = $15
-;                      END        = $16
-;                      PGUP       = $17
-;                      PGDN       = $18
-;                      INSERT     = $1a
+;                      Ctrl key presses are consumed and not relayed
+;                      to the Kernal.
 ;Error returns:......: None
 .proc scancode_handler
-    ;Save input so we can restore values later
+    ;Save input so we can restore value later
     pha
-    phx
-    php   
 
-    ;Check scancode match with one of the supported extra keys
-    ldy #(scancodes_L-scancodes_H)
+    ;Check keycode match
+    and #%01111111      ; Filter out up/down bit
+    ldy #9
+
 loop:
-    cmp scancodes_L-1,y
-    beq checkprefix
-loop_cont:
+    cmp keycodes-1,y
+    beq match
     dey
     bne loop
-    
-exit:
-    ;No match, restore input and exit
-    plp
-    plx
-    pla
+
+nomatch:
+    pla                 ; Retore keycode from stack and exit
     rts
 
-checkprefix:
-    pha
-    txa
-    cmp scancodes_H-1,y
-    beq match
-    pla
-    bra loop_cont
-
 match:
-    ;Handle scancode match
-    pla
     lda bitmask-1,y
-    plp
-    php
-    bcs keyup
+    plx                 ; Get keycode from stack, temporarily stored in X
+    bmi keyup           ; Bit 7=1 is keyup
 
 keydown:
-    ;Key down event
-    cpy #10             ;Y>=10 => control keys and printable keys
-    bcs :+
-                        ;Y<10 => modifier key
-
-    ;Modifier key
     ora scancode_modifiers
-    sta scancode_modifiers
-
-    ;Consume left Alt and both Ctrl keys
-    cpy #3                      ;3=Left Alt key
-    beq consume_and_exit
-    cpy #5                      ;5-6=Left and right Ctrl key
-    bcc exit
-    cpy #7
-    bcs exit
-    bra consume_and_exit
-
-    ;Control keys and printable keys
-:   lda keyvals-10,y
-    sta scancode_ext
-    bra consume_and_exit
+    bra :+
 
 keyup:
-    ;Key up event
-    cpy #10                 ;Y>10 => not modifier key, consume and exit
-    bcs consume_and_exit
-
-    ;Modifier key, clear status bit
     eor #$ff
     and scancode_modifiers
+
+:   ;Update modifier status
     sta scancode_modifiers
     
-    ;Consume left Alt and both Ctrl keys
-    cpy #3                      ;3=Left Alt key
-    beq consume_and_exit
-    cpy #5                      ;5-6=Left and right Ctrl key
-    bcc exit
-    cpy #7
-    bcs exit
+    ; Consume Ctrl key events
+    lda bitmask-1,y
+    and #KBD_MODIFIER_CTRL
+    bne consume
 
-consume_and_exit:
-    ;Consume key event preventing the Kernal from further handling it
-    plp
-    plx
-    pla
+    ; Consume Shift + Alt to prevent toggle between upper/lower case
+    lda scancode_modifiers
+    and #KBD_MODIFIER_SHIFT+KBD_MODIFIER_ALT
+    cmp #KBD_MODIFIER_SHIFT+KBD_MODIFIER_ALT
+    beq consume
+
+    ; Move keycode from X to A and exit
+    txa
+    rts
+
+consume:
     lda #0
     rts
 
-scancodes_H:                             
-         ;Modifier keys                                     ;Control keys                      ;Printable keys
-    .byt $00, $00, $00, $e0, $00, $e0, $e0, $e0, $00,       $e0, $e0, $e0, $e0, $e0, $e0,      $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $e0, $00, $00, $00
-scancodes_L:
-    .byt $12, $59, $11, $11, $14, $14, $1f, $27, $58,       $71, $69, $7d, $7a, $5a, $70,      $70, $69, $72, $7a, $6b, $73, $74, $6c, $75, $7d, $71, $4a, $7c, $7b, $79
+keycodes:
+    .byt KEYCODE_LSHIFT
+    .byt KEYCODE_RSHIFT
+    .byt KEYCODE_LALT
+    .byt KEYCODE_RALT
+    .byt KEYCODE_LCTRL
+    .byt KEYCODE_RCTRL
+    .byt KEYCODE_LGUI
+    .byt KEYCODE_RGUI
+    .byt KEYCODE_CAPSLOCK
+
 bitmask:
     .byt KBD_MODIFIER_SHIFT, KBD_MODIFIER_SHIFT, KBD_MODIFIER_ALT
     .byt KBD_MODIFIER_RALT, KBD_MODIFIER_CTRL, KBD_MODIFIER_CTRL
     .byt KBD_MODIFIER_WIN, KBD_MODIFIER_WIN, KBD_MODIFIER_CAPS
 
-keyvals:
-    .byt KEYVAL_DELETE, KEYVAL_END, KEYVAL_PGUP, KEYVAL_PGDN, KEYVAL_ENTER, KEYVAL_INSERT
-    .byt KEYVAL_0, KEYVAL_1, KEYVAL_2, KEYVAL_3, KEYVAL_4
-    .byt KEYVAL_5, KEYVAL_6, KEYVAL_7, KEYVAL_8, KEYVAL_9
-    .byt KEYVAL_DP, KEYVAL_DIV, KEYVAL_MUL, KEYVAL_SUB, KEYVAL_ADD
 .endproc
 
 .segment "VARS"
     scancode_default_handler: .res 2
     scancode_modifiers: .res 1
-    scancode_ext: .res 1
 .CODE
 
 ;Modifier key bitmask
@@ -232,3 +175,14 @@ KBD_MODIFIER_CTRL  = 4 ; C64:  Ctrl
 KBD_MODIFIER_WIN   = 8 ; C128: Alt
 KBD_MODIFIER_CAPS  = 16; C128: Caps
 KBD_MODIFIER_RALT  = 32; Right Alt key
+
+;Modifier key codes
+KEYCODE_LSHIFT      = $2C
+KEYCODE_RSHIFT      = $39
+KEYCODE_LCTRL       = $3A
+KEYCODE_LGUI        = $3B
+KEYCODE_LALT        = $3C
+KEYCODE_RALT        = $3E
+KEYCODE_RGUI        = $3F
+KEYCODE_RCTRL       = $40
+KEYCODE_CAPSLOCK    = $1E
