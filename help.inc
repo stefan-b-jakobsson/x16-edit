@@ -4,8 +4,9 @@
 ;                      The compressed binary should be created with the lzsa
 ;                      utility that you may get here:
 ;                      https://github.com/emmanuel-marty/lzsa
-;                      Compress with the following command:
+;                      Compress with the following commands:
 ;                      lzsa -r -f2 help.txt help.bin
+;                      lzsa -r -f2 help_short.txt help_short.bin
 ;                      The decompressed text is stored in banked RAM.
 ;Input...............: Nothing
 ;Returns.............: Nothing
@@ -25,13 +26,20 @@
     lda mem_start
     sta BNK_SEL
 
-    ;Vector to compressed text (input)
+    ;If screen_width < 80, then select short (compact) help text
+    lda screen_width
+    cmp #64
+    bcc :+
+    lda screen_height
+    cmp #50
+    bcc :+
+
+    ;Long help text
     lda #<help_bin
     sta r0
     lda #>help_bin
     sta r0+1
 
-    ;Calculate end of copy
     sec
     lda #<help_bin_end
     sbc #<help_bin
@@ -39,9 +47,24 @@
     lda #>help_bin_end
     sbc #0
     sta endH
+    bra :++
+
+    ;Short help text
+:   lda #<help_short_bin
+    sta r0
+    lda #>help_short_bin
+    sta r0+1
+
+    sec
+    lda #<help_short_bin_end
+    sbc #<help_short_bin
+    sta endL
+    lda #>help_short_bin_end
+    sbc #0
+    sta endH
 
     ;Copy compressed text to clipboard mem, clipboard mem used temporarily for this purpose during editor initialization
-    lda #<clipboard_mem
+:   lda #<clipboard_mem
     sta r1
     lda #>clipboard_mem
     sta r1+1
@@ -97,8 +120,12 @@ decompress:
     rts
 
 help_bin:
-    .incbin "help.bin"
+    .incbin "build/help.bin"
 help_bin_end:
+
+help_short_bin:
+    .incbin "build/help_short.bin"
+help_short_bin_end:
 
 endL = tempvars
 endH = tempvars+1
@@ -121,6 +148,19 @@ endH = tempvars+1
     sta VERA_M
     lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
+
+    ;Print header
+    ldy #0
+:   lda header,y
+    beq :+
+    jsr screen_put_uc_char
+    iny
+    bra :-
+
+    ;Goto next line
+:   stz VERA_L  
+    inc VERA_M
+    inc VERA_M
 
     ;Set zero page vector to help screen content
     lda mem_start
@@ -147,7 +187,7 @@ loop:
     inc VERA_M
     clc
     lda #VERA_BUFADR_M
-    adc #SCREEN_HEIGHT
+    adc screen_height
     sec
     sbc #5
     cmp VERA_M
@@ -161,5 +201,8 @@ next:
 
 exit:
     rts
+
+header:
+    .byt .sprintf("help - version %u.%u.%u", appversion_major, appversion_minor, appversion_patch), 0
 
 .endproc

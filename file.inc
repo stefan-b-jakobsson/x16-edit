@@ -102,11 +102,6 @@ msg:
     lda (TMP1_ADR),y
     sta page_len
 
-    ;Init progress indicator
-    lda #15
-    sta progress_cnt
-    jsr progress_show
-
     ;Offset to skip page metadata
     ldy #5
     sty TMP1_ADR
@@ -165,15 +160,8 @@ get_next_page:
     lda #5
     sta TMP1_ADR
 
-    ;Update progress indicator
-    dec progress_cnt
-    bne :+
-    lda #15
-    sta progress_cnt
-    jsr progress_tick
-
     ;Prepare continue writing data
-:   ldy #0
+    ldy #0
     bra write_loop
 
 io_err:
@@ -186,13 +174,9 @@ close_file:
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
 
-    ;Hide progress indicator
-    jsr progress_hide
-
     rts
 
 page_len = tempvars     ;1 byte
-progress_cnt = tempvars+1
 .endproc
 
 ;******************************************************************************
@@ -236,7 +220,7 @@ progress_cnt = tempvars+1
     ;Get one byte to see if there are any disk errors, in particular file not found
 :   bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
-    sta first_char
+    sta char
 
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
@@ -245,11 +229,6 @@ progress_cnt = tempvars+1
     jmp close
 
 continue:
-    ;Show progress sprite
-    lda #20
-    sta progress_cnt
-    jsr progress_show
-
     ;Clear and initialize memory
     jsr mem_init
     lda CRS_BNK
@@ -260,72 +239,13 @@ continue:
     sta CRS_ADR
 
     ldy #0                  ;Store char
-    lda first_char
+    lda char
     sta (CRS_ADR),y
 
     lda #1
     sta curpage_len
 
-block_read:
-    bridge_setaddr KERNAL_MACPTR
-    ldx #$06                ;Read first block
-    ldy #$a0
-    lda #250
-    clc
-    bridge_call KERNAL_MACPTR
-    bcs byte_read_loop      ;Block read not supported, fall back to byte read
-    
-    stz CRS_ADR             ;Store first block length (number of bytes read + 1)
-    inx
-    txa
-    ldy #4
-    sta (CRS_ADR),y
-    jsr convert             ;Convert CR to LF and tab to blank space
-
-    lda #70
-    sta progress_cnt
-
-    bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST       ;Check status
-    beq block_read_loop
-    jmp goto_start
-
-block_read_loop:   
-    bridge_setaddr KERNAL_MACPTR
-    
-    jsr mem_alloc           ;Allocate new page
-    cpx #0
-    bne :+
-    jmp mem_full2
-
-:   sty CRS_BNK
-    stx CRS_ADR+1
-
-    txa                     ;Prepare calling MACPTR
-    tay
-    ldx #$05
-    lda #251
-    clc
-    bridge_call KERNAL_MACPTR
-
-    txa                     ;Store block length
-    ldy #4
-    sta (CRS_ADR),y
-
-    jsr convert             ;Convert CR to LF and tab to blank space
-
-    dec progress_cnt
-    bne :+
-    jsr progress_tick
-    lda #70
-    sta progress_cnt
-    
-:   bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST       ;Check status
-    beq block_read_loop
-    jmp goto_start
-
-byte_read_loop:             ;Read one byte at a time, fallback if the device doesn't support block read
+byte_read_loop:
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     beq :+
@@ -334,33 +254,66 @@ byte_read_loop:             ;Read one byte at a time, fallback if the device doe
 :   bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
 
-    cmp #CR                 ;Convert CR to LF line break
+    ldx char
+    sta char                ;Remember char until next loop
+
+    cpx #CR                 ;Convert CRLF to LF
+    bne :+
+    cmp #LF
+    beq byte_read_loop
+
+:   cmp #CR                 ;Convert CR to LF line break
     bne :+
     lda #LF
 
-:   cmp #KEYVAL_TAB         ;Convert tab to blank space
+:   cmp #LF
     bne :+
-    lda #KEYVAL_SPACE
+    stz mem_cur_col
+    stz mem_cur_col+1
+    stz mem_cur_col+2
+    lda #LF
+    bra insert
 
-:   ldy curpage_len
+:   cmp #KEYVAL_TAB         ;Convert tab to blank spaces
+    bne insert
+    
+    jsr cmd_next_tab_stop
+    stx tab_distance
+
+:   lda #32
+
+    ldy curpage_len
     cpy #251
-    bcs alloc_new_page
+    bcc :+
+    jsr alloc_new_page
+    bra :++
 
-    sta (CRS_ADR),y
+:   sta (CRS_ADR),y
     inc curpage_len
+    
+:   jsr mem_cur_col_inc
+    dec tab_distance
+    bne :---
     bra byte_read_loop
+
+insert:   
+    ldy curpage_len
+    cpy #251
+    bne :+
+    jsr alloc_new_page
+    jsr mem_cur_col_inc
+    bra byte_read_loop
+
+:   sta (CRS_ADR),y
+    inc curpage_len
+
+    jsr mem_cur_col_inc
+    jmp byte_read_loop
 
 alloc_new_page:
     pha             ;Save char to insert on stack
 
-    ;Update progress indicator
-    dec progress_cnt
-    bne :+
-    jsr progress_tick
-    lda #20
-    sta progress_cnt
-
-:   stz CRS_ADR
+    stz CRS_ADR
 
     lda CRS_BNK     ;Set current page length
     sta BNK_SEL
@@ -387,7 +340,7 @@ alloc_new_page:
     ldy #1          ;Set page len = 1
     sty curpage_len
 
-    bra byte_read_loop
+    rts
 
 io_err:
     ;Set kernal error
@@ -421,47 +374,22 @@ close:
 
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
-    
-    ;Hide progress indicator
-    jsr progress_hide
 
     rts
 
 mem_full:
     pla             ;Clean stack
-
-mem_full2:
+    pla
+    pla
     jsr eof
-
     lda #10         ;Set memory full error
     bra io_err      
 
-convert:            ;Convert CR to LF and tab to blank space
-    ldy #5
-
-convert_loop:
-    lda (CRS_ADR),y
-    cmp #CR
-    bne :+
-
-    lda #LF
-    bra :++
-
-:   cmp #KEYVAL_TAB
-    bne :++
-    lda #KEYVAL_SPACE
-
-:   sta (CRS_ADR),y
-
-:   iny
-    bne convert_loop
-    rts
-
 .segment "VARS"
-    first_char: .res 1
+    char: .res 1
     curpage_len: .res 1
     newpage: .res 2 
-    progress_cnt: .res 1
+    tab_distance: .res 1
 .CODE
 
 msg:
@@ -651,23 +579,23 @@ file_ioerr_L:
 file_ioerr_H:
     .byt >file_ioerr_1, >file_ioerr_2, >file_ioerr_3, >file_ioerr_4, >file_ioerr_5, >file_ioerr_6, >file_ioerr_7, >file_ioerr_8, >file_ioerr_9, >file_ioerr_10
 file_ioerr_1:
-    .byt "i/o error: too many open files", 0
+    .byt "too many open files", 0
 file_ioerr_2:
-    .byt "i/o error: file already open", 0
+    .byt "file already open", 0
 file_ioerr_3:
-    .byt "i/o error: file not open", 0
+    .byt "file not open", 0
 file_ioerr_4:
-    .byt "i/o error: file not found", 0
+    .byt "file not found", 0
 file_ioerr_5:
-    .byt "i/o error: device not present", 0
+    .byt "device not present", 0
 file_ioerr_6:
-    .byt "i/o error: file is not an input file", 0
+    .byt "file is not an input file", 0
 file_ioerr_7:
-    .byt "i/o error: file is not an output file", 0
+    .byt "file is not an output file", 0
 file_ioerr_8:
-    .byt "i/o error: file name is missing", 0
+    .byt "file name is missing", 0
 file_ioerr_9:
-    .byt "i/o error: illegal device number", 0
+    .byt "illegal device number", 0
 file_ioerr_10:
     .byt "memory full error", 0
 

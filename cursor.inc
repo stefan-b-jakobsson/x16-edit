@@ -127,10 +127,10 @@ swap:
 ;Error returns.......: None
 .proc cursor_move_right
     ldx CRS_X
-    cpx #(SCREEN_WIDTH-1)
+    inx
+    cpx screen_width
     bcs rightmost
 
-    inx
     ldy CRS_Y
     jsr cursor_move
 
@@ -199,10 +199,13 @@ top:
 ;Returns.............: C=1 if at bottom of screen, else C=0
 ;Error returns.......: None
 .proc cursor_move_down
-    ldy CRS_Y
-    cpy #(SCREEN_HEIGHT-5)  ;The last editable row
+    clc
+    lda CRS_Y
+    adc #5
+    cmp screen_height   ;The last editable row
     beq bottom
 
+    ldy CRS_Y
     iny
     ldx CRS_X
     jsr cursor_move
@@ -225,8 +228,12 @@ bottom:
 ;Error returns.......: None
 .proc cursor_move_crlf
     ldy CRS_Y
-    cpy #(SCREEN_HEIGHT-5)         ;The last editable row
+    tya
+    clc
+    adc #5
+    cmp screen_height
     beq bottom
+
     iny
     ldx #0
     jsr cursor_move

@@ -44,7 +44,7 @@
     jmp prompt_default_input
 
 msg:
-    .byt "write to file name:",0
+    .byt "write to file:",0
 .endproc
 
 ;******************************************************************************
@@ -91,43 +91,29 @@ noerr:
     lda filename+1
     sta TMP1_ADR+1
     
-    ;If first char is @ or :, skip that value
+    ;Skip leading @ or :
     ldy #0
-    lda (TMP1_ADR),y
+:   lda (TMP1_ADR),y
     cmp #'@'
-    beq ignore
-    cmp #':'
-    beq ignore
-    ldx filename
-    ldy filename+1
-    bra setfilename
-
-ignore:
-    dec filelen
-
-    iny
-    lda (TMP1_ADR),y
-    cmp #':'            ;If second char is colon, ignore that too
     beq :+
+    cmp #':'
+    bne setname
+:   iny
+    bra :--
 
+setname:
+    cpy #0
+    beq :++
+    dec filelen
+    inc filename
+    bne :+
+    inc filename+1
+:   dey
+    bra setname
+
+:   lda filelen
     ldx filename
     ldy filename+1
-    inx
-    bne setfilename
-    iny
-    bra setfilename
-
-:   dec filelen
-    clc
-    lda filename
-    adc #2
-    tax
-    lda filename+1
-    adc #0
-    tay
-
-setfilename:
-    lda filelen
     jsr file_set_filename
     jsr screen_print_header
 
@@ -139,12 +125,7 @@ show_status:
 
 show_io_err:
     ldx file_io_err
-    dex
-    lda file_ioerr_H,x
-    tay
-    lda file_ioerr_L,x
-    tax
-    jsr screen_print_status
+    jsr cmd_file_show_io_err
 
 exit:
     jsr cursor_activate
@@ -163,7 +144,7 @@ confirm_overwrite:
     jmp screen_print_status
 
 overwrite_msg:
-    .byt "file exists. overwrite (y/n)?", 0
+    .byt "overwrite file (y/n)?", 0
 
 .segment "VARS"
     filename: .res 2
@@ -246,7 +227,7 @@ write:
 msg:
     .byt "open file name:",0
 msg2:
-    .byt "buffer modified. save before open file? (y/n)",0
+    .byt "save before open file? (y/n)",0
 .endproc
 
 ;******************************************************************************
@@ -302,12 +283,7 @@ msg2:
 io_error:
     ;Display error message
     ldx file_io_err
-    dex
-    lda file_ioerr_H,x
-    tay
-    lda file_ioerr_L,x
-    tax
-    jsr screen_print_status
+    jsr cmd_file_show_io_err
 
 exit:
     jsr cursor_activate
@@ -367,13 +343,7 @@ msg:
     ;Check if Kernal I/O error occurred
     ldx file_io_err
     beq no_kernal_err
-    
-kernal_err:
-    dex
-    ldy file_ioerr_H,x
-    lda file_ioerr_L,x
-    tax
-    jmp screen_print_status
+    jmp cmd_file_show_io_err
 
 no_kernal_err:
     ldx #<file_disk_status
@@ -452,6 +422,21 @@ invalid:
     jmp screen_print_status
 
 msg:
-    .byt "invalid device number, must be in range 8-30",0
+    .byt "invalid device number",0
 
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_file_show_io_err
+;Purpose.............: Displays io err message
+;Input...............: X = error number
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_file_show_io_err
+    dex
+    lda file_ioerr_H,x
+    tay
+    lda file_ioerr_L,x
+    tax
+    jmp screen_print_status
 .endproc

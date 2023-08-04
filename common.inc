@@ -27,6 +27,9 @@
 .define BNK_SEL $00 
 .define ROM_SEL $01
 
+;Current character set
+.define KERNAL_MODE $0372
+
 ;File management
 .define KERNAL_CLALL $ffe7
 .define KERNAL_CLOSE $ffc3

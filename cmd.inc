@@ -608,21 +608,51 @@ msg:
     ;Hide cursor
     jsr cursor_disable
 
-    ;Distance to next tab stop = (T + 1) - (X mod T)
+    ;Get distance to next tab stop
+    jsr cmd_next_tab_stop
+    stx mod
+
+    ;Insert calculated number of blanks
+:   lda #32
+    jsr cmd_insert
+    dec mod
+    bne :-
+    
+    ;Refresh
+    jsr screen_println
+    jmp cursor_activate
+
+.segment "VARS"
+    mod: .res 1
+.CODE
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_next_tab_stop
+;Purpose.............: Calculates distance to next tab stop
+;Input...............: Nothing
+;Returns.............: X = distance
+;Error returns.......: Nothing
+.proc cmd_next_tab_stop
+    ;Distance to next tab stop = T - ((X - 1) mod T))
     ;where X is current column number, and
     ;      T is tab stop width
-    
+
     ;Init
     stz mod
-
+    
+    sec
     lda mem_cur_col
+    sbc #1
     sta col
     lda mem_cur_col+1
+    sbc #0
     sta col+1
     lda mem_cur_col+2
+    sbc #0
     sta col+2
 
-    ;Calculate: (X mod T)
+    ;Calculate: (X -1) mod T
     ldx #24                 ;Number of bits in column number
 fetch_bit:
     asl col
@@ -641,30 +671,16 @@ subtract:
     dex
     bne fetch_bit
 
-    ;Calculate: (T + 1)
-    lda keyboard_tabwidth
-    ina
-
-    ;Calculate (T + 1) - (X mod T)
+    ;Calculate T  - ((X - 1) mod T))
     sec
+    lda keyboard_tabwidth
     sbc mod
-    sta mod                 ;mod now holds distance to next tab stop
 
-    ;Insert calculated number of blanks
-:   lda #32
-    jsr cmd_insert
-    dec mod
-    bne :-
-
-    ;Refresh
-    jsr screen_println
-    jmp cursor_activate
+    tax
+    rts
 
     col = tempvars          ;3 bytes
-
-    .segment "VARS"
-        mod: .res 1
-    .CODE
+    mod = tempvars + 3      ;1 byte
 .endproc
 
 ;******************************************************************************
@@ -1312,7 +1328,7 @@ exit:
     rts
 
 msg:
-    .byt "buffer modified. save before exit? (y/n)",0
+    .byt "save before exit? (y/n)",0
 .endproc
 
 ;******************************************************************************
@@ -1334,7 +1350,7 @@ msg:
     jmp help_show
 
 msg:
-    .byt "press esc to exit help screen",0
+    .byt "esc exits help screen",0
 .endproc
 
 ;******************************************************************************
@@ -1381,7 +1397,7 @@ mem_full:
     jmp screen_print_status
 
 msg:
-    .byt "clipboard full, could not copy line", 0
+    .byt "clipboard full", 0
 .endproc
 
 ;******************************************************************************
@@ -1423,7 +1439,7 @@ mem_full:
     jmp screen_print_status
 
 msg:
-    .byt "clipboard full, could not copy line", 0
+    .byt "clipboard full", 0
 .endproc
 
 ;******************************************************************************
@@ -1790,7 +1806,7 @@ msg2:
     .byt "replace with:", 0
 
 msg3:
-    .byt "replace this instance? y=yes, a=all or press esc to abort",0
+    .byt "replace? y=yes, a=all, esc=abort",0
 
 msg4 = cmd_display_msg
 
@@ -1862,7 +1878,7 @@ searchfor = cmd_display_msg
     jmp screen_print_header
 
 msg:
-    .byt "buffer modified. save before create new buffer? (y/n)",0
+    .byt "save before new buffer? (y/n)",0
 .endproc
 
 ;******************************************************************************
@@ -1891,7 +1907,7 @@ msg:
     stx TMP1_ADR
     sty TMP1_ADR+1
 
-    ldx #14
+    ldx #8
     ldy #0
 
 :   lda (TMP1_ADR),y
@@ -1927,20 +1943,20 @@ exit:
 msg = cmd_display_msg
 
 msg_start:
-    .byt "memory usage: ",0
+    .byt "memory: ",0
 msg_end:
     .byt " blocks free", 0
 
 .endproc
 
 ;******************************************************************************
-;Function name.......: cmd_goto_line
+;Function name.......: cmd_goto_line_prompt
 ;Purpose.............: Command: Goto line number, prompt for input
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc cmd_goto_line
+.proc cmd_goto_line_prompt
     lda #11
     sta APP_MOD
 
@@ -1954,16 +1970,21 @@ msg:
 .endproc
 
 ;******************************************************************************
-;Function name.......: cmd_do_goto_line
+;Function name.......: cmd_goto_line_exec
 ;Purpose.............: Command: Goto line number, execute
 ;Preparatory routines: None
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc cmd_do_goto_line
+.proc cmd_goto_line_exec
     stz APP_MOD
     jsr prompt_close
+
+    jsr cursor_disable
     
+    ;Goto start of line
+    jsr cmd_go_home
+
     ;Parse prompt input
     ldx #<prompt_input
     ldy #>prompt_input
@@ -1980,69 +2001,13 @@ msg:
     jsr util_str_to_bcd
     bcs invalid_input
 
-    ;Convert BCD value to binary value, and store it
+    ;Convert BCD value to binary value
     jsr util_bcd_to_bin
-    stx line
-    sty line+1
-    sta line+2
+    jsr cmd_goto_line
 
-    ;Goto start of line
-    jsr cmd_go_home
-
-    ;Compare
-    lda mem_cur_line+2
-    cmp line+2
-    bcc go_down
-    beq :+
-    bra go_up
-
-:   lda mem_cur_line+1
-    cmp line+1
-    bcc go_down
-    beq :+
-    bra go_up
-
-:   lda mem_cur_line
-    cmp line
-    bcc go_down
-    beq :+
-    bra go_up
-
-:   rts         ;Already at that line
-
-go_up:
-    jsr cmd_go_up
-    bcs exit
-
-    lda mem_cur_line
-    cmp line
-    bne go_up
-    lda mem_cur_line+1
-    cmp line+1
-    bne go_up
-    lda mem_cur_line+1
-    cmp line+1
-    bne go_up
+    ;Refresh screen, and return
     jsr screen_refresh
-    rts
-
-go_down:
-    jsr cmd_go_down
-    bcs exit
-
-    lda mem_cur_line
-    cmp line
-    bne go_down
-    lda mem_cur_line+1
-    cmp line+1
-    bne go_down
-    lda mem_cur_line+1
-    cmp line+1
-    bne go_down
-
-exit:
-    jsr screen_refresh
-    rts
+    jmp cursor_activate
 
 invalid_input:
     lda #2
@@ -2059,6 +2024,65 @@ invalid_input:
 
 msg:
     .byt "invalid line number",0
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_goto_line
+;Purpose.............: Move cursor to start of specified line
+;Preparatory routines: None
+;Input...............: X = Line number (bits 0-7)
+;                      Y = Line number (bits 8-15)
+;                      A = Line number (bits 16-23)
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_goto_line
+    ;Store input
+    stx line
+    sty line+1
+    sta line+2
+
+    jsr compare
+    bcs up
+    cpx #0
+    beq exit
+
+down:
+    jsr cmd_go_down
+    bcs exit
+    jsr compare
+    bne down
+    rts
+
+up:
+    jsr cmd_go_up
+    bcs exit
+    jsr compare
+    cpx #0
+    bne up
+
+exit:
+    rts
+
+compare:
+    ldx #0
+    sec
+    lda mem_cur_line
+    sbc line
+    beq :+
+    inx
+:   lda mem_cur_line+1
+    sbc line+1
+    beq :+
+    inx
+:   lda mem_cur_line+2
+    sbc line+2
+    beq :+
+    inx
+:   rts
+
+.segment "VARS"
+line:   .res 3
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -2184,11 +2208,11 @@ pet_lc:
     jmp screen_print_status
 
 msg_iso:
-    .byt "iso charset selected",0
+    .byt "iso charset",0
 msg_puc:
-    .byt "petscii upper case/graphics selected",0
+    .byt "petscii upper case/graphics",0
 msg_plc:
-    .byt "petscii upper/lower case selected", 0
+    .byt "petscii upper/lower case", 0
 .endproc
 
 ;******************************************************************************
@@ -2352,13 +2376,13 @@ off:
 .CODE
 
 msg_prompt:
-    .byt "set word wrap at column:", 0
+    .byt "word wrap column:", 0
 
 msg_off:
     .byt "word wrap off", 0
 
 msg_illegal:
-    .byt "invalid value, column must be in range 10..250",0
+    .byt "invalid value (10-250)",0
 
 .endproc
 

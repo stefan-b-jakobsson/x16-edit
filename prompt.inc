@@ -43,7 +43,11 @@
     
     ;Print prompt message at third row from bottom of screen
     stz VERA_L
-    lda #SCREEN_HEIGHT-3+VERA_BUFADR_M
+    sec
+    lda screen_height
+    sbc #3
+    clc
+    adc #VERA_BUFADR_M
     sta VERA_M
     lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
@@ -65,7 +69,7 @@ set_bgcolor:
     lda #1
     sta VERA_L
     
-    ldx #SCREEN_WIDTH
+    ldx screen_width
     lda screen_status_color    ;Color
 
 :   sta VERA_D0
@@ -79,7 +83,10 @@ set_bgcolor:
 
     ;Move cursor to prompt line
     ldx prompt_start
-    ldy #SCREEN_HEIGHT-3
+    ldy screen_height
+    dey
+    dey
+    dey
     jmp cursor_move
 
 .endproc
@@ -134,7 +141,11 @@ exit:
     lda prompt_start
     asl
     sta VERA_L
-    lda #SCREEN_HEIGHT-3+VERA_BUFADR_M
+    sec
+    lda screen_height
+    sbc #3
+    clc
+    adc #VERA_BUFADR_M
     sta VERA_M
     lda #(2<<4 | VERA_BUFADR_H)
     sta VERA_H
@@ -152,7 +163,7 @@ loop:
     plx
     iny
     inx
-    cpx #SCREEN_WIDTH           ;Also exit if we are at right border, rest of user input not visible
+    cpx screen_width            ;Also exit if we are at right border, rest of user input not visible
     bne loop
     rts
 
@@ -161,7 +172,7 @@ clear_line:
     lda #32
 :   sta VERA_D0
     inx
-    cpx #SCREEN_WIDTH
+    cpx screen_width
     bne :-
 
     rts
@@ -321,10 +332,14 @@ exit:
     
     ;Check if we need to scroll user input horizontally
     lda CRS_X
-    cmp #SCREEN_WIDTH-1
+    ina
+    cmp screen_width
     beq scroll
     inc CRS_X
-    ldy #SCREEN_HEIGHT-3
+    sec
+    lda screen_height
+    sbc #3
+    tay
     ldx CRS_X
     jmp cursor_move
 
@@ -390,7 +405,8 @@ exit:
     sta prompt_curpos
 
     sec
-    lda #SCREEN_WIDTH-1
+    lda screen_width
+    dea
     sbc prompt_start
     sta tempvars
 

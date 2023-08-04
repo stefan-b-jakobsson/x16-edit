@@ -263,6 +263,8 @@ exit:
     stz APP_MOD
 
     ;Initialize base functions
+    jsr selection_collapse
+    jsr screen_get_dimensions
     jsr help_decompress
     jsr mem_init
     jsr file_init
@@ -272,7 +274,6 @@ exit:
     jsr clipboard_init
     jsr cmd_init
     jsr scancode_init
-    jsr progress_init
 
     ;Exit without errors, C=0
     clc
@@ -321,7 +322,7 @@ errormsg:
     pha
     lda #1
     sta $9fb7
-
+    
 mainloop:
     ;Application main loop
     lda APP_QUIT                        ;Time to quit?
@@ -380,8 +381,8 @@ shutdown:
 .include "mem.inc"
 .include "ram.inc"
 .include "dir.inc"
-.include "progress.inc"
 .include "help.inc"
+.include "selection.inc"
 
 .if target_mem=target_rom
     .include "bridge.inc"

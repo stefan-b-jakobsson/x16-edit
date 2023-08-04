@@ -30,12 +30,6 @@
     ora #%00100000
     sta VERA_VIDEO
 
-    ;Set screen mode (width/height)
-    bridge_setaddr KERNAL_SCREEN_MODE
-    clc
-    lda #SCREEN_TEXTMODE
-    bridge_call KERNAL_SCREEN_MODE
-
     ;Set 16 color text mode
     lda VERA_L1_CONFIG
     and #%11110000
@@ -45,49 +39,39 @@
     lda #(VERA_BUFADR_H<<7) | (VERA_BUFADR_M >> 1)
     sta VERA_L1_MAPBASE
 
-    ;Read tile data to detect charset mode
-    lda VERA_L1_TILEBASE
-    and #%11111100                  ;Set VERA mid (TILEBASE*2, discarding the lowest two bits in TILEBASE)
-    sta VERA_M
-    stz VERA_H
-
-    asl VERA_M
-    rol VERA_H
-
-    lda #8                          ;8 => second char, as first char is the same in petscii uc and lc
-    sta VERA_L
-
-    lda VERA_D0                     ;Get first byte of the char definition, and use that value to detect charset mode
+    ;Get charset mode
+    lda KERNAL_MODE
     
-    ;PETSCII lower and upper case?
+    cmp #2                   ;PETSCII upper case/graphics
     bne :+
-    lda #2
-    sta screen_mode
-    bra prepare_screen
+    dec
+    bra setmode
 
-    ;PETSCII upper case/graphics?
-:   cmp #$18
+:   cmp #3                   ;PETSCII upper/lower case
     bne :+
-    lda #1
-    sta screen_mode
-    bra prepare_screen
+    dec
+    bra setmode
 
-    ;ISO charset?
-:   cmp #$ff
+:   cmp #65                  ;ISO
     bne :+
-    stz screen_mode
-    bra prepare_screen
-
-    ;Charset unknown, select ISO mode
-:   bridge_setaddr KERNAL_CHROUT
+    lda #0
+    bra setmode
+    
+:   bridge_setaddr KERNAL_CHROUT    ;Unkown
     lda #$0f
     bridge_call KERNAL_CHROUT
-    stz screen_mode
+    lda #0
+
+setmode:
+    sta screen_mode
 
 prepare_screen: 
     ;Set default background and foreground colors
     lda #97
     sta screen_color
+
+    lda #22
+    sta screen_color_rev
 
     ;Set default header color
     lda #64
@@ -106,6 +90,22 @@ prepare_screen:
 .endproc
 
 ;******************************************************************************
+;Function name.......: screen_get_dimensions
+;Purpose.............: Gets current screen dimensions, and stores them in
+;                      screen_width and screen_height
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_get_dimensions
+    sec
+    bridge_setaddr KERNAL_SCREEN_MODE
+    bridge_call KERNAL_SCREEN_MODE
+    stx screen_width
+    sty screen_height
+    rts
+.endproc
+
+;******************************************************************************
 ;Function name.......: screen_print_header
 ;Purpose.............: Prints program header at top of screen
 ;Input...............: None
@@ -120,7 +120,7 @@ prepare_screen:
     sta VERA_H
 
     ;Clear header
-    ldx #SCREEN_WIDTH
+    ldx screen_width
     ldy #32                     ;Blank space
     lda screen_header_color     ;Color
     
@@ -147,17 +147,25 @@ filename:
     lda file_cur_filename_len
     beq new_buffer              ;Filename len=0 => new empty buffer
 
-    ;Ensure file name length is less than SCREEN_WIDTH-25, otherwise we would overwrite the program name
-    cmp #SCREEN_WIDTH-25
+    ;Check if file name length is less than SCREEN_WIDTH-16, otherwise we would overwrite the program name
+    sec
+    sbc screen_width
+    adc #16
     bcc :+
-    lda #SCREEN_WIDTH-25
+
+    sec
+    lda screen_width
+    sbc #16
+    bra :++
+    
+:   lda file_cur_filename_len
 :   sta filename_len
 
     ;Calulate where to start printing file name
     sec
-    lda #SCREEN_WIDTH
+    lda screen_width
     sbc filename_len
-    and #%11111110      ;We must stat at even numbers to output characters instead of changing color
+    and #%11111110      ;We must start at even numbers to output characters instead of changing color
     sta VERA_L
 
     ldy #0
@@ -171,7 +179,9 @@ filename_loop:
 
 new_buffer:
     ;Buffer not yet saved. Prints "NEW BUFFER" instead of a file name
-    lda #SCREEN_WIDTH-10
+    sec
+    lda screen_width
+    sbc #10
     sta VERA_L
 
     ldy #0
@@ -184,7 +194,7 @@ newbuffer_loop:
     rts
 
 program_name:
-    .byt .sprintf("x16 edit %u.%u.%u", appversion_major, appversion_minor, appversion_patch), 0
+    .byt "x16edit",0
 
 new_buffer_msg:
     .byt "new buffer"
@@ -201,26 +211,29 @@ filename_len = tempvars     ;1 byte
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_update_status
-    ;Set start print position; row 0, column SCREEN_WIDTH-3
-    lda #(SCREEN_WIDTH-3)*2
+    ;Exit if APP mode is not 0
+    lda APP_MOD
+    beq update_mod
+    rts
+
+update_mod:   
+    ;Set start print backward from row 0, column SCREEN_WIDTH-1
+    lda screen_width
+    dea
+    asl
     sta VERA_L
     lda #VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4 | VERA_BUFADR_H)
+    lda #%00101000 | VERA_BUFADR_H
     sta VERA_H
 
     ;Get modified status
     lda mem_modified
     beq clear
 
-    ;Print "MOD"
-    lda #'m'
-    jsr screen_put_uc_char
-    lda #'o'
-    jsr screen_put_uc_char
-    lda #'d'
-    jsr screen_put_uc_char
-    bra update_pos
+    ;Print "MOD" backwards
+    ldx #lblmod-labels
+    jsr printlabel
 
 clear:
     ;Clear "MOD"
@@ -229,60 +242,38 @@ clear:
     sta VERA_D0
     sta VERA_D0
 
-;Prepare printing position at bottom right corner
 update_pos:
-    lda APP_MOD
-    cmp #18
-    beq exit
-    cmp #19
-    beq exit
-    bra :+
-
-exit:
-    rts
-
-    ;Clear position
-:   lda #(SCREEN_WIDTH-1)*2
-    sta VERA_L
+    ;Print backward from row SCREEN_HEIGHT-3, col SCREEN_WIDTH-1
+    sec
+    lda screen_height
+    sbc #3
     clc
-    lda #SCREEN_HEIGHT-2
     adc #VERA_BUFADR_M
     sta VERA_M
-    lda #%00101000 | VERA_BUFADR_H
-    sta VERA_H
 
-    lda #32
-    ldx #17
-:   sta VERA_D0
-    dex
-    bne :-
-
-    ;Print column
-    lda #(SCREEN_WIDTH-1)*2
+    lda screen_width
+    dea
+    asl
     sta VERA_L
 
+    ;Get column
     ldx mem_cur_col
     ldy mem_cur_col+1
     lda mem_cur_col+2
     jsr bin_to_str
+    
     phy
-
-:   dey
-    lda (TMP1_ADR),y
-    sta VERA_D0
-    cpy #0
-    bne :-
-
-    ;Add leading zero if less than 10
+    jsr printval
     ply
-    cpy #2              ;Column string len >= 2?
-    bcs :+              
+    
+    cpy #2
+    bcs :+
     lda #'0'
-    sta VERA_D0
+    jsr screen_put_char
 
-    ;Print delimiter
-:   lda #':'
-    sta VERA_D0
+    ;Add ", COL " label
+:   ldx #lblcol-labels
+    jsr printlabel
 
     ;Print line
     ldx mem_cur_line
@@ -290,19 +281,55 @@ exit:
     lda mem_cur_line+2
     jsr bin_to_str
 
-:   dey
-    lda (TMP1_ADR),y
-    sta VERA_D0
-    cpy #0
+    jsr printval
+
+    ;Add label "LN "
+    ldx #lblln-labels
+    jsr printlabel
+
+    ;Clear possible leftover chars
+    ldx #25
+    lda #32
+
+:   sta VERA_D0
+    ldy VERA_L
+    beq :+
+    dex
     bne :-
 
-    rts
+:   rts
 
 bin_to_str:
     jsr util_bin_to_bcd
     jsr util_bcd_to_str
     jsr util_strlen
     rts
+
+printlabel:
+    lda labels,x
+    beq :+
+    jsr screen_put_uc_char
+    inx
+    bra printlabel
+:   rts
+
+printval:
+    dey
+    lda (TMP1_ADR),y
+    sta VERA_D0
+    cpy #0
+    bne printval
+    rts
+
+labels:
+lblmod:
+    .byt "dom", 0
+
+lblcol:
+    .byt " loc ,", 0
+
+lblln:
+    .byt " nl", 0
 
 .endproc
 
@@ -319,14 +346,19 @@ bin_to_str:
     sty TMP1_ADR+1
 
     ;Clear footer
-    ldx #SCREEN_HEIGHT-2
-    ldy #SCREEN_HEIGHT-1
+    ldx screen_height
+    dex
+    dex
+    ldy screen_height
+    dey
     jsr screen_clear_lines
 
     ;Set VERA address to print from start of SCREEN_HEIGHT-2
     stz VERA_L
     clc
-    lda #SCREEN_HEIGHT-2
+    lda screen_height
+    dea
+    dea
     adc #VERA_BUFADR_M
     sta VERA_M
     lda #(1<<4 | VERA_BUFADR_H)
@@ -359,8 +391,10 @@ printloop:
 nextrow:
     stz VERA_L
     inc VERA_M
+    sec
     lda VERA_M
-    cmp #SCREEN_HEIGHT+VERA_BUFADR_M      ;End if we are at row SCREEN_HEIGHT
+    sbc screen_height
+    sbc #VERA_BUFADR_M  ;End if we are at row SCREEN_HEIGHT
     bcc printloop
 
     rts
@@ -372,13 +406,29 @@ nextrow:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_print_default_footer
+    lda screen_width
+    cmp #64
+    bcc :+
+    
+    ;Standard footer
     ldx #<row1
     ldy #>row1
     jmp screen_print_footer
+
+    ;Narrow footer
+:   ldx #<row1_narrow
+    ldy #>row1_narrow
+    jmp screen_print_footer
+
 row1:
     .byt ":^g get help :^o write out :^y prev page :^k cut   :^c copy", 0 
 row2:
     .byt ":^x exit     :^r open file :^v next page :^u uncut :^w where is", 0
+
+row1_narrow:
+    .byt ":^g get help :^o write out", 0 
+row2_narrow:
+    .byt ":^x exit     :^r open file", 0
 .endproc
 
 ;******************************************************************************
@@ -424,6 +474,33 @@ row2:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_refresh
+    ;Calculate first visible line: -(CRS_Y-2) + mem_cur_line
+    sec
+    lda CRS_Y
+    sbc #2
+    eor #$ff
+    adc mem_cur_line
+    sta screen_print_line
+
+    lda mem_cur_line+1
+    sbc #0
+    sta screen_print_line+1
+    
+    lda mem_cur_line+2
+    sbc #0
+    sta screen_print_line+2
+
+    ;Set column 1
+    lda #1
+    sta screen_print_col
+    stz screen_print_col+1
+    stz screen_print_col+2
+
+    ;Calculate first line selection
+    jsr selection_char_count
+    stx dleft
+    sty dmid
+
     ;Select start bank
     lda SCR_BNK
     sta BNK_SEL
@@ -434,24 +511,26 @@ row2:
     stz TMP1_ADR
 
     ;Set number of columns per row to be printed
-    lda #SCREEN_WIDTH
+    lda screen_width
     sta columns
 
     ;Set number of rows to be printed
-    lda #SCREEN_HEIGHT-6
+    sec
+    lda screen_height
+    sbc #6
     sta rows
 
-    ;Set VERA address to print from start of row 2
+    ;Set VERA address to print from start of row 2, and autoincrement +1
     stz VERA_L
     lda #2+VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4 | VERA_BUFADR_H)
+    lda #(1<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Get length of mem page where we start printing
     ldy #4
     lda (TMP1_ADR),y
-    sta len     
+    sta len
 
     ;Set offset +5 to skip mem page metadata
     lda #5
@@ -460,56 +539,50 @@ row2:
     ;Set char index to start printing from
     ldy SCR_IDX
 
-    ;Select printing loop for ISO or PETSCII mode
-    lda screen_mode
-    bne petscii_loop
-
-iso_loop:
+print_loop:
     ;Check if we are at end of mem page, and if so go to next mem page
     cpy len
-    bcc :+
-    jsr next_mem_page
-
-    ;Get char to print
-:   lda (TMP1_ADR),y
-    cmp #LF             ;end of line, prepare for next line
-    bne :+
-    jsr next_line
-    bra iso_loop
-
-:   ldx columns         ;If 0 we have printed all visible columns, skip_char
-    beq iso_next_char
+    bcs next_mem_page
     
-    sta VERA_D0         ;Otherwise let's print char to screen
-    dec columns
+fetch_char:
+    lda (TMP1_ADR),y
 
-iso_next_char:
-    iny
-    bra iso_loop
+    ;Check if end of line
+    cmp #LF
+    beq next_line
 
-petscii_loop:
-    ;Check if we are at end of mem page, and if so go to next mem page
-    cpy len
-    bcc :+
-    jsr next_mem_page
-
-    ;Get char to print
-:   lda (TMP1_ADR),y
-    cmp #LF             ;end of line, prepare for next line
-    bne :+
-    jsr next_line
-    bra petscii_loop
-
-:   ldx columns         ;If 0 we have printed all visible columns, skip_char
-    beq petscii_next_char
+    ;If columns is 0, we have printed all visible columns, skip subsequent chars on this line
+    ldx columns
+    beq next_char
     
+    ;Print char
+    ldx screen_mode
+    beq :+
     charset_petscii_to_scrcode
-    sta VERA_D0         ;Otherwise let's print char to screen
+:   sta VERA_D0
+    
+    ;Set color
+    ldx screen_color
+
+    lda dleft
+    beq :+
+    dec dleft
+    bra :++
+
+:   lda dmid
+    beq :+
+    ldx #22
+    dec dmid
+
+:   stx VERA_D0
+
+    ;Decreament printed columns counter
     dec columns
 
-petscii_next_char:
+    ;Increment char pointer
+next_char:
     iny
-    bra petscii_loop
+    bra print_loop
 
 next_mem_page:
     stz TMP1_ADR        ;Set offset to 0 to read mem page metadata
@@ -520,9 +593,7 @@ next_mem_page:
     ldy #3
     lda (TMP1_ADR),y    ;Next page
     bne :+                  
-    pla                 ;Next page=0 => end of file
-    pla                 ;Pull return address from stack, so next rts won't go to the printing loop that called next_mem_page,
-    bra exit            ;and exit
+    bra clear_bottom    ;and exit
     
 :   sta TMP1_ADR+1      ;There's more; set page,
 
@@ -540,69 +611,95 @@ next_mem_page:
 
     ldy #0              ;Start reading from first char in next mem page
 
-    rts
+    bra fetch_char
 
 next_line:
     ;Clear end of line by printing spaces
     ldx columns
     beq :++
+
     lda #32
+    phy
+    ldy screen_color
 :   sta VERA_D0
+    sty VERA_D0
     dec columns
     bne :-
+    ply
 
     ;Decrease row counter, if 0 we are done
 :   dec rows
-    bne :+
-    pla             ;Pull return address from stack, so next rts won't go to the printing loop that called next_line
-    pla
-    bra exit
+    beq exit
 
     ;Set VERA address to start off next line
-:   inc VERA_M
+    inc VERA_M
     stz VERA_L
+
+    ;Update line number
+    inc screen_print_line
+    bne :+
+    inc screen_print_line+1
+    bne :+
+    inc screen_print_line+2
+
+    ;Get selection char count for next row    
+:   phy
+    jsr selection_char_count
+    stx dleft 
+    sty dmid
+    ply
     
-    lda #SCREEN_WIDTH
+    ;Prepare for next line
+    lda screen_width
     sta columns
 
+    ;Increment char pointer
     iny
 
-    rts
+    jmp print_loop
 
-exit:
+clear_bottom:
     ;Clear end of last line by printing spaces
     ldx columns
     beq :++
+    
     lda #32
+    ldy screen_color
 :   sta VERA_D0
+    sty VERA_D0
     dex
     bne :-
 
     ;Clear any remaining lines at bottom of screen
 :   inc VERA_M
     ldy rows
-    beq exit_2      ;Exit if 0
+    beq exit        ;Exit if 0
     
     stz VERA_L      ;Set VERA address to start of next line
     lda #32
-    ldx #SCREEN_WIDTH
+    ldy screen_color
+    ldx screen_width
 
 :   sta VERA_D0
+    sty VERA_D0
     dex
     bne :-
-    ldx #SCREEN_WIDTH
+    ldx screen_width
     inc VERA_M
     stz VERA_L
-    dey
+    dec rows
     bne :-
 
-exit_2:
+exit:
     rts
 
 .segment "VARS"
     len: .res 1
     columns: .res 1
     rows: .res 1
+    active_selection: .res 1
+    dleft: .res 1
+    dmid: .res 1
 .CODE
 
 .endproc
@@ -616,13 +713,36 @@ exit_2:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_println
+    ;Check if there is an active selection in this line
+    sec
+    lda mem_cur_col
+    sbc CRS_X
+    sta screen_print_col
+    lda mem_cur_col+1
+    sbc #0
+    sta screen_print_col+1
+    lda mem_cur_col+2
+    sbc #0
+    sta screen_print_col+2
+
+    lda mem_cur_line
+    sta screen_print_line
+    lda mem_cur_line+1
+    sta screen_print_line+1
+    lda mem_cur_line+2
+    sta screen_print_line+2
+
+    jsr selection_char_count
+    stx dleft
+    sty dmid
+
     ;Set VERA address to print from start of row
     stz VERA_L
     clc
     lda CRS_Y
     adc #VERA_BUFADR_M
     sta VERA_M
-    lda #(2<<4 | VERA_BUFADR_H)
+    lda #(1<<4 | VERA_BUFADR_H)
     sta VERA_H
 
     ;Setup temporary vector to first visible char on line
@@ -642,7 +762,7 @@ exit_2:
     sta TMP1_ADR
 
     ;Set number of chars to print
-    lda #SCREEN_WIDTH
+    lda screen_width
     sta counter
 
     ;Get index to first visible character
@@ -659,7 +779,25 @@ print_loop:
     bne :+ 
     bra clean_line          ;Prints blank spaces to end of line
 
-:   jsr screen_put_char     ;Otherwise output char
+:   ldx screen_mode
+    beq :+
+    charset_petscii_to_scrcode
+:   sta VERA_D0
+
+    ;Set color
+    ldx screen_color
+    
+    lda dleft
+    beq :+
+    dec dleft
+    bra :++
+
+:   lda dmid
+    beq :+
+    dec dmid
+    ldx #22
+
+:   stx VERA_D0
 
     dec counter            
     beq exit                ;If counter = 0, we're done
@@ -695,25 +833,35 @@ next_page:
     ;Start reading from first index
     ldy #0
 
-    bra print_loop
+    jmp print_loop
 
 clean_line:
     ;Fills end of line with spaces
     lda #32
+    ldy screen_color
 
 clean_line_loop:
     sta VERA_D0
+    sty VERA_D0
     ldx counter
     beq exit
     dec counter
     bra clean_line_loop
     
 exit:
-    rts
+    lda cursor_state
+    and #%00000001
+    beq :+
+    stz cursor_state
+    jmp cursor_invert
+
+:   rts
 
 .segment "VARS"
     page_len: .res 1
     counter: .res 1
+    dleft: .res 1
+    dmid: .res 1
 .CODE
 
 .endproc
@@ -731,9 +879,9 @@ exit:
     
     ;Get string len
     jsr util_strlen
-    cpy #SCREEN_WIDTH
+    cpy screen_width
     bcc :+
-    ldy #SCREEN_WIDTH 
+    ldy screen_width
 :   sty len
 
     ;Clear status line
@@ -741,12 +889,16 @@ exit:
 
 continue:
     ;Set VERA address to start printing at (this will center the output)
-    lda #SCREEN_WIDTH
+    lda screen_width
     sec
     sbc len
     and #%11111110
     sta VERA_L
-    lda #SCREEN_HEIGHT-3+VERA_BUFADR_M
+    sec
+    lda screen_height
+    sbc #3
+    clc
+    adc #VERA_BUFADR_M
     sta VERA_M
     lda #(1<<4 | VERA_BUFADR_H)
     sta VERA_H
@@ -783,7 +935,11 @@ start_at = tempvars+1   ;1 byte
 ;Error returns.......: None
 .proc screen_clear_editor
     ldx #2
-    ldy #SCREEN_HEIGHT-4
+    ldy screen_height
+    dey
+    dey
+    dey
+    dey
     jmp screen_clear_lines
 .endproc
 
@@ -794,8 +950,11 @@ start_at = tempvars+1   ;1 byte
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_clear_status
-    ldx #SCREEN_HEIGHT-3
-    ldy #SCREEN_HEIGHT-3
+    sec
+    lda screen_height
+    sbc #3
+    tax
+    tay
     jmp screen_clear_lines
 .endproc
 
@@ -807,7 +966,8 @@ start_at = tempvars+1   ;1 byte
 ;Error returns.......: None
 .proc screen_clearall
     ldx #0
-    ldy #SCREEN_HEIGHT-1
+    ldy screen_height
+    dey
     jmp screen_clear_lines
 .endproc
 
@@ -832,7 +992,7 @@ start_at = tempvars+1   ;1 byte
     tay
 
     ;Clear screen
-    ldx #SCREEN_WIDTH
+    ldx screen_width
 :   lda #32
     sta VERA_D0
     lda screen_color
@@ -844,7 +1004,7 @@ start_at = tempvars+1   ;1 byte
     cpy VERA_M
     bcc :+
 
-    ldx #SCREEN_WIDTH
+    ldx screen_width
     stz VERA_L
     bra :-
 
@@ -928,6 +1088,13 @@ screen_scrcodes:
 .segment "VARS"
     screen_mode:            .res 1              ;1 byte
     screen_color:           .res 1              ;1 byte
+    screen_color_rev:       .res 1
     screen_header_color:    .res 1
     screen_status_color:    .res 1
+    screen_height:          .res 1
+    screen_width:           .res 1
+
+    screen_print_col:       .res 3
+    screen_print_line:      .res 3
+    screen_line_selection:  .res 1
 .CODE

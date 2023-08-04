@@ -1,12 +1,8 @@
-HELP
 
-
-X16 Edit is a modeless editor similar to GNU Nano.
-
-Commands are primarily selected by holding down Ctrl and pressing a
-shortcut key at the same time. It is also possible to press and release ESC,
-and then a shortcut key. Some functions are finally available via a function 
-key.
+Commands are selected by holding down Ctrl and pressing a 
+shortcut key. Alternatively press and release ESC and
+then a shortcut key. Some commands are available via a
+function key.
  
 ^G  (F1)  Display built-in help screen
 ^X  (F2)  Exit program
@@ -18,10 +14,10 @@ key.
 ^V  (F8)  PageDown
 ^K        Cut current line to clipboard
 ^C        Copy current line to clipboard
-^U        Uncut (paste) all content from clipboard to text buffer
+^U        Uncut (paste) all content from clipboard
 ^DEL      Delete current line, no copy to clipboard
 ^W  (F6)  Search and find text (case sensitive)
-^S        Replace one or all occurences of a string (case sensitive)
+^S        Search and replace a string (case sensitive)
 ^L        Go to line number
 ^A        Toggle auto indent on/off
 ^Z        Toggle word wrap on/off
@@ -35,17 +31,12 @@ key.
 ^1..9     Set tab width
 
 
-
-
-
-
-
-
-
 X16 Edit, Copyright 2020-2023, Stefan Jakobsson.
 
-This program is free software and comes with ABSOLUTELY NO WARRANTY. You may
-redistribute and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3 of the License,
-or, at your option, any later version. For detailed terms see supplemented file
-"license". Also available from <https://www.gnu.org/licenses>.
+This program is free software and comes with ABSOLUTELY NO 
+WARRANTY. You may redistribute and/or modify it under the 
+terms of the GNU General Public License as published by the 
+Free Software Foundation, either version 3 of the License, 
+or, at your option, any later version. For detailed terms see
+supplemented file "license". Also available from 
+<https://www.gnu.org/licenses>.

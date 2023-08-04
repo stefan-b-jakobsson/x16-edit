@@ -160,7 +160,7 @@ val = tempvars
 
     ;No input to handle, run memory defrag instead during this interrupt cycle
     jmp mem_run_defrag
-    
+
 gotachar:
     ;Store char in Y temporarily
     tay
@@ -1109,7 +1109,7 @@ abort:
     jmp prompt_keypress
 
 goto_line:
-    jmp cmd_do_goto_line
+    jmp cmd_goto_line_exec
 
 abort:
     stz APP_MOD
@@ -1163,7 +1163,7 @@ no:
     jmp screen_print_status
 
 msg:
-    .byt "enter command or press esc to abort",0
+    .byt "enter command, or esc to abort",0
 .endproc
 
 ;******************************************************************************
@@ -1173,19 +1173,11 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_enter_key
-    ;Insert linefeed char
-    lda cmd_auto_indent_status
-    beq :+
     jsr cursor_disable
-
-:   lda #LF
+    lda #LF
     jsr cmd_insert
-
-    lda cmd_auto_indent_status
-    beq :+
-    jsr cursor_activate
-
-:   jmp screen_refresh
+    jsr screen_refresh
+    jmp cursor_activate
 .endproc
 
 ;******************************************************************************
@@ -1390,7 +1382,7 @@ keyboard_ctrl_jmptbl:
     .word cmd_delete_line
     .word cmd_find
     .word cmd_replace_prompt
-    .word cmd_goto_line
+    .word cmd_goto_line_prompt
 
     .word cmd_auto_indent
     .word cmd_set_word_wrap

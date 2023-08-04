@@ -36,66 +36,11 @@
 .endproc
 
 ;******************************************************************************
-;Function name.......: clipboard_insert
-;Purpose.............: Inserts a char into clipboard memory
-;Input...............: A=char
-;Returns.............: C=1 if clipboard mem is full
-;Error returns.......: None
-.proc clipboard_insert
-    ;Save char in X until we need it
-    tax
-
-    ;Check if clipboard mem is full
-    lda clipboard_end
-    cmp #(>clipboard_mem+CLIPBOARD_SIZE)
-    bcc mem_not_full
-
-mem_full:
-    sec
-    rts
-
-mem_not_full:
-    ;Prepare to insert char in clipboard mem
-    stz TMP1_ADR
-    lda clipboard_end
-    sta TMP1_ADR+1
-    ldy clipboard_end+1
-    
-    ;Save current RAM bank on stack
-    lda BNK_SEL
-    pha
-
-    ;Select RAM bank for clipboard mem
-    lda mem_start
-    sta BNK_SEL
-
-    ;Store char in clipboard mem
-    txa
-    sta (TMP1_ADR),y
-    
-    pla                 ;Restore RAM bank
-    sta BNK_SEL
-
-    ;Increase clipboard end pointer
-    inc clipboard_end+1
-    bne exit
-    inc clipboard_end
-
-exit:
-    clc
-    rts
-
-.endproc
-
-;******************************************************************************
 ;Function name.......: clipboard_copy
-;Purpose.............: Copies current line to clipboard. The cursor will be
-;                      moved to end of line. Users of this function are
-;                      responsible for backing up cursor position and
-;                      restore it if that's needed
+;Purpose.............: Copy current line or active selection to clipboard
 ;Input...............: None
-;Returns.............: Number of chars copied, 24 bit value, X=low, Y=mid, A=high
-;Error returns.......: C=1: Clipboard mem full
+;Returns.............: Number of chars copied, in X:Y (low:high)
+;Error returns.......: None
 .proc clipboard_copy
     ;Check clipboard uncut flag, if set, clear clipboard
     lda clipboard_flags
@@ -106,91 +51,124 @@ exit:
     ;Clear char counter
 :   stz count
     stz count+1
-    stz count+2
 
-    ;Backup clipboard end pointer on the stack, should we need to restore on mem full
-    lda clipboard_end
-    pha
+    ;Setup pointer to clipboard memory
     lda clipboard_end+1
-    pha
+    sta TMP2_ADR
+    lda clipboard_end
+    sta TMP2_ADR+1
 
-    ;Move cursor to start of line
-    jsr cmd_go_home
-
-    ;Copy line
-loop:
-    ;Prepare reading a char from the text buffer
-    lda CRS_BNK
-    sta BNK_SEL
-    ldy CRS_IDX
-    lda #5
-    sta CRS_ADR
+    ;Is there an active selection
+    lda selection_active
+    bne goto_selection
     
-    ;Get char from buffer and push it on the stack
-    lda (CRS_ADR),y
-    pha
-    stz CRS_ADR
+    ;Goto start of current line
+    jsr cmd_go_home
+    bra loop
+    
+    ;Goto selection start line
+goto_selection:
+    ldx selection_start_line
+    ldy selection_start_line+1
+    lda selection_start_line+2
+    jsr cmd_goto_line
 
-    ;Move cursor right, exit if at end of line (C=1) or EOF (X=1)
+    ;Move cursor to selection start column
+:   sec
+    lda mem_cur_col
+    sbc selection_start_col
+    lda mem_cur_col+1
+    sbc selection_start_col+1
+    lda mem_cur_col+2
+    sbc selection_start_col+2
+    bcs loop
     jsr cmd_go_right
-    bcs eol
-    cpx #1
+    cpx #0                  ;Stop at EOF
+    beq :-
+
+loop:
+    jsr mem_get_value
+    ldx mem_start
+    stx BNK_SEL
+    sta (TMP2_ADR)
+
+    ldx selection_active
+    bne :+
+
+    cmp #LF
     beq eol
+    bra :++
 
-    ;Insert char
-    pla
-    jsr clipboard_insert
-    bcs full
+:   sec
+    lda mem_cur_line
+    sbc selection_end_line
+    lda mem_cur_line+1
+    sbc selection_end_line+1
+    lda mem_cur_line+2
+    sbc selection_end_line+2
+    bcc :+
 
-    ;Increase char counter
+    sec
+    lda mem_cur_col
+    sbc selection_end_col
+    lda mem_cur_col+1
+    sbc selection_end_col+1
+    lda mem_cur_col+2
+    sbc selection_end_col+2
+    bcs eol
+
+:   jsr cmd_go_right
+    cpx #0
+    bne :+
+    jsr incsize
+    bra loop
+    
+:   ldx mem_start
+    stx BNK_SEL
+    lda #LF
+    sta (TMP2_ADR)
+    bra eol
+
+incsize:
     inc count
     bne :+
     inc count+1
-    bne :+
-    inc count+2
 
-:   bra loop
+:   inc TMP2_ADR
+    bne :+
+    inc TMP2_ADR+1
+:   ldx TMP2_ADR+1
+    cpx #>clipboard_mem+CLIPBOARD_SIZE
+    bcs full
+    rts
 
 eol:
-    ;Pull last char from the stack, we will not use it though
-    pla
+    jsr incsize
+    jsr cmd_go_right
 
-    ;Insert LF
-    lda #LF
-    jsr clipboard_insert
+    clc
+    lda count
+    adc clipboard_end+1
+    sta clipboard_end+1
+    lda count+1
+    adc clipboard_end
+    sta clipboard_end
 
-    ;Increase char counter
-    inc count
-    bne exit
-    inc count+1
-    bne exit
-    inc count+2
-
-exit:
-    ;Clean stack
-    pla
-    pla
-
-    ;Set return values
     ldx count
     ldy count+1
-    lda count+2
-    clc             ;C=0, mem not full
+    clc
     rts
 
 full:
-    ;Restore pointers
-    pla
-    sta clipboard_end+1
-    pla
-    sta clipboard_end
-
-    ;Exit with C=1 to indicate mem full
+    plx
+    plx
+    ldx #0
+    ldy #0
     sec
     rts
 
 .segment "VARS"
-    count: .res 3
+    count: .res 2
 .CODE
 .endproc
 
@@ -203,42 +181,14 @@ full:
 .proc clipboard_cut
     ;Copy line, return with C=1 if clipboard mem is full
     jsr clipboard_copy
-    bcc prepare_delete
-
-mem_full:
-    rts             ;No need to set C=1 if we reach this, it's already set!
-
-prepare_delete:
-    ;Set counter to number of chars copied
-    stx count
-    sty count+1
-    sta count+2
-
-;Loop to delete the line
-loop:
-    ;Decrease counter
-    lda count
-    bne :++
-    lda count+1
-    bne :+
-    lda count+2
-    beq exit
-    dec count+2
-:   dec count+1
-:   dec count
-    
-    ;Delete one char (from the end of the line)
-    jsr cmd_delete
-    
-    bra loop
-
-exit:
+    bcs mem_full
+    jsr cmd_go_left
+    jsr cmd_delete_line
     clc
     rts
 
-.segment "VARS"
-    count: .res 3   ;3 bytes
-.CODE
+mem_full:
+    rts             ;No need to set C=1 if we reach this, it's already set!
 
 .endproc
 

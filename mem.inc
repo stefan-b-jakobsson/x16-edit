@@ -1334,6 +1334,21 @@ default:
 .CODE
 .endproc
 
+;**********************************************************
+;Procedure name......: mem_get_value
+;Description.........: Returns value at cursor position
+;Input...............: Nothing
+;Returns.............: A = value
+.proc mem_get_value
+    ldy CRS_BNK
+    sty BNK_SEL
+    ldy #5
+    sty CRS_ADR
+    ldy CRS_IDX
+    lda (CRS_ADR),y
+    stz CRS_ADR
+    rts
+.endproc
 
 ;**********************************************************
 ;Procedure name......: mem_crs_step_right

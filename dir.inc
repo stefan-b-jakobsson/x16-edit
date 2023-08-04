@@ -18,6 +18,7 @@
 ;******************************************************************************
 
 .define dir_entries_per_page SCREEN_HEIGHT-10
+.define dir_margin 10
 
 ;******************************************************************************
 ;Function name.......: dir_open
@@ -102,10 +103,11 @@ read_loop:
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     cmp #0
-    bne eof
+    beq :+
+    jmp eof
 
     ;A state machine parsing a line of dir data
-    lda state
+:   lda state
     asl
     tax
     pla
@@ -115,26 +117,31 @@ jmp_tbl:
     .word state0, state0, state2, state3, state4, state5, state6, state7
 
 state0:
+    ;Ignoring first two bytes
     inc state
     bra read_loop
 
 state2:
+    ;Block size, LSB
     sta dir_size
     inc state
     bra read_loop
 
 state3:
+    ;Block size, MSB
     sta dir_size+1
     inc state
     bra read_loop
 
 state4:
+    ;Found first citation character = start of name
     cmp #$22
     bne read_loop
     inc state
     bra read_loop
 
 state5:
+    ;Found second citation character = end of name
     cmp #$22
     bne :+
 
@@ -145,28 +152,48 @@ state5:
     cpy #255
     beq read_loop
     
-    sta dir_entry,y
+    ldx screen_mode
+    beq :++
+
+    ;In PETSCII mode, convert to readable chars
+    cmp #$60
+    bcc :+
+    cmp #$80
+    bcs :+
+    sec
+    sbc #$20
+    bra :++
+
+:   cmp #$e0
+    bcc :+
+    lda #'?'
+
+    ;Add character to file name
+:   sta dir_entry,y
     inc dir_filename_len
 
-    bra read_loop
+    jmp read_loop
 
 state6:
+    ;Skip until not a blank character = start of file type
     cmp #$20
     bne :+
-    bra read_loop
+    jmp read_loop
 
 :   sta dir_type
     inc state
     jmp read_loop
 
 state7:
+    ;End of line
     cmp #0
     beq endofitem
     jmp read_loop
 
 endofitem:
+    ;An item with no type info (dir_type=0) means that we have read the last item of the directory (the blocks free summary)
     lda dir_type
-    beq exit            ;An item with no type info (dir_type=0) means that we have read the last item of the directory (the blocks free summary)
+    beq exit
 
     clc
     rts
@@ -277,12 +304,7 @@ err:
     sta APP_MOD
 
     ldx file_io_err
-    dex                     ;Decrease, err no 1 is index 0 in error msg list
-    lda file_ioerr_H,x
-    tay
-    lda file_ioerr_L,x
-    tax
-    jmp screen_print_status
+    jmp cmd_file_show_io_err
 
 prepare:
     jsr screen_clear_editor
@@ -372,7 +394,9 @@ nextitem:
 
     inc dir_itemcount
     lda dir_itemcount
-    cmp #dir_entries_per_page
+    sec
+    sbc screen_height
+    adc #dir_margin-1
     bcs more
     bra loop
 
@@ -488,7 +512,10 @@ nomorelbl:
 
 :   clc
     lda dir_first
-    adc #dir_entries_per_page
+    adc screen_height
+    sec
+    sbc #dir_margin
+    clc
     tax
     lda dir_first+1
     adc #0
@@ -510,7 +537,10 @@ nomorelbl:
 
 :   sec
     lda dir_first
-    sbc #dir_entries_per_page
+    sbc screen_height
+    clc
+    adc #dir_margin
+    sec
     tax
     lda dir_first+1
     sbc #0
