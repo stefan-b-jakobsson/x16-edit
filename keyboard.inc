@@ -1186,7 +1186,7 @@ msg:
     jsr cursor_disable
     lda #LF
     jsr cmd_insert
-    jmp screen_refresh
+    jsr screen_refresh
     jmp cursor_activate
 .endproc
 
