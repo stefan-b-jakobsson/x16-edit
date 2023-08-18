@@ -1050,6 +1050,9 @@ last_char = tempvars+2  ;1 byte
 ;Returns.............: Nothing
 ;Error returns.......: C=1 if mem is full
 .proc mem_insert
+    ;Collapse selections
+    stz selection_active
+
     ;Save char on stack
     pha
 
@@ -1230,6 +1233,9 @@ mem_full:
 ;Error returns.......: C=1 if at file start, else C=0
 ;                      X=1 if at line break, else X=0
 .proc mem_delete
+    ;Collapse selections
+    stz selection_active
+    
     stz at_lf
 
     ;Cursor at beginning of file?

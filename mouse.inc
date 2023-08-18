@@ -22,8 +22,15 @@ MOUSE_MIDDLE_BUTTON = 4
 ;Input...............: Nothing
 ;Error returns.......: Nothing
 .proc mouse_get
+    ; Abort if APP_MOD != 0
+    lda APP_MOD
+    beq :+
+    cmp #2 ; Mode=Status message
+    beq :+
+    rts
+
     ; Get mouse status
-    ldx #TMP1_BNK
+:   ldx #TMP1_BNK
     jsr KERNAL_MOUSE_GET
 
     ; Divide mouse pointer X and Y coordinates by 8; translate from pixel to character
@@ -86,26 +93,10 @@ update_state:
 ;                      Y = Mouse pointer Y coordinate
 ;Error returns.......: Nothing
 .proc mouse_on_left_click
-    ; Store corrdinates on stack
-    phx
-    phy
-
-    ; Hide cursor to avoid tearing
+    stz selection_active
+    
     jsr cursor_disable
-
-    ; Current line?
-    ply
-    cpy CRS_Y
-    beq :+
-
-    ; No, goto line
-    jsr mouse_translate_y
-    jsr cmd_goto_line
-
-    ; Goto column
-:   plx
-    jsr mouse_translate_x
-    jsr cmd_goto_col
+    jsr mouse_place_cursor
 
     ; Refresh
     jsr screen_refresh
@@ -130,6 +121,8 @@ update_state:
 ;                      Y = Mouse pointer Y coordinate
 ;Error returns.......: Nothing
 .proc mouse_on_left_drag
+    jsr cursor_disable
+
     lda selection_active
     bne :+
 
@@ -149,7 +142,7 @@ update_state:
     lda mem_cur_line+2
     sta selection_start_line+2
 
-:   jsr mouse_on_left_click
+:   jsr mouse_place_cursor
     
     lda mem_cur_col
     sta selection_end_col
@@ -164,6 +157,10 @@ update_state:
     sta selection_end_line+1
     lda mem_cur_line+2
     sta selection_end_line+2
+
+    ; Refresh
+    jsr screen_refresh
+    jmp cursor_activate
 
     rts
 .endproc
@@ -197,6 +194,34 @@ update_state:
     adc #0
     rts
 .endproc
+
+;**********************************************************
+;Function name.......: mouse_place_cursor
+;Description.........: Moves the cursor to specified screen
+;                      coordinates
+;Input...............: X = column
+;                      Y = row
+;Error returns.......: Nothing
+.proc mouse_place_cursor
+    ; Store corrdinates on stack
+    phx
+    phy
+
+    ; Current line?
+    ply
+    cpy CRS_Y
+    beq :+
+
+    ; No, goto line
+    jsr mouse_translate_y
+    jsr cmd_goto_line
+
+    ; Goto column
+:   plx
+    jsr mouse_translate_x
+    jmp cmd_goto_col
+.endproc
+
 
 ;**********************************************************
 ;Function name.......: mouse_translate_y

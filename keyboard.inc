@@ -232,11 +232,17 @@ default:
     lda #KEYVAL_SPACE
 
 default_insert:
+    ;Save selection status on stack
+    ldx selection_active
+    phx
+
     ;Insert char into buffer and update screen
     jsr cmd_insert
-    bcc :+
-    jmp screen_refresh
-:   jmp screen_println
+    plx
+    bne :+
+    bcs :+
+    jmp screen_println
+:   jmp screen_refresh
 
 default_match:
     ;Action for special keys, for example arrow keys and function keys
@@ -330,10 +336,15 @@ default_jmptbl:
     jsr cursor_activate
     jsr screen_clear_status
     lda #KEYVAL_SHIFT_SPACE
+
+    ldx selection_active
+    phx
     jsr cmd_insert
-    bcc :+
-    jsr screen_refresh
-:   jmp screen_println
+    plx
+    bne :+
+    bcs :+
+    jmp screen_println
+:   jmp screen_refresh
 
     ;ESC key
 :   cmp #KEYVAL_ESC
@@ -1175,7 +1186,7 @@ msg:
     jsr cursor_disable
     lda #LF
     jsr cmd_insert
-    jsr screen_refresh
+    jmp screen_refresh
     jmp cursor_activate
 .endproc
 

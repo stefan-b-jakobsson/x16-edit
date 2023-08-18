@@ -604,6 +604,10 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: Nothing
 .proc cmd_insert_tab
+    ;Save selection status on stack
+    lda selection_active
+    pha
+    
     ;Hide cursor
     jsr cursor_disable
 
@@ -618,7 +622,10 @@ msg:
     bne :-
     
     ;Refresh
-    jsr screen_println
+    pla
+    beq :+
+    jsr screen_refresh
+:   jsr screen_println
     jmp cursor_activate
 
 .segment "VARS"
