@@ -47,8 +47,10 @@
 .define KERNAL_MACPTR $ff44
 .define KERNAL_SCREEN_MODE $ff5f
 
-;Keyboard
+;Keyboard & mouse
 .define KERNAL_GETIN $ffe4
+.define KERNAL_MOUSE_CONFIG $ff68
+.define KERNAL_MOUSE_GET $ff6b
 
 ;Other
 .define KERNAL_SCREEN_SET_CHARSET $ff62

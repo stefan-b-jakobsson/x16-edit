@@ -77,12 +77,7 @@ show:
     ;Swap background/foreground colors
 swap:
     lda VERA_D0
-    asl
-    adc #$80
-    rol
-    asl
-    adc #$80
-    rol
+    jsr cmd_swap_colors
     sta VERA_D0
 
     ;Update cursor state

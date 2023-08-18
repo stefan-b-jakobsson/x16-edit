@@ -235,7 +235,7 @@ default_insert:
     ;Insert char into buffer and update screen
     jsr cmd_insert
     bcc :+
-    jsr screen_refresh
+    jmp screen_refresh
 :   jmp screen_println
 
 default_match:
@@ -930,7 +930,6 @@ search:
     bcs notfound
     
     jsr screen_refresh
-    jsr screen_println
     jmp cursor_activate
 
 notfound:
@@ -1194,7 +1193,7 @@ msg:
     cpx #0
     beq update_line     ;X=0, we didn't delete a LF, no need to refresh all of screen
 
-    jsr screen_refresh
+    jmp screen_refresh
 
 update_line:
     jsr screen_println
@@ -1266,8 +1265,7 @@ exit:
     jsr cmd_go_up
     jsr cursor_activate
     jsr cursor_toggle
-    jsr screen_refresh
-    jmp screen_println
+    jmp screen_refresh
 .endproc
 
 ;******************************************************************************
@@ -1281,8 +1279,7 @@ exit:
     jsr cmd_go_down
     jsr cursor_activate
     jsr cursor_toggle
-    jsr screen_refresh
-    jmp screen_println
+    jmp screen_refresh
 .endproc
 
 ;******************************************************************************

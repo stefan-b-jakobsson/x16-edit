@@ -192,7 +192,6 @@ exit:
     jsr screen_print_header
     jsr screen_print_default_footer
     jsr screen_refresh
-    jsr screen_println
     jsr cursor_activate
 
     ;Load text file from disk
@@ -274,6 +273,7 @@ exit:
     jsr clipboard_init
     jsr cmd_init
     jsr scancode_init
+    jsr mouse_init
 
     ;Exit without errors, C=0
     clc
@@ -333,6 +333,7 @@ mainloop:
     stz irq_flag
 
     jsr keyboard_read_and_dispatch      ;Do some work...
+    jsr mouse_get
     jsr cursor_toggle
     jsr screen_update_status
 
@@ -383,6 +384,7 @@ shutdown:
 .include "dir.inc"
 .include "help.inc"
 .include "selection.inc"
+.include "mouse.inc"
 
 .if target_mem=target_rom
     .include "bridge.inc"

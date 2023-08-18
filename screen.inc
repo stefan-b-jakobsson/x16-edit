@@ -571,7 +571,7 @@ fetch_char:
 
 :   lda dmid
     beq :+
-    ldx #22
+    ldx screen_color_rev
     dec dmid
 
 :   stx VERA_D0
@@ -691,7 +691,7 @@ clear_bottom:
     bne :-
 
 exit:
-    rts
+    jmp screen_println
 
 .segment "VARS"
     len: .res 1
@@ -713,8 +713,16 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc screen_println
-    ;Check if there is an active selection in this line
+    ;Abort if cursor is below edit area
     sec
+    lda screen_height
+    sbc CRS_Y
+    cmp #4
+    bcs :+
+    rts
+
+    ;Check if there is an active selection in this line
+:   sec
     lda mem_cur_col
     sbc CRS_X
     sta screen_print_col
@@ -795,7 +803,7 @@ print_loop:
 :   lda dmid
     beq :+
     dec dmid
-    ldx #22
+    ldx screen_color_rev
 
 :   stx VERA_D0
 
@@ -1086,8 +1094,8 @@ screen_scrcodes:
     .byt 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 94
 
 .segment "VARS"
-    screen_mode:            .res 1              ;1 byte
-    screen_color:           .res 1              ;1 byte
+    screen_mode:            .res 1
+    screen_color:           .res 1
     screen_color_rev:       .res 1
     screen_header_color:    .res 1
     screen_status_color:    .res 1

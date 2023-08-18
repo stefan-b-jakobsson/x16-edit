@@ -49,8 +49,8 @@
     jsr clipboard_init
 
     ;Clear char counter
-:   stz count
-    stz count+1
+:   stz clipboard_count
+    stz clipboard_count+1
 
     ;Setup pointer to clipboard memory
     lda clipboard_end+1
@@ -74,17 +74,10 @@ goto_selection:
     jsr cmd_goto_line
 
     ;Move cursor to selection start column
-:   sec
-    lda mem_cur_col
-    sbc selection_start_col
-    lda mem_cur_col+1
-    sbc selection_start_col+1
-    lda mem_cur_col+2
-    sbc selection_start_col+2
-    bcs loop
-    jsr cmd_go_right
-    cpx #0                  ;Stop at EOF
-    beq :-
+    ldx selection_start_col
+    ldy selection_start_col+1
+    lda selection_start_col+2
+    jsr cmd_goto_col
 
 loop:
     jsr mem_get_value
@@ -130,9 +123,9 @@ loop:
     bra eol
 
 incsize:
-    inc count
+    inc clipboard_count
     bne :+
-    inc count+1
+    inc clipboard_count+1
 
 :   inc TMP2_ADR
     bne :+
@@ -147,15 +140,15 @@ eol:
     jsr cmd_go_right
 
     clc
-    lda count
+    lda clipboard_count
     adc clipboard_end+1
     sta clipboard_end+1
-    lda count+1
+    lda clipboard_count+1
     adc clipboard_end
     sta clipboard_end
 
-    ldx count
-    ldy count+1
+    ldx clipboard_count
+    ldy clipboard_count+1
     clc
     rts
 
@@ -166,10 +159,6 @@ full:
     ldy #0
     sec
     rts
-
-.segment "VARS"
-    count: .res 2
-.CODE
 .endproc
 
 ;******************************************************************************
@@ -182,14 +171,26 @@ full:
     ;Copy line, return with C=1 if clipboard mem is full
     jsr clipboard_copy
     bcs mem_full
-    jsr cmd_go_left
-    jsr cmd_delete_line
+
+    lda clipboard_count
+    lda clipboard_count+1
+
+:   lda clipboard_count
+    ora clipboard_count+1
+    beq exit
+    jsr cmd_delete
+    lda clipboard_count
+    bne :+
+    dec clipboard_count+1
+:   dec clipboard_count
+    bra :--
+
+exit:
     clc
     rts
 
 mem_full:
     rts             ;No need to set C=1 if we reach this, it's already set!
-
 .endproc
 
 ;******************************************************************************
@@ -253,8 +254,10 @@ exit:
 .endproc
 
 .segment "VARS"
-    clipboard_end:          .res 2              ;2 bytes
+    clipboard_end:          .res 2
     clipboard_flags:        .res 1
+    clipboard_count:        .res 2
+.CODE
 .CODE
 
 CLIPBOARD_SIZE = 12             ;In pages each of 256 bytes

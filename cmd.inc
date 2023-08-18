@@ -96,8 +96,7 @@ mem_full:
 .proc cmd_word_wrap
     ;Check if we're at the column where to wrap the line
     lda mem_cur_col+2
-    bne nowrap
-    lda mem_cur_col+1
+    ora mem_cur_col+1
     bne nowrap
     lda mem_cur_col
     cmp cmd_wordwrap_pos
@@ -1433,7 +1432,7 @@ mem_full:
     ;Display message
     lda #2
     sta APP_MOD
-    
+   
     ldx #<msg
     ldy #>msg
     jmp screen_print_status
@@ -1756,7 +1755,6 @@ execute_done:
 :   jsr cursor_activate
     jsr screen_clear_status
     jsr screen_refresh
-    jsr screen_println
 
     lda replace_all
     beq exit
@@ -1950,7 +1948,7 @@ msg_end:
 .endproc
 
 ;******************************************************************************
-;Function name.......: cmd_goto_line_prompt
+;Function name.......: line_goto_line_prompt
 ;Purpose.............: Command: Goto line number, prompt for input
 ;Preparatory routines: None
 ;Input...............: Nothing
@@ -2042,9 +2040,14 @@ msg:
     sta line+2
 
     jsr compare
-    bcs up
+    php
     cpx #0
-    beq exit
+    bne :+
+    plp
+    rts
+
+:   plp
+    bcs up
 
 down:
     jsr cmd_go_down
@@ -2064,24 +2067,87 @@ exit:
     rts
 
 compare:
-    ldx #0
     sec
     lda mem_cur_line
     sbc line
-    beq :+
-    inx
-:   lda mem_cur_line+1
+    tax
+    lda mem_cur_line+1
     sbc line+1
     beq :+
-    inx
+    tax
 :   lda mem_cur_line+2
     sbc line+2
     beq :+
-    inx
+    tax
 :   rts
 
 .segment "VARS"
 line:   .res 3
+.CODE
+.endproc
+
+;******************************************************************************
+;Function name.......: cmd_goto_col
+;Purpose.............: Move cursor to specified column
+;Preparatory routines: None
+;Input...............: X = Column number (bits 0-7)
+;                      Y = Column number (bits 8-15)
+;                      A = Column number (bits 16-23)
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_goto_col
+    ; Store input
+    stx col
+    sty col+1
+    sta col+2
+
+    jsr compare
+    bcc right
+    cpx #0
+    beq exit
+
+left:
+    jsr cmd_go_left
+    bcs :+
+    jsr mem_at_bof
+    bcs exit
+    jsr compare
+    cpx #0
+    bne left
+    rts
+:   jmp cmd_go_right
+
+right:
+    jsr cmd_go_right
+    bcs :+
+    cpx #0
+    bne exit
+    jsr compare
+    cpx #0
+    bne right
+    rts
+:   jmp cmd_go_left
+
+exit:   
+    rts
+
+compare:
+    sec
+    lda mem_cur_col
+    sbc col
+    tax
+    lda mem_cur_col+1
+    sbc col+1
+    beq :+
+    tax
+:   lda mem_cur_col+2
+    sbc col+2
+    beq :+
+    tax
+:   rts
+
+.segment "VARS"
+col:    .res 3
 .CODE
 .endproc
 
@@ -2179,7 +2245,6 @@ exit:
     jsr screen_print_header
     jsr screen_print_default_footer
     jsr screen_refresh
-    jsr screen_println
 
     jsr cursor_activate
     
@@ -2235,13 +2300,15 @@ msg_plc:
     ora bgcolor
     sta screen_color
 
+    jsr cmd_swap_colors
+    sta screen_color_rev
+
     stz cursor_state    ;Cursor state needs to be cleared as bakground color is reset
 
     jsr screen_clearall
     jsr screen_print_header
     jsr screen_print_default_footer
     jsr screen_refresh
-    jmp screen_println
 
 bgcolor = tempvars      ;1 bytes
 
@@ -2264,9 +2331,11 @@ bgcolor = tempvars      ;1 bytes
     clc
     lda screen_color
     adc #16
-    and #240
     ora fgcolor
     sta screen_color
+
+    jsr cmd_swap_colors
+    sta screen_color_rev
 
     stz cursor_state        ;Cursor state needs to be cleared as bakground color is reset
 
@@ -2274,9 +2343,18 @@ bgcolor = tempvars      ;1 bytes
     jsr screen_print_header
     jsr screen_print_default_footer
     jsr screen_refresh
-    jmp screen_println
 
 fgcolor = tempvars
+.endproc
+
+.proc cmd_swap_colors
+    asl
+    adc #$80
+    rol
+    asl
+    adc #$80
+    rol
+    rts
 .endproc
 
 ;******************************************************************************
