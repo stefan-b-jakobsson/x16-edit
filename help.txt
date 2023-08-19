@@ -12,8 +12,8 @@ function key.
 ^J  (F4)  Justify text buffer
 ^Y  (F7)  PageUp
 ^V  (F8)  PageDown
-^K        Cut current line to clipboard
-^C        Copy current line to clipboard
+^K        Cut line or selection to clipboard
+^C        Copy line or selection to clipboard
 ^U        Uncut (paste) all content from clipboard
 ^DEL      Delete current line, no copy to clipboard
 ^W  (F6)  Search and find text (case sensitive)

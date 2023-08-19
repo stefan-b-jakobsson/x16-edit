@@ -8,8 +8,8 @@ W/F6=Search      I=DOS cmd
 Y/F7=PageUp      D=Set device
 V/F8=PageDown    T=Text color
 N   =New buffer  B=Backgr color
-K   =Cut line    M=Mem free
-DEL =Del line    C=Copy line
+K   =Cut         M=Mem free
+DEL =Del line    C=Copy
 1..9=Tab width   U=Uncut/paste
 
 X16 Edit, (c) Stefan Jakobsson,
