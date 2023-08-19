@@ -108,7 +108,17 @@ The Commander X16 was devised by David Murray a.k.a. the
         You may also press and release the ESC key. A message is displayed
         in the status bar indicating that the program is ready to receive a command.
         Just press a shortcut key without holding down any modifier.
-      
+
+    \subsection{Mouse control}
+        The editor is primarily made to be controlled by the keyboard. There are, however,
+        some basic mouse controls.
+
+        The cursor may be repositioned in the file by clicking the left mouse button.
+
+        You may also select part of the text by pressing the left mouse button where
+        you want the selection to start and release it where you want the selection to end. 
+        Selections can be copied or cut. More on that later.
+    
     \subsection{User interface}
         X16 Edit's user interface is similar to GNU Nano, and should be mostly self-explanatory.
         It consists of the following main parts:
@@ -136,11 +146,15 @@ The Commander X16 was devised by David Murray a.k.a. the
         At the input prompt you may either press ENTER to confirm your input or press ESC 
         to abort the current operation.
 
+        The \textit{cursor position} is displayed at the right edge of the status bar if
+        there is no active message or prompt.
+
         The \textit{shortcut list} takes up the last two rows of the screen. Here you find
-        the most common keyboard shortcuts. 
+        the most common keyboard shortcuts.
         
-        The \textit{cursor position} (row:column) is always displayed at the bottom right corner
-        of the screen.
+        X16 Edit uses the screen mode (screen height and width) that is active when starting
+        the program. Especially the shortcut list and the help screen change appearance to fit in 
+        low screen resolutions.
 
     \subsection{Built-in help}
         A lists of all keyboard shortcuts and a short description 
@@ -211,11 +225,14 @@ The Commander X16 was devised by David Murray a.k.a. the
     \subsection{Cut, copy and uncut}
         The editor supports cut, copy, and uncut (commonly called paste in other editors).
 
-        The copy (Ctrl+C) and cut (Ctrl+K) commands always copy a whole line into the clipboard. You may
-        copy or cut multiple lines one at a time. The clipboard holds a maximum of 3 kB of data.
+        If no text has been selected with the mouse, the copy (Ctrl+C) and cut (Ctrl+K) commands
+        copy a whole line into the clipboard. If there is an active mouse selection, the selected
+        text is copied or cut.
+
+        You may do multiple copies or cuts into the clipboard. The clipboard holds a maximum of 3 kB of data.
 
         Uncut (Ctrl+U) copies the content of the clipboard into the text buffer at the cursor position. It is possible
-        to do repeated uncuts. The clipboard is cßleared upon the first cut or copy after uncutting.
+        to do repeated uncuts. The clipboard is cleared upon the first cut or copy after uncutting.
 
     \subsection{Search and replace}
         The search command (Ctrl+W) lets you search the text buffer for
@@ -309,8 +326,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         X16 Edit internally uses LF (ASCII \$0A) as line break marker.
 
         When reading a file, X16 Edit interprets every occurrence of LF (ASCII \$0A) and CR (ASCII \$0C) as
-        a line break. If a text file was created on Windows with CRLF style line breaks, each line break
-        will in X16 Edit be intrepreted as two line breaks.
+        a line break. Windows style line breaks (CR+LF) are, however, converted to just one LF.
 
         The selected character set determines how line breaks are encoded when saving the text buffer
         to file. If in one of the PETSCII modes, line breaks are encoded with CR. If in ISO mode, line
@@ -337,14 +353,15 @@ The Commander X16 was devised by David Murray a.k.a. the
         If you like to build X16 Edit yourself you may download the source code from
         www.github.com/stefan-b-jakobsson/x16-edit.
 
-        You will need the cc65 development tools to build the project.
+        You will need the cc65 development tools to build the project. You will also need the lzsa compression utility.
 
-        In the project's build folder, there are three build scripts:
+        The project is built using Makefile.
 
         \begin{itemize}
-            \item build-ram.sh, builds the RAM version
-            \item build-hiram.sh, builds the high RAM version
-            \item build-rom.sh, builds the ROM version
+            \item "make" or "make ram" will build the standard RAM version
+            \item "make hiram" builds the high RAM version
+            \item "make rom" builds the ROM version
+            \item "make all" builds all three targets
         \end{itemize}
 
     \subsection{X16 Edit HI version}
@@ -364,7 +381,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         In the emulator, type \texttt{"SYS\$6000"} to start the editor.
 
     \subsection{X16 Edit ROM version}
-        The ROM version of the editor consists of one 16 kB ROM bank.
+        The ROM version of the editor consists of two consequtive 16 kB ROM banks.
 
         To use the ROM version you first need to prepare a custom ROM image. When you
         download the emulator you get the standard rom.bin image. Append
@@ -390,10 +407,10 @@ The Commander X16 was devised by David Murray a.k.a. the
     signature consists of the text "X16EDIT" followed by three bytes representing
     the program version (major, minor, patch).
         
-    If the editor is placed in ROM bank 10, it can be started from BASIC like this:
+    If the editor's first ROM bank is 10, it can be started from BASIC like this:
 
 \begin{verbatim}
-    BANK 10
+    BANK 10,10
     SYS $C000
 \end{verbatim}
 
@@ -435,8 +452,8 @@ The Commander X16 was devised by David Murray a.k.a. the
         J    & F4    & Justify text buffer \\
         Y    & F7    & Page up \\
         V    & F8    & Page down \\
-        K    & ---   & Cut current line and save it to clipboard \\
-        C    & ---   & Copy current line to clipboard \\
+        K    & ---   & Cut line or selection to clipboard \\
+        C    & ---   & Copy line or selection to clipboard \\
         U    & ---   & Paste (uncut) all content from clipboard \\
         DEL  & ---   & Deletes current line, no copy to clipboard \\
         W    & F6    & Search and find string in buffer (case sensitive) \\
@@ -716,7 +733,7 @@ fname_end:
 \end{verbatim}
 
 \section{License}
-	Copyright 2020--2022, Stefan Jakobsson.
+	Copyright 2020--2023, Stefan Jakobsson.
 
 	The X16 Edit program, including this manual, is released under the GNU General Public License version 3 or later.
     The program is free software and comes with ABSOLUTELY NO WARRANTY. You may redistribute and/or modify it under the 
