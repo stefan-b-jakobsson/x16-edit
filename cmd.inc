@@ -2315,7 +2315,7 @@ msg_plc:
     jsr screen_clearall
     jsr screen_print_header
     jsr screen_print_default_footer
-    jsr screen_refresh
+    jmp screen_refresh
 
 bgcolor = tempvars      ;1 bytes
 
@@ -2349,7 +2349,7 @@ bgcolor = tempvars      ;1 bytes
     jsr screen_clearall
     jsr screen_print_header
     jsr screen_print_default_footer
-    jsr screen_refresh
+    jmp screen_refresh
 
 fgcolor = tempvars
 .endproc
