@@ -237,8 +237,8 @@ dtmp = tempvars+3
 
 .segment "VARS"
     selection_active:       .res 1
-    selection_start_line:    .res 3
     selection_start_col:    .res 3
-    selection_end_line:      .res 3
+    selection_start_line:    .res 3
     selection_end_col:      .res 3
+    selection_end_line:      .res 3
 .CODE

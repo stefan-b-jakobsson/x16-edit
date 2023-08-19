@@ -1197,17 +1197,19 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_backspace_key
-    jsr cmd_delete
+    lda selection_active
+    pha
 
+    jsr cmd_delete
     bcs exit            ;C=1, at start of file
     
+    pla
+    bne :+              ;There was an active selection that was ollapsed; refresh all of screen
     cpx #0
-    beq update_line     ;X=0, we didn't delete a LF, no need to refresh all of screen
+    bne :+              ;X=1, deleted an LF, need to refresh all of screen
 
-    jmp screen_refresh
-
-update_line:
-    jsr screen_println
+    jmp screen_println
+:   jmp screen_refresh
 
 exit:
     rts

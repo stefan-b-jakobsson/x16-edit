@@ -1,4 +1,83 @@
 ;******************************************************************************
+;Function name.......: help_show
+;Purpose.............: Displays help screen
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc help_show
+    ;Clear editable part of screen
+    jsr screen_clear_editor
+
+    ;Set VERA address to start printing from start of row 2
+    stz VERA_L
+    lda #2+VERA_BUFADR_M
+    sta VERA_M
+    lda #(2<<4 | VERA_BUFADR_H)
+    sta VERA_H
+
+    ;Print header
+    ldy #0
+:   lda header,y
+    beq :+
+    jsr screen_put_uc_char
+    iny
+    bra :-
+
+    ;Goto next line
+:   stz VERA_L  
+    inc VERA_M
+    inc VERA_M
+
+    ;Set zero page vector to help screen content
+    lda mem_start
+    sta BNK_SEL
+
+    lda #<help_txt
+    sta TMP1_ADR
+    lda #>help_txt
+    sta TMP1_ADR+1
+
+    ldy #0
+loop:
+    ;Get next char
+    lda (TMP1_ADR),y
+    beq exit
+
+    cmp #LF
+    beq :+
+    jsr screen_put_uc_char
+    bra next
+
+    ;Line feed
+:   stz VERA_L
+    inc VERA_M
+    clc
+    lda #VERA_BUFADR_M
+    adc screen_height
+    sec
+    sbc #5
+    cmp VERA_M
+    bcc exit
+
+next:
+    iny
+    bne loop
+    inc TMP1_ADR+1
+    bra loop
+
+exit:
+    rts
+
+header:
+    .byt .sprintf("help - version %u.%u.%u", appversion_major, appversion_minor, appversion_patch), 0
+
+.endproc
+
+.if target_mem=2
+.segment "CODE2"
+.endif
+
+;******************************************************************************
 ;Function name.......: help_decompress
 ;Purpose.............: Decompresses the lzsa compressed help text.
 ;                      The compressed binary should be created with the lzsa
@@ -132,77 +211,4 @@ endH = tempvars+1
 
 .endproc
 
-;******************************************************************************
-;Function name.......: help_show
-;Purpose.............: Displays help screen
-;Input...............: None
-;Returns.............: Nothing
-;Error returns.......: None
-.proc help_show
-    ;Clear editable part of screen
-    jsr screen_clear_editor
-
-    ;Set VERA address to start printing from start of row 2
-    stz VERA_L
-    lda #2+VERA_BUFADR_M
-    sta VERA_M
-    lda #(2<<4 | VERA_BUFADR_H)
-    sta VERA_H
-
-    ;Print header
-    ldy #0
-:   lda header,y
-    beq :+
-    jsr screen_put_uc_char
-    iny
-    bra :-
-
-    ;Goto next line
-:   stz VERA_L  
-    inc VERA_M
-    inc VERA_M
-
-    ;Set zero page vector to help screen content
-    lda mem_start
-    sta BNK_SEL
-
-    lda #<help_txt
-    sta TMP1_ADR
-    lda #>help_txt
-    sta TMP1_ADR+1
-
-    ldy #0
-loop:
-    ;Get next char
-    lda (TMP1_ADR),y
-    beq exit
-
-    cmp #LF
-    beq :+
-    jsr screen_put_uc_char
-    bra next
-
-    ;Line feed
-:   stz VERA_L
-    inc VERA_M
-    clc
-    lda #VERA_BUFADR_M
-    adc screen_height
-    sec
-    sbc #5
-    cmp VERA_M
-    bcc exit
-
-next:
-    iny
-    bne loop
-    inc TMP1_ADR+1
-    bra loop
-
-exit:
-    rts
-
-header:
-    .byt .sprintf("help - version %u.%u.%u", appversion_major, appversion_minor, appversion_patch), 0
-
-.endproc
+.CODE

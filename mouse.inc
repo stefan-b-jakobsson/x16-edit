@@ -30,8 +30,9 @@ MOUSE_MIDDLE_BUTTON = 4
     rts
 
     ; Get mouse status
-:   ldx #TMP1_BNK
-    jsr KERNAL_MOUSE_GET
+:   bridge_setaddr KERNAL_MOUSE_GET
+    ldx #TMP1_BNK
+    bridge_call KERNAL_MOUSE_GET
 
     ; Divide mouse pointer X and Y coordinates by 8; translate from pixel to character
     ldx #3
@@ -93,10 +94,19 @@ update_state:
 ;                      Y = Mouse pointer Y coordinate
 ;Error returns.......: Nothing
 .proc mouse_on_left_click
+    ; Collapse any previous selection
     stz selection_active
     
+    ; Place cursor
     jsr cursor_disable
     jsr mouse_place_cursor
+
+    ; Remember click position
+    ldx #5
+:   lda mem_cur_col,x
+    sta mouse_leftclick_pos,x
+    dex
+    bpl :-
 
     ; Refresh
     jsr screen_refresh
@@ -123,46 +133,69 @@ update_state:
 .proc mouse_on_left_drag
     jsr cursor_disable
 
+    ; Set selection active flag
     lda selection_active
     bne :+
-
     inc selection_active
 
-    lda mem_cur_col
-    sta selection_start_col
-    lda mem_cur_col+1
-    sta selection_start_col+1
-    lda mem_cur_col+2
-    sta selection_start_col+2
-
-    lda mem_cur_line
-    sta selection_start_line
-    lda mem_cur_line+1
-    sta selection_start_line+1
-    lda mem_cur_line+2
-    sta selection_start_line+2
-
+    ; Place cursor
 :   jsr mouse_place_cursor
-    
-    lda mem_cur_col
-    sta selection_end_col
-    lda mem_cur_col+1
-    sta selection_end_col+1
-    lda mem_cur_col+2
-    sta selection_end_col+2
 
+    ; Check if selection is expanding forward or backward
+    sec
     lda mem_cur_line
-    sta selection_end_line
+    sbc mouse_leftclick_pos+3
+    tax
     lda mem_cur_line+1
-    sta selection_end_line+1
-    lda mem_cur_line+2
-    sta selection_end_line+2
+    sbc mouse_leftclick_pos+4
+    beq :+
+    tax
+:   lda mem_cur_line+2
+    sbc mouse_leftclick_pos+5
+    beq :+
+    tax
+:   bcc backward
+    cpx #0
+    bne forward
 
-    ; Refresh
+    lda mem_cur_col
+    sbc mouse_leftclick_pos
+    lda mem_cur_col+1
+    sbc mouse_leftclick_pos+1
+    lda mem_cur_col+2
+    sbc mouse_leftclick_pos+2
+    bcc backward
+
+forward:
+    ldx #5
+:   lda mouse_leftclick_pos,x
+    sta selection_start_col,x
+    dex
+    bpl :-
+
+    ldx #5
+:   lda mem_cur_col,x
+    sta selection_end_col,x
+    dex
+    bpl :-
+    bra refresh
+
+backward:
+    ldx #5
+:   lda mem_cur_col,x
+    sta selection_start_col,x
+    dex
+    bpl :-
+
+    ldx #5
+:   lda mouse_leftclick_pos,x
+    sta selection_end_col,x
+    dex
+    bpl :-
+
+refresh:
     jsr screen_refresh
     jmp cursor_activate
-
-    rts
 .endproc
 
 ;**********************************************************
@@ -256,4 +289,5 @@ update_state:
 .segment "VARS"
 mouse_button_state: .res 1
 mouse_last_pos: .res 2
+mouse_leftclick_pos: .res 6
 .CODE

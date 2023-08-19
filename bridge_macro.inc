@@ -20,6 +20,9 @@
 bridge_call = bridge_code
 bridge_addr = bridge_call+3
 
+bridge_call2 = bridge_code+13
+bridge_addr2 = bridge_call2+6
+
 .if target_mem=target_rom
     .macro bridge_setaddr addr
         lda #<addr
@@ -27,8 +30,19 @@ bridge_addr = bridge_call+3
         lda #>addr
         sta bridge_addr+1
     .endmacro
+
+    .macro bridge_setaddr2 addr
+        lda #<addr
+        sta bridge_addr2
+        lda #>addr
+        sta bridge_addr2+1
+    .endmacro
 .else
     .macro bridge_setaddr addr
+        ;Do nothing
+    .endmacro
+
+    .macro bridge_setaddr2 addr
         ;Do nothing
     .endmacro
 .endif
@@ -37,8 +51,17 @@ bridge_addr = bridge_call+3
     .macro bridge_call addr
         jsr addr
     .endmacro
+
+    .macro bridge_call2 addr
+        jsr addr
+    .endmacro
+
 .else
     .macro bridge_call addr
         jsr bridge_call
+    .endmacro
+
+    .macro bridge_call2 addr
+        jsr bridge_call2
     .endmacro
 .endif

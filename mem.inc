@@ -2073,6 +2073,6 @@ exit:
     mem_blocks_free:        .res 2              ;2 bytes
     mem_start:              .res 1              ;1 byte
     mem_top:                .res 1              ;1 byte
-    mem_cur_line:           .res 3              ;3 bytes
     mem_cur_col:            .res 3              ;3 bytes
+    mem_cur_line:           .res 3              ;3 bytes
 .CODE

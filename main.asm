@@ -264,7 +264,8 @@ exit:
     ;Initialize base functions
     jsr selection_collapse
     jsr screen_get_dimensions
-    jsr help_decompress
+    bridge_setaddr2 help_decompress
+    bridge_call2 help_decompress
     jsr mem_init
     jsr file_init
     jsr keyboard_init
@@ -382,9 +383,9 @@ shutdown:
 .include "mem.inc"
 .include "ram.inc"
 .include "dir.inc"
-.include "help.inc"
 .include "selection.inc"
 .include "mouse.inc"
+.include "help.inc"
 
 .if target_mem=target_rom
     .include "bridge.inc"

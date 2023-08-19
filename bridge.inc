@@ -52,6 +52,16 @@ bridge_kernal:
     pla
     rts                ;Size: 13 bytes
 
+
+;Bridge for calling functions in the second ROM bank
+bridge_rombank2:
+    inc rom_bank
+    inc ROM_SEL
+    jsr $ffff
+    dec ROM_SEL
+    dec rom_bank
+    rts                 ;Size: 14 bytes
+
 ;Bridge for interrupt handling, called by the Kernal
 ;on interrupt, switches to X16 Edit's ROM bank and then
 ;calls the custom interrupt handler stored in ROM
@@ -88,7 +98,7 @@ bridge_scancode:
     plp
     rts             ;Size: 27 bytes
 
-bridge_end:         ;Total size: 57 bytes
+bridge_end:         ;Total size: 71 bytes
 
 .segment "VARS"
     bridge_temp:    .res 1
