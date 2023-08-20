@@ -87,6 +87,10 @@
 
     ;Screen print line is within a selection, but not on the first or last line of it => The whole line is selected
     lda flags
+    
+    cmp #%00000001
+    beq on_last_not_first
+    
     cmp #%00000011
     bne left_distance
 
@@ -133,7 +137,7 @@ left_distance:
     sbc screen_print_col+1
     sta dtmp
     lda selection_start_col+2
-    sta dtmp+1
+    sbc screen_print_col+2
     bcc noleft
 
     ;Normalize output to range 0..screen_width
@@ -145,7 +149,34 @@ left_distance:
 
 :   ldx screen_width
     ldy #0
-    bra multiline_adjust
+    jmp multiline_adjust
+
+on_last_not_first:
+    stz dleft
+    sec
+    lda selection_end_col
+    sbc screen_print_col
+    sta dmid
+    lda selection_end_col+1
+    sbc screen_print_col+1
+    sta dtmp
+    lda selection_end_col+2
+    sbc screen_print_col+2
+    bcc nomid
+    
+    ldy dmid
+    ora dtmp
+    bne :+
+    cpy screen_width
+    bcc :+
+    ldy screen_width
+:   ldx #0
+    rts
+
+nomid:
+    ldx screen_width
+    ldy #0
+    rts
 
 noleft:
     stz dleft
