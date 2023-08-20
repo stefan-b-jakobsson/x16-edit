@@ -1,14 +1,3 @@
-.proc selection_activate
-    lda #1
-    sta selection_active
-    rts
-.endproc
-
-.proc selection_collapse
-    stz selection_active
-    rts
-.endproc
-
 ;******************************************************************************
 ;Function name.......: selection_char_count
 ;Purpose.............: Calculates the number of visible chars on a line that
@@ -85,19 +74,6 @@
     rol flags               ;Bit 0 = clear if Screen Print Line == Selection Start Line
                             ;Bit 1 = clear if Screen Print Line == Selection End Line
 
-    ;Screen print line is within a selection, but not on the first or last line of it => The whole line is selected
-    lda flags
-    
-    cmp #%00000001
-    beq on_last_not_first
-    
-    cmp #%00000011
-    bne left_distance
-
-    ldx #0
-    ldy screen_width
-    rts
-
     ;PART II: Calculate number of visible chars on the line to be printed that are selected and 
     ;         not selected
     ;
@@ -127,6 +103,20 @@
     ;         Where:
     ;           dleft   = number of visible chars on the line to be printed before the selection
     ;           dmid    = number of visible chars on the line to be printed that are selected
+    
+    lda flags
+    
+    ; Check if on last but not first line of selection
+    cmp #%00000001
+    beq last_not_first
+    
+    cmp #%00000011
+    bne left_distance
+
+    ; Neither first nor last line of selection => The whole line is selected
+    ldx #0
+    ldy screen_width
+    rts
 
 left_distance:
     sec
@@ -151,7 +141,7 @@ left_distance:
     ldy #0
     jmp multiline_adjust
 
-on_last_not_first:
+last_not_first:
     stz dleft
     sec
     lda selection_end_col
@@ -165,6 +155,7 @@ on_last_not_first:
     bcc nomid
     
     ldy dmid
+    iny
     ora dtmp
     bne :+
     cpy screen_width
@@ -240,15 +231,6 @@ multiline_adjust:
     lda screen_width
     sbc dleft
     sta dmid
-
-:   cmp #%00000001           ;On last line, but not first line of selection
-    bne :+
-
-    clc
-    lda dleft
-    adc dmid
-    sta dmid
-    stz dleft
 
 :   ldx dleft
     ldy dmid

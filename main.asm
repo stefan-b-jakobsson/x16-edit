@@ -262,7 +262,7 @@ exit:
     stz APP_MOD
 
     ;Initialize base functions
-    jsr selection_collapse
+    stz selection_active
     jsr screen_get_dimensions
     bridge_setaddr2 help_decompress
     bridge_call2 help_decompress
