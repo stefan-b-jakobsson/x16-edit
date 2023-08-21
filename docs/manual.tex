@@ -63,9 +63,9 @@ The Commander X16 was devised by David Murray a.k.a. the
 \begin{verbatim}
     x16emu -sdcard sdcard.img -prg X16EDIT-x.x.x.PRG -run
 \end{verbatim}
-        An SD card image needs to be attached to the
-        emulator with the "-sdcard" option for the editor to
-        fully work. When you download the emulator you get an empty SD card
+        It is recommended that an SD card image is attached to the
+        emulator with the "-sdcard" option, as this will more closely emulate the hardware.
+        When you download the emulator you get an empty SD card
         image (sdcard.img) that can be used for this purpose.
  
         A valid path to the editor executable must be specified after
@@ -113,11 +113,18 @@ The Commander X16 was devised by David Murray a.k.a. the
         The editor is primarily made to be controlled by the keyboard. There are, however,
         some basic mouse controls.
 
-        The cursor may be repositioned in the file by clicking the left mouse button.
+        The cursor may be positioned in the file by clicking the left mouse button.
 
-        You may also select part of the text by pressing the left mouse button where
+        You may select part of the text by pressing the left mouse button where
         you want the selection to start and release it where you want the selection to end. 
         Selections can be copied or cut. More on that later.
+
+        To use the mouse control you must enable the mouse before starting the editor with the
+        following command:
+
+\begin{verbatim}
+    MOUSE 1
+\end{verbatim}
     
     \subsection{User interface}
         X16 Edit's user interface is similar to GNU Nano, and should be mostly self-explanatory.
@@ -128,7 +135,6 @@ The Commander X16 was devised by David Murray a.k.a. the
             \item Editor area
             \item Status bar
             \item Shortcut list
-            \item Cursor position display
         \end{itemize}
 
         The \textit{title bar} is at the top row of the screen. The name of the current file
@@ -225,9 +231,14 @@ The Commander X16 was devised by David Murray a.k.a. the
     \subsection{Cut, copy and uncut}
         The editor supports cut, copy, and uncut (commonly called paste in other editors).
 
-        If no text has been selected with the mouse, the copy (Ctrl+C) and cut (Ctrl+K) commands
-        copy a whole line into the clipboard. If there is an active mouse selection, the selected
-        text is copied or cut.
+        Parts of the text can be selected for copying or cutting with the keyboard or mouse.
+        A selection is made with the keyboard by holding down Shift while you move the cursor
+        with the arrow keys or the Home or End keys. A selection can similarily be made by
+        holding the left mouse button and move the pointer to the end of the selection before
+        the button is released.
+
+        If no text has been selected, the copy (Ctrl+C) and cut (Ctrl+K) commands
+        copy a whole line into the clipboard.
 
         You may do multiple copies or cuts into the clipboard. The clipboard holds a maximum of 3 kB of data.
 
