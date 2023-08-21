@@ -101,13 +101,6 @@ update_state:
     jsr cursor_disable
     jsr mouse_place_cursor
 
-    ; Remember click position
-    ldx #5
-:   lda mem_cur_col,x
-    sta mouse_leftclick_pos,x
-    dex
-    bpl :-
-
     ; Refresh
     jsr screen_refresh
     jmp cursor_activate
@@ -132,66 +125,19 @@ update_state:
 ;Error returns.......: Nothing
 .proc mouse_on_left_drag
     jsr cursor_disable
-
     ; Set selection active flag
     lda selection_active
     bne :+
-    inc selection_active
+
+    phx
+    jsr selection_mark_origin
+    plx
 
     ; Place cursor
 :   jsr mouse_place_cursor
 
-    ; Check if selection is expanding forward or backward
-    sec
-    lda mem_cur_line
-    sbc mouse_leftclick_pos+3
-    tax
-    lda mem_cur_line+1
-    sbc mouse_leftclick_pos+4
-    beq :+
-    tax
-:   lda mem_cur_line+2
-    sbc mouse_leftclick_pos+5
-    beq :+
-    tax
-:   bcc backward
-    cpx #0
-    bne forward
-
-    lda mem_cur_col
-    sbc mouse_leftclick_pos
-    lda mem_cur_col+1
-    sbc mouse_leftclick_pos+1
-    lda mem_cur_col+2
-    sbc mouse_leftclick_pos+2
-    bcc backward
-
-forward:
-    ldx #5
-:   lda mouse_leftclick_pos,x
-    sta selection_start_col,x
-    dex
-    bpl :-
-
-    ldx #5
-:   lda mem_cur_col,x
-    sta selection_end_col,x
-    dex
-    bpl :-
-    bra refresh
-
-backward:
-    ldx #5
-:   lda mem_cur_col,x
-    sta selection_start_col,x
-    dex
-    bpl :-
-
-    ldx #5
-:   lda mouse_leftclick_pos,x
-    sta selection_end_col,x
-    dex
-    bpl :-
+    ; Grow selection to cursor
+    jsr selection_grow
 
 refresh:
     jsr screen_refresh
@@ -289,5 +235,4 @@ refresh:
 .segment "VARS"
 mouse_button_state: .res 1
 mouse_last_pos: .res 2
-mouse_leftclick_pos: .res 6
 .CODE

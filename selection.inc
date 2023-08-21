@@ -248,10 +248,90 @@ dmid = tempvars+2
 dtmp = tempvars+3
 .endproc
 
+;******************************************************************************
+;Function name.......: selection_mark_origin
+;Purpose.............: Marks selection origin at cursor position
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc selection_mark_origin
+    lda #1
+    sta selection_active
+    
+    ldx #5
+:   lda mem_cur_col,x
+    sta selection_origin,x
+    dex
+    bpl :-
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: selection_grow
+;Purpose.............: Expands selection to cursor position
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc selection_grow
+    ; Check if selection is expanding forward or backward
+    sec
+    lda mem_cur_line
+    sbc selection_origin+3
+    tax
+    lda mem_cur_line+1
+    sbc selection_origin+4
+    beq :+
+    tax
+:   lda mem_cur_line+2
+    sbc selection_origin+5
+    beq :+
+    tax
+:   bcc backward
+    cpx #0
+    bne forward
+
+    lda mem_cur_col
+    sbc selection_origin
+    lda mem_cur_col+1
+    sbc selection_origin+1
+    lda mem_cur_col+2
+    sbc selection_origin+2
+    bcc backward
+
+forward:
+    ldx #5
+:   lda selection_origin,x
+    sta selection_start_col,x
+    dex
+    bpl :-
+
+    ldx #5
+:   lda mem_cur_col,x
+    sta selection_end_col,x
+    dex
+    bpl :-
+    rts
+
+backward:
+    ldx #5
+:   lda mem_cur_col,x
+    sta selection_start_col,x
+    dex
+    bpl :-
+
+    ldx #5
+:   lda selection_origin,x
+    sta selection_end_col,x
+    dex
+    bpl :-
+    rts
+.endproc
+
 .segment "VARS"
     selection_active:       .res 1
     selection_start_col:    .res 3
-    selection_start_line:    .res 3
+    selection_start_line:   .res 3
     selection_end_col:      .res 3
-    selection_end_line:      .res 3
+    selection_end_line:     .res 3
+    selection_origin:       .res 6
 .CODE

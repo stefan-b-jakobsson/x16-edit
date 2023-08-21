@@ -1238,9 +1238,11 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_rightarrow_key
+    jsr keyboard_mark_selection
     jsr cursor_disable
     jsr cmd_go_right
     php
+    jsr keyboard_grow_selection
     jsr cursor_activate
     plp
     bcs :+
@@ -1255,9 +1257,11 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_leftarrow_key
+    jsr keyboard_mark_selection
     jsr cursor_disable
     jsr cmd_go_left
     php
+    jsr keyboard_grow_selection
     jsr cursor_activate
     plp
     bcc :+
@@ -1274,8 +1278,10 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_uparrow_key
+    jsr keyboard_mark_selection
     jsr cursor_disable
     jsr cmd_go_up
+    jsr keyboard_grow_selection
     jsr cursor_activate
     jsr cursor_toggle
     jmp screen_refresh
@@ -1288,8 +1294,10 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_downarrow_key
+    jsr keyboard_mark_selection
     jsr cursor_disable
     jsr cmd_go_down
+    jsr keyboard_grow_selection
     jsr cursor_activate
     jsr cursor_toggle
     jmp screen_refresh
@@ -1302,8 +1310,10 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_home_key
+    jsr keyboard_mark_selection
     jsr cursor_disable
     jsr cmd_go_home
+    jsr keyboard_grow_selection
     jsr cursor_activate
     jmp screen_println
 .endproc
@@ -1315,8 +1325,10 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_end_key
+    jsr keyboard_mark_selection
     jsr cursor_disable
     jsr cmd_go_end
+    jsr keyboard_grow_selection
     jsr cursor_activate
     jmp screen_println
 .endproc
@@ -1372,6 +1384,29 @@ exit:
     linecount: .res 1
 .CODE
 
+.endproc
+
+.proc keyboard_mark_selection
+    ; Check if Shift is down
+    lda scancode_modifiers
+    and #KBD_MODIFIER_SHIFT
+    beq :+
+    
+    ; Check if selection is already active
+    lda selection_active
+    bne :+
+    jmp selection_mark_origin
+
+:   rts
+.endproc
+
+.proc keyboard_grow_selection
+    ; Check if Shift is down
+    lda scancode_modifiers
+    and #KBD_MODIFIER_SHIFT
+    beq :+
+    jmp selection_grow
+:   rts
 .endproc
 
 ;Ctrl+key jump table
