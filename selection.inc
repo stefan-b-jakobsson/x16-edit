@@ -207,7 +207,6 @@ mid_distance:
     sbc selection_start_col+2
     
     ;Normalize output to range 0..screen_width
-    inc dmid
     ora dtmp
     bne :+
     clc

@@ -80,19 +80,10 @@ goto_selection:
     jsr cmd_goto_col
 
 loop:
-    jsr mem_get_value
-    ldx mem_start
-    stx BNK_SEL
-    sta (TMP2_ADR)
-
     ldx selection_active
-    bne :+
-
-    cmp #LF
-    beq eol
-    bra :++
-
-:   sec
+    beq :+
+    
+    sec
     lda mem_cur_line
     sbc selection_end_line
     lda mem_cur_line+1
@@ -104,18 +95,34 @@ loop:
     sec
     lda mem_cur_col
     sbc selection_end_col
+    sta tempvars
     lda mem_cur_col+1
     sbc selection_end_col+1
+    ora tempvars
+    sta tempvars
     lda mem_cur_col+2
     sbc selection_end_col+2
-    bcs eol
+    ora tempvars
+    beq eol2
+    bcs eol2
+    
+:   jsr mem_get_value
+    ldx mem_start
+    stx BNK_SEL
+    sta (TMP2_ADR)
+
+    ldx selection_active
+    bne :+
+
+    cmp #LF
+    beq eol
 
 :   jsr cmd_go_right
     cpx #0
     bne :+
     jsr incsize
     bra loop
-    
+
 :   ldx mem_start
     stx BNK_SEL
     lda #LF
@@ -139,6 +146,7 @@ eol:
     jsr incsize
     jsr cmd_go_right
 
+eol2:
     clc
     lda clipboard_count
     adc clipboard_end+1
