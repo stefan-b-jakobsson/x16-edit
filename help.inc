@@ -73,9 +73,7 @@ header:
 
 .endproc
 
-.if target_mem=2
 .segment "CODE2"
-.endif
 
 ;******************************************************************************
 ;Function name.......: help_decompress
