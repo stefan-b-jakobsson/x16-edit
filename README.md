@@ -1,50 +1,55 @@
-# x16-edit
-
-Text editor for Commander X16
+# X16 Edit
 
 X16 Edit is a simple text editor for the Commander X16 platform inspired by GNU Nano.
 
-Text entered by the user is stored in banked RAM (512 KB, expandable to 2 MB).
-
-The program is designed to handle large text files with good performance. It
-is not intended to be a word processor, and will support only basic text
-editor functions.
-
+The program's primary design goal is to handle large text files with good performance. 
+The text buffer is stored in banked RAM (512 KB, expandable to 2 MB).
 
 # Building
 
-The program is written in 65c02 assembly for the ca65 compiler.
+The program is written in 65c02 assembly for the ca65 compiler. To build the project
+you also need the lzsa compression and Makefile utilities.
 
-Currently, there are two build targets.
+Currently, there are three build targets.
 
-The first target (the RAM version) is to be loaded as a normal program from the filesystem. It has a BASIC header, and is started with the RUN command.
+* **make** or **make ram** builds the standard version that is loaded into RAM and
+  started in the same way as a BASIC program.
 
-The second target is a 16 KB image to be stored in one of the ROM banks (the ROM version).
+* **make hiram** builds a version of the program that is to be loaded into RAM address
+  $6000.
+
+* **make rom** builds an image to be stored in the X16 ROM (32 kB).
+
 
 # Required Kernal/Emulator version
 
-| X16 Edit version | Kernal/Emulator version |
-| ---------------- | ----------------------- |
-| 0.0.1 - 0.3.6    | R38                     |
-| 0.4.0 - 0.4.5    | Github master branch,   |
-|                  | any commit between      |
-|                  | 7bfa81a and f62e25a     |
-| 0.5.0 -          | R39                     |
+The current version of the editor requires Kernal/Emulator version R43 or later.
+
 
 # Running the RAM version
 
-Run the RAM version with the following command
+Run the RAM version with the following command:
 
-x16emu -sdcard sdcard.img -prg X16EDIT.PRG -run
+x16emu -prg X16EDIT.PRG -run
 
-Loading and saving files in X16 Edit require that the emulator is started with an attached sdcard.
 
+# Running the HI RAM version
+
+The HI RAM version can be loaded and started with the following commands:
+
+In host computer terminal: x16emu -prg X16EDIT.PRG,6000
+On the X16: SYS $6000
 
 # Running the ROM version
 
 There are a few more steps to set up and try the ROM version.
 
-Please see the supplemented file docs/romnotes.pdf for details.
+Please see the supplemented manual for details.
+
+
+# Further reading
+
+Refer to the X16 Edit Manual for further help using the program.
 
 
 # X16 Community
