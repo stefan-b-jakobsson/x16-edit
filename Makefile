@@ -4,10 +4,13 @@ CONF_DIR=conf
 SRC_FILES=$(wildcard *.asm) $(wildcard *.inc)
 
 # Commands
-ram: $(BUILD_DIR)/X16EDIT.PRG
-all: $(BUILD_DIR)/X16EDIT.PRG $(BUILD_DIR)/X16EDIT-HI.PRG $(BUILD_DIR)/x16edit-rom.bin
-hiram: $(BUILD_DIR)/X16EDIT-HI.PRG
-rom: $(BUILD_DIR)/x16edit-rom.bin
+ram: $(BUILD_DIR) $(BUILD_DIR)/X16EDIT.PRG
+all: $(BUILD_DIR) $(BUILD_DIR)/X16EDIT.PRG $(BUILD_DIR)/X16EDIT-HI.PRG $(BUILD_DIR)/x16edit-rom.bin
+hiram: $(BUILD_DIR) $(BUILD_DIR)/X16EDIT-HI.PRG
+rom: $(BUILD_DIR) $(BUILD_DIR)/x16edit-rom.bin
+
+$(BUILD_DIR):
+	mkdir -p "$(BUILD_DIR)"
 
 # Target that compresses default help file
 $(BUILD_DIR)/help.bin: help.txt
@@ -31,10 +34,4 @@ $(BUILD_DIR)/x16edit-rom.bin: $(BUILD_DIR)/help.bin $(BUILD_DIR)/help_short.bin 
 
 # Clean-up target
 clean:
-	rm -f $(BUILD_DIR)/help.bin
-	rm -f $(BUILD_DIR)/help_short.bin
-	rm -f $(BUILD_DIR)/X16EDIT.PRG
-	rm -f $(BUILD_DIR)/X16EDIT-HI.PRG
-	rm -f $(BUILD_DIR)/x16edit-rom.bin
-	rm -f $(BUILD_DIR)/x16edit-ram.map
-	rm -f $(BUILD_DIR)/x16edit-rom.map
+	rm -rf "$(BUILD_DIR)"
