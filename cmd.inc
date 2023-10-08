@@ -705,8 +705,35 @@ subtract:
 ;                      X=1 if a line feed was deleted, else X=0
 ;Error returns.......: None
 .proc cmd_delete
+    ;Check if cursor is within selection, if so delete the selection
+    lda selection_active        ;Skip if no selection is active
+    beq :+
+
+    lda mem_cur_col
+    sta screen_print_col
+    lda mem_cur_col+1
+    sta screen_print_col+1
+    lda mem_cur_col+2
+    sta screen_print_col+2
+
+    lda mem_cur_line
+    sta screen_print_line
+    lda mem_cur_line+1
+    sta screen_print_line+1
+    lda mem_cur_line+2
+    sta screen_print_line+2
+    
+    jsr selection_char_count    ;Use selection character count function to decide if we're in a selection
+    cpx #0                      ;X != 0 => The cursor is standing at an unselected char, skip
+    bne :+
+    cpy #0                      ;Y == 0 => The cursor is standing at an unselected char, skip
+    beq :+
+
+    jmp selection_delete
+
+
     ;Delete one char from memory
-    jsr mem_delete
+:   jsr mem_delete
     bcc char_deleted                ;C=1: We're at start of file, nothing was deleted
     rts
 

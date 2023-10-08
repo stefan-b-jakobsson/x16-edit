@@ -351,6 +351,69 @@ backward:
     rts
 .endproc
 
+;******************************************************************************
+;Function name.......: selection_delete
+;Purpose.............: Deletes the current selection
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc selection_delete
+    ; Return if no active selection
+    lda selection_active
+    bne :+
+    rts
+
+    ; Inactivate selection
+:   stz selection_active
+
+    ; Hide cursor
+    jsr cursor_disable
+
+    ; Move cursor to end of selection
+    ldx selection_end_line
+    ldy selection_end_line+1
+    lda selection_end_line+2
+    jsr cmd_goto_line
+
+    ldx selection_end_col
+    ldy selection_end_col+1
+    lda selection_end_col+2
+    jsr cmd_goto_col
+
+    ; Delete char
+loop:
+    jsr cmd_delete
+    bcs exit
+
+    ; Check if we are at start of selection
+    lda selection_start_line
+    cmp mem_cur_line
+    bne loop
+    lda selection_start_line+1
+    cmp mem_cur_line+1
+    bne loop
+    lda selection_start_line+2
+    cmp mem_cur_line+2
+    bne loop
+
+    lda selection_start_col
+    cmp mem_cur_col
+    bne loop
+    lda selection_start_col+1
+    cmp mem_cur_col+1
+    bne loop
+    lda selection_start_col+2
+    cmp mem_cur_col+2
+    bne loop
+
+exit:
+    ; Refresh screen
+    jsr screen_refresh
+
+    ; Show cursor
+    jmp cursor_activate
+.endproc
+
 .segment "VARS"
     selection_active:       .res 1
     selection_start_col:    .res 3
