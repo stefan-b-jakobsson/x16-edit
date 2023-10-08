@@ -34,6 +34,9 @@ MOUSE_MIDDLE_BUTTON = 4
     ldx #TMP1_BNK
     bridge_call KERNAL_MOUSE_GET
 
+    ; Store wheel
+    stx mouse_wheel
+
     ; Divide mouse pointer X and Y coordinates by 8; translate from pixel to character
     ldx #3
 :   lsr TMP1_BNK+1
@@ -84,6 +87,31 @@ update_state:
     sta mouse_button_state
     stx mouse_last_pos
     sty mouse_last_pos+1
+
+wheel:
+    lda mouse_wheel
+    beq exit
+    bmi wheel_up
+
+:   jsr cmd_go_down
+    dec mouse_wheel
+    bne :-
+    bra refresh
+
+wheel_up:
+    lda mouse_wheel
+    eor #$ff
+    inc
+    sta mouse_wheel
+
+:   jsr cmd_go_up
+    dec mouse_wheel
+    bne :-
+
+refresh:
+    jsr screen_refresh
+
+exit:
     rts
 .endproc
 
@@ -235,4 +263,5 @@ refresh:
 .segment "VARS"
 mouse_button_state: .res 1
 mouse_last_pos: .res 2
+mouse_wheel: .res 1
 .CODE

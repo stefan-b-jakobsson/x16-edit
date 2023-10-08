@@ -38,7 +38,7 @@
 ;The only way to know whether the Ctrl key key is pressed is 
 ;to check the value of scancode_modifiers.
 
-keyboard_shortcut_count = 23
+keyboard_shortcut_count = 24
 
 ;******************************************************************************
 ;Function name.......: keyboard_init
@@ -131,7 +131,7 @@ keyval:                                 ;List of default shortcut keys
     .byt $4a, $59, $56, $4b, $43
     .byt $55, $19, $57, $53, $4c
     .byt $41, $5a, $45, $49, $44
-    .byt $54, $42, $4d
+    .byt $54, $42, $4d, $46
 
 config:
     .byt "//:x16editrc"
@@ -204,6 +204,7 @@ jmptbl:
     .word keyboard_mode_file_dir                ;APP mode 19
     .word keyboard_mode_dos_cmd                 ;APP mode 20
     .word keyboard_mode_justify                 ;APP mode 21
+    .word keyboard_mode_compile                 ;APP mode 22
 .endproc
 
 ;******************************************************************************
@@ -1155,6 +1156,43 @@ no:
     jsr screen_clear_status
     jmp cursor_activate
 .endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_compile
+;Purpose.............: Key dispatcher: Select compile options
+;Input...............: A = char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_compile
+    ;Check ESC key
+    cmp #KEYVAL_ESC
+    beq close
+
+    ;Exit if control key up
+    ldx scancode_modifiers
+    cpx #KBD_MODIFIER_CTRL
+    bne exit
+
+    ;Clear bit 5
+    and #%11011111
+
+    ;Check BASLOAD
+    cmp #$42
+    beq basload
+
+    ;Ignore rest
+exit:
+    rts
+
+basload:
+    jmp compile_basload
+
+close:
+    stz APP_MOD
+    jsr screen_clear_status
+    jsr screen_print_default_footer
+    jmp cursor_activate
+.endproc
     
 ;******************************************************************************
 ;Function name.......: keyboard_esc_key
@@ -1201,9 +1239,10 @@ msg:
     pha
 
     jsr cmd_delete
+    pla
+    
     bcs exit            ;C=1, at start of file
     
-    pla
     bne :+              ;There was an active selection that was ollapsed; refresh all of screen
     cpx #0
     bne :+              ;X=1, deleted an LF, need to refresh all of screen
@@ -1438,6 +1477,7 @@ keyboard_ctrl_jmptbl:
     .word cmd_rotate_text_color
     .word cmd_rotate_background_color
     .word cmd_mem_usage
+    .word compile_prompt
 
 .segment "VARS"
     keyboard_tabwidth:          .res 1              ;1 byte

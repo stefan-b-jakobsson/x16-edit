@@ -136,7 +136,7 @@ TMP2_IDX:   .res 1   ;Index
 ;*****************************************************************************
 .segment "VARS"
 
-bridge_code:            .res 71             ;Bridge code, used by ROM version of the program
+bridge_code:            .res 84             ;Bridge code, used by ROM version of the program
 APP_MOD:                .res 1              ;1 byte, application mode
 APP_QUIT:               .res 1              ;1 byte, used to signal program exit
 .if target_mem=target_rom

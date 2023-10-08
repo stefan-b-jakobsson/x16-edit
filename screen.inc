@@ -466,6 +466,22 @@ row2:
 .endproc
 
 ;******************************************************************************
+;Function name.......: screen_print_compile_ctx_footer
+;Purpose.............: Prints context footer for compile function
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_print_compile_ctx_footer
+    ldx #<row1
+    ldy #>row1
+    jmp screen_print_footer
+row1:
+    .byt ":^b basload", 0
+row2:
+    .byt 0
+.endproc
+
+;******************************************************************************
 ;Function name.......: screen_refresh
 ;Purpose.............: Refreshes editor area. Print will start 
 ;                      from memory address pointed to by zero page vectors 

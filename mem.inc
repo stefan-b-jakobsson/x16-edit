@@ -1243,7 +1243,6 @@ mem_full:
     bcc :+
 
     ldx #0          ;Yes, exit
-    sec
     rts
 
     ;Cursor at beginning of page?

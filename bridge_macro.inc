@@ -20,8 +20,11 @@
 bridge_call = bridge_code
 bridge_addr = bridge_call+3
 
-bridge_call2 = bridge_code+13
-bridge_addr2 = bridge_call2+6
+.if target_mem=target_rom
+    bridge_jsrfar_call = bridge_code+bridge_jsrfar-bridge_kernal
+    bridge_jsrfar_bank = bridge_jsrfar_call+8
+    bridge_jsrfar_addr = bridge_jsrfar_call+18
+.endif
 
 .if target_mem=target_rom
     .macro bridge_setaddr addr
@@ -31,18 +34,19 @@ bridge_addr2 = bridge_call2+6
         sta bridge_addr+1
     .endmacro
 
-    .macro bridge_setaddr2 addr
+    .macro bridge_jsrfar_setaddr addr
+        sta bridge_jsrfar_bank
         lda #<addr
-        sta bridge_addr2
+        sta bridge_jsrfar_addr
         lda #>addr
-        sta bridge_addr2+1
+        sta bridge_jsrfar_addr+1
     .endmacro
 .else
     .macro bridge_setaddr addr
         ;Do nothing
     .endmacro
 
-    .macro bridge_setaddr2 addr
+    .macro bridge_jsrfar_setaddr addr
         ;Do nothing
     .endmacro
 .endif
@@ -52,7 +56,7 @@ bridge_addr2 = bridge_call2+6
         jsr addr
     .endmacro
 
-    .macro bridge_call2 addr
+    .macro bridge_jsrfar_call addr
         jsr addr
     .endmacro
 
@@ -61,7 +65,7 @@ bridge_addr2 = bridge_call2+6
         jsr bridge_call
     .endmacro
 
-    .macro bridge_call2 addr
-        jsr bridge_call2
+    .macro bridge_jsrfar_call addr
+        jsr bridge_jsrfar_call
     .endmacro
 .endif

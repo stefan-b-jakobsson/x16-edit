@@ -264,8 +264,18 @@ exit:
     ;Initialize base functions
     stz selection_active
     jsr screen_get_dimensions
-    bridge_setaddr2 help_decompress
-    bridge_call2 help_decompress
+    
+    .if (::target_mem=target_rom)
+        lda rom_bank
+        inc
+    .endif
+    
+    bridge_jsrfar_setaddr help_decompress
+    sei
+    bridge_jsrfar_call help_decompress
+    cli
+    
+    
     jsr mem_init
     jsr file_init
     jsr keyboard_init
@@ -385,6 +395,7 @@ shutdown:
 .include "dir.inc"
 .include "selection.inc"
 .include "mouse.inc"
+.include "compile.inc"
 .include "help.inc"
 
 .if target_mem=target_rom
