@@ -47,27 +47,25 @@
 
     ;Get charset mode
     lda KERNAL_MODE
-    
-    cmp #2                   ;PETSCII upper case/graphics
-    bne :+
-    dec
-    bra setmode
+    beq unknown_mode
 
-:   cmp #3                   ;PETSCII upper/lower case
-    bne :+
-    dec
-    bra setmode
-
-:   cmp #65                  ;ISO
-    bne :+
+    bit #$40                 ;ISO mode flag
+    beq :+                   ;usually KERNAL_MODE 1 or 6 (| $40)
     lda #0
     bra setmode
-    
-:   bridge_setaddr KERNAL_CHROUT    ;Unkown
+
+:   bit #1                   ;PETSCII upper case/graphics
+    bne :+                   ;usually KERNAL_MODE 2 or 4
+    lda #1
+    bra setmode
+
+:   lda #2                   ;PETSCII upper/lower case
+    bra setmode              ;usually KERNAL_MODE 3 or 5
+unknown_mode:
+    bridge_setaddr KERNAL_CHROUT    ;Unknown
     lda #$0f
     bridge_call KERNAL_CHROUT
     lda #0
-
 setmode:
     sta screen_mode
 
