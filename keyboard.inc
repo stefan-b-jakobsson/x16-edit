@@ -44,7 +44,7 @@
 ;The only way to know whether the Ctrl key key is pressed is 
 ;to check the value of scancode_modifiers.
 
-keyboard_shortcut_count = 24
+keyboard_shortcut_count = 25
 
 ;******************************************************************************
 ;Function name.......: keyboard_init
@@ -140,7 +140,7 @@ keyval:                                 ;List of default shortcut keys
     .byt $4a, $59, $56, $4b, $43
     .byt $55, $19, $57, $53, $4c
     .byt $41, $5a, $45, $49, $44
-    .byt $54, $42, $4d, $46
+    .byt $54, $42, $4d, $46, $0d 
 
 config:
     .byt "//:x16editrc"
@@ -1457,6 +1457,15 @@ exit:
 :   rts
 .endproc
 
+.proc keyboard_line_brk_enc
+    inc file_linebreak_encoding
+    lda file_linebreak_encoding
+    cmp #3
+    bcc :+
+    stz file_linebreak_encoding
+:   rts
+.endproc
+
 ;Ctrl+key jump table
 keyboard_ctrl_jmptbl:
     .word cmd_show_help
@@ -1487,6 +1496,7 @@ keyboard_ctrl_jmptbl:
     .word cmd_rotate_background_color
     .word cmd_mem_usage
     .word compile_prompt
+    .word keyboard_line_brk_enc
 
 .segment "VARS"
     keyboard_tabwidth:          .res 1              ;1 byte

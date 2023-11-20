@@ -11,6 +11,7 @@ N   =New buffer  B=Backgr color
 K   =Cut         M=Mem free
 DEL =Del line    C=Copy
 1..9=Tab width   U=Uncut/paste
+ENT =Ln brk enc
 
 X16 Edit, (c) Stefan Jakobsson,
 released under the 2-Clause BSD

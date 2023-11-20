@@ -29,6 +29,7 @@ function key.
 ^M        Show memory usage (1 bank=251 bytes of text)
 ^SPACE    Insert non-breaking space
 ^1..9     Set tab width
+^ENTER    Set line break encoding
 
 
 X16 Edit, Copyright 2020-2023, Stefan Jakobsson.

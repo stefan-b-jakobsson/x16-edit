@@ -119,11 +119,17 @@ write_loop:
     beq get_next_page
     lda (TMP1_ADR),y
     
-    ldx screen_mode     ;Convert LF to CR line breaks if PETSCII mode (screenmode>0)
-    beq :+
+    ldx file_linebreak_encoding
+    beq :+  ; Line break encoding = LF
     cmp #LF
     bne :+
-    lda #CR
+
+    lda #CR ; Both other line break encodings start with CR
+    cpx #2 ; Line break encoding = CRLF
+    bne :+
+    bridge_call KERNAL_CHROUT
+    bcs io_err
+    lda #LF
 
 :   bridge_call KERNAL_CHROUT
     bcs io_err                      ;Check Kernal I/O error
@@ -262,17 +268,34 @@ check_char:
     ldx char
     sta char                ;Remember char until next loop
 
-    cpx #CR                 ;Convert CRLF to LF
-    bne :+
-    cmp #LF
-    beq byte_read_loop
+    cpx #CR                 ;Check if previous char was CR
+    bne brk_lf
 
-:   cmp #CR                 ;Convert CR to LF line break
+    cmp #LF                 ;Check if current char is LF
+    bne brk_cr
+
+brk_crlf:
+    lda #2
+    sta file_linebreak_encoding
+    bra byte_read_loop
+
+brk_cr:
+    lda #1
+    sta file_linebreak_encoding
+    lda #LF
+    bra brk_insert
+    
+brk_lf:
+    cmp #LF
     bne :+
+    stz file_linebreak_encoding
+:   cmp #CR
+    bne :+
+    lda #1
+    sta file_linebreak_encoding
     lda #LF
 
-:   cmp #LF
-    bne :+
+brk_insert:
     stz mem_cur_col
     stz mem_cur_col+1
     stz mem_cur_col+2
@@ -299,7 +322,7 @@ check_char:
 :   jsr mem_cur_col_inc
     dec tab_distance
     bne :---
-    bra byte_read_loop
+    jmp byte_read_loop
 
 insert:   
     ldy curpage_len
@@ -307,7 +330,7 @@ insert:
     bne :+
     jsr alloc_new_page
     jsr mem_cur_col_inc
-    bra byte_read_loop
+    jmp byte_read_loop
 
 :   sta (CRS_ADR),y
     inc curpage_len
@@ -611,4 +634,5 @@ file_ioerr_10:
     file_cur_filename_len:  .res 1              ;1 byte
     file_cur_device:        .res 1              ;1 byte
     file_dir_changed:       .res 1              ;1 byte, flag indicating whether directory was changed since current file was last read/saved
+    file_linebreak_encoding: .res 1
 .CODE
