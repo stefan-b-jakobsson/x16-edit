@@ -371,6 +371,9 @@ mainloop:
     bra mainloop
     
 shutdown:
+    ;Disable mouse
+    jsr mouse_disable
+
     ;Clear screen
     bridge_setaddr KERNAL_CHROUT
     lda #147

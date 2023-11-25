@@ -70,7 +70,7 @@ next:
     lda #(((VERA_SPRITE_ATTR >> 16) & $ff) | %00010000)    ; With auto-increment +1
     sta VERA_H
     ldx #0
-:       lda sprite_attr,x
+:   lda sprite_attr,x
     sta VERA_D0
     inx
     cpx #8
@@ -128,6 +128,18 @@ sprite_attr:
 black = tempvars
 white = tempvars+1
 
+.endproc
+
+;**********************************************************
+;Function name.......: mouse_disable
+;Description.........: Disables mouse poiinter
+;Input...............: Nothing
+;Error returns.......: Nothing
+.proc mouse_disable
+    bridge_setaddr KERNAL_MOUSE_CONFIG
+    lda #0
+    bridge_call KERNAL_MOUSE_CONFIG
+    rts
 .endproc
 
 ;**********************************************************
