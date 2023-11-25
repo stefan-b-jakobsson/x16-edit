@@ -85,6 +85,9 @@
 .define VERA_BUFADR_M $b0
 .define VERA_BUFADR_H $01
 
+.define VERA_SPRITE_ATTR $1fc00   ; VRAM address
+.define VERA_POINTER_ADDR $0      ; VRAM address where custom mouse pointer is stored
+
 ;*****************************************************************************
 ;ZERO PAGE "REGISTERS"
 ;*****************************************************************************

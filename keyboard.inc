@@ -229,8 +229,14 @@ jmptbl:
     beq ctrl
 
 default:
+    ;Hide mouse pointer
+    ldx mouse_visible
+    beq :+
+    clc
+    jsr mouse_display
+
     ;Search key value table for matches (control keys and other keys requiring special actions)
-    ldx #default_keyval_end-default_keyval
+:   ldx #default_keyval_end-default_keyval
 :   cmp default_keyval-1,x
     beq default_match
     dex

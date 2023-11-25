@@ -1,16 +1,167 @@
 MOUSE_LEFT_BUTTON = 1
 MOUSE_RIGHT_BUTTON = 2
 MOUSE_MIDDLE_BUTTON = 4
+MOUSE_X_OFFSET = 3
+MOUSE_Y_OFFSET = 6
 
 ;**********************************************************
 ;Function name.......: mouse_init
 ;Description.........: Initializes mouse state
 ;Input...............: Nothing
 ;Error returns.......: Nothing
-.proc mouse_init
+.proc mouse_init    
+    ; Copy mouse custom pointer graphics to VERA
+    lda #(VERA_POINTER_ADDR & $ff)
+    sta VERA_L
+    lda #((VERA_POINTER_ADDR >> 8) & $ff)
+    sta VERA_M
+    lda #(((VERA_POINTER_ADDR >> 16) & $ff) | %00010000)    ; With auto-increment +1
+    sta VERA_H
+
+    ldx #0
+    ldy #8
+loop1:
+    lda sprite_black_mask,x
+    sta black
+    lda sprite_white_mask,x
+    sta white
+
+loop2:
+    asl black
+    bcc :+
+    lda #16
+    sta VERA_D0
+    asl white
+    bra next
+    
+:   asl white
+    bcc :+
+    lda #31
+    sta VERA_D0
+    bra next
+
+:   stz VERA_D0
+
+next:
+    dey
+    bne loop2
+
+    ldy #8
+:   stz VERA_D0
+    dey
+    bne :-
+
+    inx
+    cpx #13
+    beq :+
+    ldy #8
+    bra loop1
+
+:   ldx #48
+:   stz VERA_D0
+    dex
+    bne :-
+
+    ; Configure sprite #0
+    lda #(VERA_SPRITE_ATTR & $ff)
+    sta VERA_L
+    lda #((VERA_SPRITE_ATTR >> 8) & $ff)
+    sta VERA_M
+    lda #(((VERA_SPRITE_ATTR >> 16) & $ff) | %00010000)    ; With auto-increment +1
+    sta VERA_H
+    ldx #0
+:       lda sprite_attr,x
+    sta VERA_D0
+    inx
+    cpx #8
+    bne :-
+
+    ; Enable mouse
+    bridge_setaddr KERNAL_MOUSE_CONFIG
+    ldx screen_width
+    ldy screen_height
+    lda #$ff
+    bridge_call KERNAL_MOUSE_CONFIG
+
+    ; Init state
     stz mouse_button_state
     stz mouse_last_pos
     stz mouse_last_pos+1
+    lda #1
+    sta mouse_visible
+
+    rts
+
+sprite_black_mask:
+    .byt %00000000
+    .byt %01111100
+    .byt %00010000
+    .byt %00010000
+    .byt %00010000
+    .byt %00010000
+    .byt %00111000
+    .byt %00010000
+    .byt %00010000
+    .byt %00010000
+    .byt %00010000
+    .byt %01111100
+    .byt %00000000
+
+sprite_white_mask:
+    .byt %11111110
+    .byt %10000010
+    .byt %11101110
+    .byt %00101000
+    .byt %00101000
+    .byt %00101000
+    .byt %01000100
+    .byt %00101000
+    .byt %00101000
+    .byt %00101000
+    .byt %11101110
+    .byt %10000010
+    .byt %11111110
+
+sprite_attr:
+    ; Address VERA_POINTER_ADDR, Mode 8bpp, Height 16 px, Width 16 px
+    .byt (VERA_POINTER_ADDR>>5) & $ff, ((VERA_POINTER_ADDR>>13) & $ff) | $80, 0, 0, 0, 0, 0, $50
+
+black = tempvars
+white = tempvars+1
+
+.endproc
+
+;**********************************************************
+;Function name.......: mouse_display
+;Description.........: Shows or hides the mouse pointer
+;Input...............: C    0: Hide mouse
+;                           1: Show mouse
+;Error returns.......: Nothing
+.proc mouse_display
+    pha
+
+    ; Setup address to attributes for sprite #0
+    lda #(VERA_SPRITE_ATTR & $ff) + 6
+    sta VERA_L
+    lda #((VERA_SPRITE_ATTR >> 8) & $ff)
+    sta VERA_M
+    lda #((VERA_SPRITE_ATTR >> 16) & $ff)
+    sta VERA_H
+    
+    ; Set mouse flag to not visible
+    stz mouse_visible
+
+    ; Set Z-depth attribute according to value of C flag
+    lda VERA_D0
+    bcs :+
+    and #%11110011
+    bra :++
+:   ora #%00001100
+    inc mouse_visible
+:   sta VERA_D0
+    
+    ; Exit
+    pla
     rts
 .endproc
 
@@ -36,6 +187,27 @@ MOUSE_MIDDLE_BUTTON = 4
 
     ; Store wheel
     stx mouse_wheel
+
+    ; Offset to center of mouse pointer
+    pha
+
+    clc
+    lda TMP1_BNK
+    adc #MOUSE_X_OFFSET
+    sta TMP1_BNK
+    lda TMP1_BNK+1
+    adc #0
+    sta TMP1_BNK+1
+
+    clc
+    lda TMP1_BNK+2
+    adc #MOUSE_Y_OFFSET
+    sta TMP1_BNK+2
+    lda TMP1_BNK+3
+    adc #0
+    sta TMP1_BNK+3
+
+    pla
 
     ; Divide mouse pointer X and Y coordinates by 8; translate from pixel to character
     ldx #3
@@ -264,4 +436,5 @@ refresh:
 mouse_button_state: .res 1
 mouse_last_pos: .res 2
 mouse_wheel: .res 1
+mouse_visible: .res 1
 .CODE
