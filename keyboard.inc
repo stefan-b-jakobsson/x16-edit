@@ -230,13 +230,16 @@ jmptbl:
 
 default:
     ;Hide mouse pointer
-    ldx mouse_visible
-    beq :+
-    clc
-    jsr mouse_display
+    ldx #(VERA_SPRITE_ATTR & $ff) + 6
+    stx VERA_L
+    ldx #((VERA_SPRITE_ATTR >> 8) & $ff)
+    stx VERA_M
+    ldx #((VERA_SPRITE_ATTR >> 16) & $ff)
+    stx VERA_H
+    stz VERA_D0
 
     ;Search key value table for matches (control keys and other keys requiring special actions)
-:   ldx #default_keyval_end-default_keyval
+    ldx #default_keyval_end-default_keyval
 :   cmp default_keyval-1,x
     beq default_match
     dex

@@ -1,7 +1,5 @@
-
-Commands are selected by holding down Ctrl and pressing a 
-shortcut key. Alternatively press and release ESC and
-then a shortcut key. Some commands are available via a
+Hold down Ctrl and press a shortcut key. Alternatively press and release 
+ESC and then a shortcut key. Some commands are also available via a
 function key.
  
 ^G  (F1)  Display built-in help screen
@@ -34,5 +32,5 @@ function key.
 
 X16 Edit, Copyright 2020-2023, Stefan Jakobsson.
 
-Released under the terms of the 2-Clause BSD license, available
-in the enclosed "license" file.
+Released under the 2-Clause BSD license, available in the enclosed 
+"license" file.

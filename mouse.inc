@@ -88,7 +88,6 @@ next:
     stz mouse_last_pos
     stz mouse_last_pos+1
     lda #1
-    sta mouse_visible
 
     rts
 
@@ -129,40 +128,6 @@ sprite_attr:
 black = tempvars
 white = tempvars+1
 
-.endproc
-
-;**********************************************************
-;Function name.......: mouse_display
-;Description.........: Shows or hides the mouse pointer
-;Input...............: C    0: Hide mouse
-;                           1: Show mouse
-;Error returns.......: Nothing
-.proc mouse_display
-    pha
-
-    ; Setup address to attributes for sprite #0
-    lda #(VERA_SPRITE_ATTR & $ff) + 6
-    sta VERA_L
-    lda #((VERA_SPRITE_ATTR >> 8) & $ff)
-    sta VERA_M
-    lda #((VERA_SPRITE_ATTR >> 16) & $ff)
-    sta VERA_H
-    
-    ; Set mouse flag to not visible
-    stz mouse_visible
-
-    ; Set Z-depth attribute according to value of C flag
-    lda VERA_D0
-    bcs :+
-    and #%11110011
-    bra :++
-:   ora #%00001100
-    inc mouse_visible
-:   sta VERA_D0
-    
-    ; Exit
-    pla
-    rts
 .endproc
 
 ;**********************************************************
@@ -436,5 +401,4 @@ refresh:
 mouse_button_state: .res 1
 mouse_last_pos: .res 2
 mouse_wheel: .res 1
-mouse_visible: .res 1
 .CODE
