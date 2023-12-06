@@ -10,7 +10,44 @@ MOUSE_Y_OFFSET = 6
 ;Input...............: Nothing
 ;Error returns.......: Nothing
 .proc mouse_init    
-    ; Copy mouse custom pointer graphics to VERA
+    ; Determine sprite color (dark background -> bright pointer, and vice versa)
+    lda screen_color        ; Get background color
+    lsr
+    lsr
+    lsr
+    lsr
+
+    ldx #7                  ; Check if background is a bright color
+:   cmp bright_colors-1,x
+    beq bright_bg
+    dex
+    bne :-
+
+dark_bg:
+    ; Background is dark, select white (1) or yellow (12) if text color is white
+    lda screen_color
+    and #%00001111
+    cmp #1
+    beq :+
+    lda #1
+    bra set_color
+:   lda #13
+    bra set_color
+
+bright_bg:
+    ; Background is bright, select black (0) or gray (12) if text color is
+    lda screen_color
+    and #%00001111
+    cmp #0
+    beq :+
+    lda #16
+    bra set_color
+:   lda #11
+
+set_color:
+    sta sprite_color
+    
+    ; Prepare copying sprite data to VERA address 0x0000
     lda #(VERA_POINTER_ADDR & $ff)
     sta VERA_L
     lda #((VERA_POINTER_ADDR >> 8) & $ff)
@@ -18,50 +55,46 @@ MOUSE_Y_OFFSET = 6
     lda #(((VERA_POINTER_ADDR >> 16) & $ff) | %00010000)    ; With auto-increment +1
     sta VERA_H
 
-    ldx #0
-    ldy #8
+    ; Copy pixel data
+    ldx #0  ; Row
+    ldy #8  ; Pixels per byte
 loop1:
-    lda sprite_black_mask,x
-    sta black
-    lda sprite_white_mask,x
-    sta white
+    lda sprite_data,x
+    sta pixels
 
 loop2:
-    asl black
+    ; Store pixel
+    asl pixels
     bcc :+
-    lda #16
-    sta VERA_D0
-    asl white
-    bra next
-    
-:   asl white
-    bcc :+
-    lda #31
+    lda sprite_color
     sta VERA_D0
     bra next
-
 :   stz VERA_D0
 
 next:
     dey
     bne loop2
 
+    ; Clear the 8 rightmost pixels
     ldy #8
 :   stz VERA_D0
     dey
     bne :-
 
+    ; Check if all 12 pixel rows have been copied
     inx
-    cpx #13
+    cpx #12
     beq :+
     ldy #8
     bra loop1
 
-:   ldx #48
+    ; Clear remainder of the sprite
+:   ldx #64
 :   stz VERA_D0
     dex
     bne :-
 
+config:
     ; Configure sprite #0
     lda #(VERA_SPRITE_ATTR & $ff)
     sta VERA_L
@@ -87,46 +120,31 @@ next:
     stz mouse_button_state
     stz mouse_last_pos
     stz mouse_last_pos+1
-    lda #1
-
     rts
 
-sprite_black_mask:
-    .byt %00000000
-    .byt %01111100
-    .byt %00010000
-    .byt %00010000
-    .byt %00010000
-    .byt %00010000
-    .byt %00111000
-    .byt %00010000
-    .byt %00010000
-    .byt %00010000
-    .byt %00010000
-    .byt %01111100
-    .byt %00000000
-
-sprite_white_mask:
-    .byt %11111110
-    .byt %10000010
-    .byt %11101110
-    .byt %00101000
-    .byt %00101000
-    .byt %00101000
-    .byt %01000100
-    .byt %00101000
-    .byt %00101000
-    .byt %00101000
-    .byt %11101110
-    .byt %10000010
-    .byt %11111110
+sprite_data:
+    .byt %11110000
+    .byt %01100000
+    .byt %01100000
+    .byt %01100000
+    .byt %01100000
+    .byt %01100000
+    .byt %01100000
+    .byt %01100000
+    .byt %01100000
+    .byt %01100000
+    .byt %01100000
+    .byt %11110000
 
 sprite_attr:
     ; Address VERA_POINTER_ADDR, Mode 8bpp, Height 16 px, Width 16 px
     .byt (VERA_POINTER_ADDR>>5) & $ff, ((VERA_POINTER_ADDR>>13) & $ff) | $80, 0, 0, 0, 0, 0, $50
 
-black = tempvars
-white = tempvars+1
+pixels = tempvars
+sprite_color = tempvars + 1
+
+bright_colors:
+    .byt 1, 3, 5, 7, 10, 13, 15
 
 .endproc
 

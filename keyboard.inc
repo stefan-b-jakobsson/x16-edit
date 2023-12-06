@@ -44,7 +44,7 @@
 ;The only way to know whether the Ctrl key key is pressed is 
 ;to check the value of scancode_modifiers.
 
-keyboard_shortcut_count = 25
+keyboard_shortcut_count = 26
 
 ;******************************************************************************
 ;Function name.......: keyboard_init
@@ -140,7 +140,8 @@ keyval:                                 ;List of default shortcut keys
     .byt $4a, $59, $56, $4b, $43
     .byt $55, $19, $57, $53, $4c
     .byt $41, $5a, $45, $49, $44
-    .byt $54, $42, $4d, $46, $0d 
+    .byt $54, $42, $4d, $46, $0d
+    .byt $51
 
 config:
     .byt "//:x16editrc"
@@ -214,6 +215,7 @@ jmptbl:
     .word keyboard_mode_dos_cmd                 ;APP mode 20
     .word keyboard_mode_justify                 ;APP mode 21
     .word keyboard_mode_compile                 ;APP mode 22
+    .word keyboard_mode_quote                   ;APP mode 23
 .endproc
 
 ;******************************************************************************
@@ -1211,6 +1213,27 @@ close:
     jsr screen_print_default_footer
     jmp cursor_activate
 .endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_quote
+;Purpose.............: Key dispatcher: Quote mode
+;Input...............: A = char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_quote
+    cmp #KEYVAL_ESC
+    beq close
+
+    ;Insert char into buffer and update screen
+    jsr cmd_insert
+    bcs :+
+    jmp screen_println
+:   jmp screen_refresh
+
+close:
+    stz APP_MOD
+    jmp screen_clear_status
+.endproc
     
 ;******************************************************************************
 ;Function name.......: keyboard_esc_key
@@ -1506,6 +1529,8 @@ keyboard_ctrl_jmptbl:
     .word cmd_mem_usage
     .word compile_prompt
     .word keyboard_line_brk_enc
+
+    .word cmd_quote_mode
 
 .segment "VARS"
     keyboard_tabwidth:          .res 1              ;1 byte

@@ -5,7 +5,6 @@
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc compile_prompt
-    rts
     lda #22
     sta APP_MOD
     jsr cursor_disable
@@ -15,7 +14,7 @@
     jmp screen_print_compile_ctx_footer
 
 msg:
-    .byt "select compile tool",0
+    .byt "select tool",0
 .endproc
 
 ;******************************************************************************
@@ -25,9 +24,22 @@ msg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc compile_basload
-    ;Copy file name
-    stz BNK_SEL
+    ;Check file name existence
     ldx file_cur_filename_len
+    bne :+
+    
+    lda #2
+    sta APP_MOD
+    
+    jsr screen_clear_status
+    jsr screen_print_default_footer
+    ldx #<msg_nofile
+    ldy #>msg_nofile
+    jsr screen_print_status
+    jmp cursor_activate
+
+    ;Copy file name
+:   stz BNK_SEL
 :   lda file_cur_filename-1,x
     sta $bf00-1,x
     dex
@@ -70,6 +82,6 @@ msg:
     sta APP_MOD
     jmp cursor_activate
 
-test:
-    .byt "test message",0
+msg_nofile:
+    .byt "file not saved",0
 .endproc

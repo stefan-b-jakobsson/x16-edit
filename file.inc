@@ -119,14 +119,15 @@ write_loop:
     beq get_next_page
     lda (TMP1_ADR),y
     
-    ldx file_linebreak_encoding
-    beq :+  ; Line break encoding = LF
     cmp #LF
     bne :+
+    
+    ldx file_linebreak_encoding
+    beq :+  ; Line break encoding = LF
 
     lda #CR ; Both other line break encodings start with CR
-    cpx #2 ; Line break encoding = CRLF
-    bne :+
+    cpx #1 ; Line break encoding = CRLF
+    beq :+
     bridge_call KERNAL_CHROUT
     bcs io_err
     lda #LF
@@ -268,41 +269,36 @@ check_char:
     ldx char
     sta char                ;Remember char until next loop
 
+    ;Line break handling
     cpx #CR                 ;Check if previous char was CR
-    bne brk_lf
+    bne :+
+    
+    cmp #LF                 ;Yes, check if the last char was LF
+    bne tab
 
-    cmp #LF                 ;Check if current char is LF
-    bne brk_cr
-
-brk_crlf:
-    lda #2
+    lda #2                  ;Line break is CRLF, ignore LF
     sta file_linebreak_encoding
     bra byte_read_loop
 
-brk_cr:
+:   cmp #LF                 ;Previous char wasn't CR, check if last char was LF
+    beq :+                  ;Yes, line break encoding is LF
+    cmp #CR                 ;Check if last char was CR
+    bne tab
+
     lda #1
     sta file_linebreak_encoding
-    lda #LF
     bra brk_insert
-    
-brk_lf:
-    cmp #LF
-    bne :+
-    stz file_linebreak_encoding
-:   cmp #CR
-    bne :+
-    lda #1
-    sta file_linebreak_encoding
-    lda #LF
+
+:   stz file_linebreak_encoding
 
 brk_insert:
     stz mem_cur_col
     stz mem_cur_col+1
     stz mem_cur_col+2
     lda #LF
-    bra insert
 
-:   cmp #KEYVAL_TAB         ;Convert tab to blank spaces
+tab:
+    cmp #KEYVAL_TAB         ;Convert tab to blank spaces
     bne insert
     
     jsr cmd_next_tab_stop
