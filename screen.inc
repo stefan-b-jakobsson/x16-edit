@@ -512,7 +512,7 @@ row2:
     ldy #>row1
     jmp screen_print_footer
 row1:
-    .byt ":^b basload", 0
+    .byt ": b basload", 0
 row2:
     .byt 0
 .endproc

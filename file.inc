@@ -23,6 +23,10 @@
 ;OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ;*******************************************************************************
 
+LINEBREAK_LF = 0
+LINEBREAK_CR = 1
+LINEBREAK_CRLF = 2
+
 ;******************************************************************************
 ;Function name.......: file_init
 ;Purpose.............: Initializes the file functions, and clears the current 
@@ -62,7 +66,9 @@ msg:
 ;                      Length of file name in A
 ;Returns.............: Nothing
 ;Error returns.......: Kernal I/O error code available in file_io_err
-.proc file_write   
+;Bank................: 2nd
+.segment "CODE2"
+.proc file_write
     ;Set default = no i/o error
     stz file_io_err
 
@@ -191,6 +197,7 @@ close_file:
 
 page_len = tempvars     ;1 byte
 .endproc
+.CODE
 
 ;******************************************************************************
 ;Function name.......: file_read
@@ -199,6 +206,8 @@ page_len = tempvars     ;1 byte
 ;                      Length of file name in A
 ;Returns.............: Nothing
 ;Error returns.......: Kernal I/O error code available in file_io_err
+;Bank................: 2nd
+.segment "CODE2"
 .proc file_read
     ;Set default = no I/O error
     stz file_io_err
@@ -243,7 +252,7 @@ page_len = tempvars     ;1 byte
 
 continue:
     ;Clear and initialize memory
-    jsr mem_init
+    call_firstbank mem_init
     lda CRS_BNK
     sta BNK_SEL
 
@@ -266,30 +275,30 @@ byte_read_loop:
     bridge_call KERNAL_CHRIN
 
 check_char:
-    ldx char
-    sta char                ;Remember char until next loop
+    ldx char                ;Load previous char into X
+    sta char                ;Remember current char until next loop
 
     ;Line break handling
-    cpx #CR                 ;Check if previous char was CR
+    cmp #CR                 ;Check if current char is CR
     bne :+
-    
-    cmp #LF                 ;Yes, check if the last char was LF
-    bne tab
-
-    lda #2                  ;Line break is CRLF, ignore LF
-    sta file_linebreak_encoding
-    bra byte_read_loop
-
-:   cmp #LF                 ;Previous char wasn't CR, check if last char was LF
-    beq :+                  ;Yes, line break encoding is LF
-    cmp #CR                 ;Check if last char was CR
-    bne tab
-
-    lda #1
+    lda #LINEBREAK_CR
     sta file_linebreak_encoding
     bra brk_insert
 
-:   stz file_linebreak_encoding
+:   cpx #CR                 ;Check if previous char was CR
+    bne :+
+    
+    cmp #LF                 ;Yes, check if current char is LF
+    bne tab
+
+    lda #LINEBREAK_CRLF     ;Line break is CRLF, ignore current char
+    sta file_linebreak_encoding
+    bra byte_read_loop
+
+:   cmp #LF                 ;Previous char wasn't CR, check if current char is LF
+    bne tab
+    lda #LINEBREAK_LF
+    sta file_linebreak_encoding
 
 brk_insert:
     stz mem_cur_col
@@ -301,7 +310,7 @@ tab:
     cmp #KEYVAL_TAB         ;Convert tab to blank spaces
     bne insert
     
-    jsr cmd_next_tab_stop
+    call_firstbank cmd_next_tab_stop
     stx tab_distance
 
 :   lda #32
@@ -309,13 +318,13 @@ tab:
     ldy curpage_len
     cpy #251
     bcc :+
-    jsr alloc_new_page
+    call_firstbank alloc_new_page
     bra :++
 
 :   sta (CRS_ADR),y
     inc curpage_len
     
-:   jsr mem_cur_col_inc
+:   call_firstbank mem_cur_col_inc
     dec tab_distance
     bne :---
     jmp byte_read_loop
@@ -325,13 +334,13 @@ insert:
     cpy #251
     bne :+
     jsr alloc_new_page
-    jsr mem_cur_col_inc
+    call_firstbank mem_cur_col_inc
     jmp byte_read_loop
 
 :   sta (CRS_ADR),y
     inc curpage_len
 
-    jsr mem_cur_col_inc
+    call_firstbank mem_cur_col_inc
     jmp byte_read_loop
 
 alloc_new_page:
@@ -345,7 +354,7 @@ alloc_new_page:
     lda curpage_len
     sta (CRS_ADR),y
 
-    jsr mem_alloc   ;Y=bank, X=page
+    call_firstbank mem_alloc   ;Y=bank, X=page
     cpx #0          ;Mem full?
     beq mem_full
     
@@ -390,6 +399,16 @@ goto_start:
     sta CRS_ADR+1
     
     stz CRS_IDX
+
+    stz mem_cur_col
+    inc mem_cur_col
+    stz mem_cur_col+1
+    stz mem_cur_col+2
+
+    stz mem_cur_line
+    inc mem_cur_line
+    stz mem_cur_line+1
+    stz mem_cur_line+2
     
 close:
     bridge_setaddr KERNAL_CLOSE
@@ -416,6 +435,7 @@ mem_full:
     tab_distance: .res 1
 .CODE
 
+.CODE
 msg:
     .byt "memory full",0
 .endproc

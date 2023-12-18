@@ -1190,7 +1190,6 @@ no:
 
     ;Exit if control key up
     ldx scancode_modifiers
-    cpx #KBD_MODIFIER_CTRL
     bne exit
 
     ;Clear bit 5
@@ -1205,7 +1204,8 @@ exit:
     rts
 
 basload:
-    jmp compile_basload
+    call_secondbank compile_basload
+    rts
 
 close:
     stz APP_MOD
