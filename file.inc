@@ -87,10 +87,10 @@ msg:
     ldx file_cur_device
     ldy #1
     bridge_call KERNAL_SETLFS
-    bcc :+
-    jmp io_err
 
-:   bridge_setaddr KERNAL_OPEN
+    jsr file_filename_copy
+
+    bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
     bcc :+
     jmp io_err
@@ -202,8 +202,8 @@ close_file:
     bridge_call KERNAL_CLOSE
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
-
-    rts
+    
+    jmp file_filename_restore
 
 writebuf:
     phy
@@ -269,6 +269,8 @@ buf = file_cur_filename
     ldy #0
     bridge_call KERNAL_SETLFS
 
+    jsr file_filename_copy
+
     bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
     bcc :+
@@ -280,57 +282,62 @@ buf = file_cur_filename
     bcc :+
     jmp io_err
 
-    ; Backup file name to banked RAM; we're using the filename buffer as input buffer
+    ; Init
 :   stz init_flag
     stz char
 
 fill_buf:
-    ;First try to fill buffer with MACPTR
+    ;Try MACPTR
     bridge_setaddr KERNAL_MACPTR
     ldx #<buf
     ldy #>buf
     lda #$ff
     clc
     bridge_call KERNAL_MACPTR
+    bcs fill_buf2 ;Block reading not supported, or file error
     stx buflen
-    bcs fill_buf2
     
+    ;Read status
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     sta status
     bra prepare
 
-    ;If MACPTR not supported, fill buffer with CHRIN
 fill_buf2:
+    ;Fallback to using CHRIN
     ldx #0
-:   bridge_setaddr KERNAL_CHRIN
+
+:   cpx #$ff
+    beq :+ ; Buffer full
+
+    bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
-    cpx #$ff
-    beq :+
     sta buf,x
+    
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     sta status
-    bne loop
+    bne prepare ; EOI or file error
     inx
     bra :-
 :   stx buflen
 
 prepare:
-    ;Init text buffer
+    ;Init text buffer if not done before
     lda init_flag
     bne :+
     inc init_flag
     call_firstbank mem_init
     stz curpage_len
 
-:   ;Check errors
+:   ;Check file errors
     lda status
     and #%10000010
     beq :+
-    jmp io_err
+    stz CRS_ADR
+    jmp close
 
-:   ;No content => EOF
+:   ;Check empty buffer
     lda buflen
     bne :+
     jmp eof
@@ -467,7 +474,7 @@ close:
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
 
-    rts
+    jmp file_filename_restore
 
 mem_full:
     pla             ;Clean stack
@@ -698,6 +705,12 @@ exit:
 
 .endproc
 
+;******************************************************************************
+;Function name.......: file_name_copy
+;Purpose.............: Copies the file name buffer to banked RAM
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
 .segment "CODE2"
 .proc file_filename_copy
     ; Select first RAM bank
@@ -715,7 +728,15 @@ loop:
 exit:
     rts
 .endproc
+.CODE
 
+;******************************************************************************
+;Function name.......: file_name_restore
+;Purpose.............: Restores the file name buffer from banked RAM
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.segment "CODE2"
 .proc file_filename_restore
     ; Select first RAM bank
     lda mem_start
