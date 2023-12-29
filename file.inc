@@ -208,7 +208,7 @@ page_len = tempvars     ;1 byte
 ;Error returns.......: Kernal I/O error code available in file_io_err
 ;Bank................: 2nd
 .segment "CODE2"
-.proc file_read
+.proc file_read 
     ;Set default = no I/O error
     stz file_io_err
 
@@ -239,46 +239,74 @@ page_len = tempvars     ;1 byte
     bcc :+
     jmp io_err
 
-    ;Get one byte to see if there are any disk errors, in particular file not found
+    ; Backup file name to banked RAM; we're using the filename buffer as input buffer
+:   stz init_flag
+
+fill_buf:
+    ;First try to fill buffer with MACPTR
+    bridge_setaddr KERNAL_MACPTR
+    ldx #<buf
+    ldy #>buf
+    lda #$ff
+    clc
+    bridge_call KERNAL_MACPTR
+    stx buflen
+    bcs fill_buf2
+    
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST
+    sta status
+    bra prepare
+
+    ;If MACPTR not supported, fill buffer with CHRIN
+fill_buf2:
+    ldx #0
 :   bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
-    sta char
-
-    bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST
-    and #%10000010            ;Check if bit 1 (read timeout) or 7 (device not present)
-    beq continue
-    jmp close
-
-continue:
-    ;Clear and initialize memory
-    call_firstbank mem_init
-    lda CRS_BNK
-    sta BNK_SEL
-
-    ;Store first char
-    lda #5                  ;Set offset to first char
-    sta CRS_ADR
-    ldy #0
-    stz curpage_len
-    lda char
-    stz char
-    bra check_char
-
-byte_read_loop:
-    bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST
+    cpx #$ff
     beq :+
+    sta buf,x
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST
+    sta status
+    bne loop
+    inx
+    bra :-
+:   stx buflen
+
+prepare:
+    ;Init text buffer
+    lda init_flag
+    bne :+
+    inc init_flag
+    call_firstbank mem_init
+    stz curpage_len
+
+:   ;Check errors
+    lda status
+    and #%10000010
+    beq :+
+    jmp io_err
+
+:   ;No content => EOF
+    lda buflen
+    bne :+
     jmp eof
 
-:   bridge_setaddr KERNAL_CHRIN
-    bridge_call KERNAL_CHRIN
+:   stz index
+    lda #5
+    sta CRS_ADR
+    
+loop:
+    ;Get next char from buffer
+    ldx index
+    lda buf,x
 
-check_char:
-    ldx char                ;Load previous char into X
-    sta char                ;Remember current char until next loop
+    ;Load previous char into X and remember the current char until next time
+    ldx char
+    sta char
 
-    ;Line break handling
+    ;Handle line breaks
     cmp #CR                 ;Check if current char is CR
     bne :+
     lda #LINEBREAK_CR
@@ -293,7 +321,7 @@ check_char:
 
     lda #LINEBREAK_CRLF     ;Line break is CRLF, ignore current char
     sta file_linebreak_encoding
-    bra byte_read_loop
+    bra loop
 
 :   cmp #LF                 ;Previous char wasn't CR, check if current char is LF
     bne tab
@@ -313,67 +341,43 @@ tab:
     call_firstbank cmd_next_tab_stop
     stx tab_distance
 
-:   lda #32
+:   ldy curpage_len
+    cpy #251
+    bcc :+
+    jsr alloc
 
+:   lda #32
+    sta (CRS_ADR),y
+    inc curpage_len
+    
+    dec tab_distance
+    beq movenext
+
+    call_firstbank mem_cur_col_inc
+    bra :--
+
+insert:
+    ;Check if there is space left in the current page
     ldy curpage_len
     cpy #251
     bcc :+
-    call_firstbank alloc_new_page
-    bra :++
+    jsr alloc
 
-:   sta (CRS_ADR),y
-    inc curpage_len
-    
-:   call_firstbank mem_cur_col_inc
-    dec tab_distance
-    bne :---
-    jmp byte_read_loop
-
-insert:   
-    ldy curpage_len
-    cpy #251
-    bne :+
-    jsr alloc_new_page
-    call_firstbank mem_cur_col_inc
-    jmp byte_read_loop
-
-:   sta (CRS_ADR),y
+:   ldy curpage_len
+    sta (CRS_ADR),y
     inc curpage_len
 
+movenext:
     call_firstbank mem_cur_col_inc
-    jmp byte_read_loop
+    inc index
+    ldx index
+    cpx buflen
+    bcs :+
+    jmp loop
 
-alloc_new_page:
-    pha             ;Save char to insert on stack
-
-    stz CRS_ADR
-
-    lda CRS_BNK     ;Set current page length
-    sta BNK_SEL
-    ldy #4
-    lda curpage_len
-    sta (CRS_ADR),y
-
-    call_firstbank mem_alloc   ;Y=bank, X=page
-    cpx #0          ;Mem full?
-    beq mem_full
-    
-    sty BNK_SEL     ;Select the newly allocated page
-    sty CRS_BNK
-    stx CRS_ADR+1
-    
-    lda #5          ;Offset to skip mem page metadata
-    sta CRS_ADR
-
-    ldy #0
-    
-    pla             ;Insert the char that was read from memory
-    sta (CRS_ADR),y
-    
-    ldy #1          ;Set page len = 1
-    sty curpage_len
-
-    rts
+:   lda status
+    bne eof
+    jmp fill_buf
 
 io_err:
     ;Set kernal error
@@ -426,15 +430,47 @@ mem_full:
     pla
     jsr eof
     lda #10         ;Set memory full error
-    bra io_err      
+    bra io_err
+
+alloc:
+    pha             ;Save char to insert on stack
+
+    stz CRS_ADR
+
+    lda CRS_BNK     ;Set current page length
+    sta BNK_SEL
+    ldy #4
+    lda curpage_len
+    sta (CRS_ADR),y
+
+    call_firstbank mem_alloc   ;Y=bank, X=page
+    cpx #0          ;Mem full?
+    beq mem_full
+    
+    sty BNK_SEL     ;Select the newly allocated page
+    sty CRS_BNK
+    stx CRS_ADR+1
+    
+    lda #5          ;Offset to skip mem page metadata
+    sta CRS_ADR
+
+    ldy #0
+    
+    stz curpage_len ;Set new page len
+    
+    pla             ;Fetch char from stack
+    rts
 
 .segment "VARS"
+    buf = file_cur_filename
+    buflen: .res 1
+    index: .res 1
+    status: .res 1
     char: .res 1
     curpage_len: .res 1
     newpage: .res 2 
     tab_distance: .res 1
-.CODE
-
+    init_flag: .res 1
 .CODE
 msg:
     .byt "memory full",0
@@ -616,6 +652,44 @@ exit:
     rts
 
 .endproc
+
+.segment "CODE2"
+.proc file_filename_copy
+    ; Select first RAM bank
+    lda mem_start
+    sta BNK_SEL
+
+    ; Copy
+    ldx file_cur_filename_len
+    beq exit
+loop:
+    lda file_cur_filename-1,x
+    sta filename_backup-1,x
+    dex
+    bne loop
+exit:
+    rts
+.endproc
+
+.proc file_filename_restore
+    ; Select first RAM bank
+    lda mem_start
+    sta BNK_SEL
+
+    ; Copy
+    ldx file_cur_filename_len
+    beq exit
+loop:
+    lda filename_backup-1,x
+    sta file_cur_filename-1,x
+    dex
+    bne loop
+
+exit:
+    rts
+.endproc
+.CODE
+
 
 ;Kernal error codes and their meaning (source: C64 PRG, 1:st ed, 9:th printing, 1987, page 306)
 file_ioerr_L:

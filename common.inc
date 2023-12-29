@@ -166,7 +166,8 @@ mem_map                                 = $a000               ;1024 bytes ($a000
 clipboard_mem                           = $a400               ;3072 bytes ($a400-$afff)
 ram_backup_storage                      = $b000               ;1280 bytes ($b000-$b4ff)
 dir_entry                               = $b500               ;256 bytes
-help_txt                                = $b600
+filename_backup                         = $b600               ;256 bytes
+help_txt                                = $b700
 
 ;*****************************************************************************
 ;CONSTANTS
