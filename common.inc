@@ -53,6 +53,7 @@
 .define KERNAL_MEMTOP $ff99
 .define KERNAL_DECOMPRESS $feed
 .define KERNAL_MACPTR $ff44
+.define KERNAL_MCIOUT $feb1
 .define KERNAL_SCREEN_MODE $ff5f
 .define KERNAL_FETCH $ff74
 

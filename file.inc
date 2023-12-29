@@ -118,41 +118,47 @@ msg:
     ldy #5
     sty TMP1_ADR
     
-    bridge_setaddr KERNAL_CHROUT
     ldy #0
-write_loop:
+
+loop:
+    ;Check if page is full
     cpy page_len
     beq get_next_page
     lda (TMP1_ADR),y
     
+    ;Check if line break
     cmp #LF
     bne :+
     
+    ;Get line break encoding (0=LF, 1=CR, 2=CRLF)
     ldx file_linebreak_encoding
-    beq :+  ; Line break encoding = LF
+    beq :+ ;=LF
 
-    lda #CR ; Both other line break encodings start with CR
-    cpx #1 ; Line break encoding = CRLF
+    lda #CR     ;Both other line break encodings start with CR
+    cpx #1      ;=CR
     beq :+
-    bridge_call KERNAL_CHROUT
-    bcs io_err
+
+    ;CRLF
+    ldx index
+    sta buf,x
+    inc index
     lda #LF
 
-:   bridge_call KERNAL_CHROUT
-    bcs io_err                      ;Check Kernal I/O error
+    ;Store char in buffer
+:   ldx index
+    sta buf,x
 
+    ;If buffer contains at least 254 chars, write out
+    cpx #254
+    bcc :+
+    jsr writebuf
+    bra loop
+    
+:   inc index
     iny
-    bra write_loop
+    bra loop
 
 get_next_page:
-    ;Check disk status
-    bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST
-    beq :+
-    lda #0
-    bra io_err
-:   bridge_setaddr KERNAL_CHROUT
-
     ;Reset to get page metadata
     stz TMP1_ADR
 
@@ -164,7 +170,7 @@ get_next_page:
     ;Next page
     ldy #3
     lda (TMP1_ADR),y
-    beq close_file                      ;Next page = 0 means (successfully) reached end of file
+    beq eof                      ;Next page = 0 means (successfully) reached end of file
     
     ;Set pointer to next page
     sta TMP1_ADR+1
@@ -181,7 +187,11 @@ get_next_page:
 
     ;Prepare continue writing data
     ldy #0
-    bra write_loop
+    bra loop
+
+eof:
+    jsr writebuf
+    bra close_file
 
 io_err:
     sta file_io_err
@@ -195,7 +205,38 @@ close_file:
 
     rts
 
+writebuf:
+    phy
+    bridge_setaddr KERNAL_MCIOUT
+    ldx #<buf
+    ldy #>buf
+    lda index
+    clc
+    bridge_call KERNAL_MCIOUT
+    bcs writebuf2 ;No MCIOUT support
+    bra status
+
+writebuf2:
+    bridge_setaddr KERNAL_CHROUT
+    ldx #0
+:   lda buf,x
+    bridge_call KERNAL_CHROUT
+    inx
+    cpx index
+    bne :-
+
+status:
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST
+    ply
+    cmp #0
+    bne io_err
+    stz index
+    rts
+
 page_len = tempvars     ;1 byte
+index = tempvars+1
+buf = file_cur_filename
 .endproc
 .CODE
 
@@ -241,6 +282,7 @@ page_len = tempvars     ;1 byte
 
     ; Backup file name to banked RAM; we're using the filename buffer as input buffer
 :   stz init_flag
+    stz char
 
 fill_buf:
     ;First try to fill buffer with MACPTR
@@ -321,7 +363,7 @@ loop:
 
     lda #LINEBREAK_CRLF     ;Line break is CRLF, ignore current char
     sta file_linebreak_encoding
-    bra loop
+    jmp movenext2
 
 :   cmp #LF                 ;Previous char wasn't CR, check if current char is LF
     bne tab
@@ -333,6 +375,7 @@ brk_insert:
     stz mem_cur_col+1
     stz mem_cur_col+2
     lda #LF
+    bra insert
 
 tab:
     cmp #KEYVAL_TAB         ;Convert tab to blank spaces
@@ -369,6 +412,8 @@ insert:
 
 movenext:
     call_firstbank mem_cur_col_inc
+
+movenext2:
     inc index
     ldx index
     cpx buflen
