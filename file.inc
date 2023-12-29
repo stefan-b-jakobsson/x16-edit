@@ -117,11 +117,11 @@ msg:
     ;Offset to skip page metadata
     ldy #5
     sty TMP1_ADR
-    
+
     ldy #0
 
 loop:
-    ;Check if page is full
+    ;Get char
     cpy page_len
     beq get_next_page
     lda (TMP1_ADR),y
@@ -206,14 +206,19 @@ close_file:
     jmp file_filename_restore
 
 writebuf:
-    phy
+    ;Abort if buffer empty
+    lda index
+    bne :+
+    rts
+
+:   phy
     bridge_setaddr KERNAL_MCIOUT
     ldx #<buf
     ldy #>buf
     lda index
     clc
     bridge_call KERNAL_MCIOUT
-    bcs writebuf2 ;No MCIOUT support
+    bcs writebuf2 ;No MCIOUT support or file error
     bra status
 
 writebuf2:
@@ -230,7 +235,7 @@ status:
     bridge_call KERNAL_READST
     ply
     cmp #0
-    bne io_err
+    bne close_file
     stz index
     rts
 
@@ -323,19 +328,19 @@ fill_buf2:
 :   stx buflen
 
 prepare:
-    ;Init text buffer if not done before
-    lda init_flag
-    bne :+
-    inc init_flag
-    call_firstbank mem_init
-    stz curpage_len
-
-:   ;Check file errors
+    ;Check file errors
     lda status
     and #%10000010
     beq :+
     stz CRS_ADR
     jmp close
+
+    ;Init text buffer if not done before
+:   lda init_flag
+    bne :+
+    inc init_flag
+    call_firstbank mem_init
+    stz curpage_len
 
 :   ;Check empty buffer
     lda buflen
