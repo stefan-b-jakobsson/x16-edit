@@ -88,8 +88,6 @@ msg:
     ldy #1
     bridge_call KERNAL_SETLFS
 
-    jsr file_filename_copy
-
     bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
     bcc :+
@@ -101,15 +99,18 @@ msg:
     bcc :+
     jmp io_err
 
+:   ;Backup filename buffer
+    jsr file_filename_copy
+
     ;Init temporary pointer to start of text; head of buffer is bank=mem_start+1, addressH=$a0
-:   stz TMP1_ADR
+    stz TMP1_ADR
     lda #$a0
     sta TMP1_ADR+1
     lda mem_start       
     ina
     sta BNK_SEL
 
-    ;Len of first page
+    ;Get len of first page
     ldy #4
     lda (TMP1_ADR),y
     sta page_len
@@ -117,8 +118,10 @@ msg:
     ;Offset to skip page metadata
     ldy #5
     sty TMP1_ADR
-
     ldy #0
+
+    ;Clear buffer index
+    stz index
 
 loop:
     ;Get char
@@ -189,21 +192,23 @@ get_next_page:
     ldy #0
     bra loop
 
-eof:
-    jsr writebuf
-    bra close_file
-
 io_err:
     sta file_io_err
+    bra close_file2
+
+eof:
+    jsr writebuf
 
 close_file:
+    jsr file_filename_restore
+    
+close_file2:
     bridge_setaddr KERNAL_CLOSE
     lda #1
     bridge_call KERNAL_CLOSE
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
-    
-    jmp file_filename_restore
+    rts
 
 writebuf:
     ;Abort if buffer empty
@@ -218,8 +223,9 @@ writebuf:
     lda index
     clc
     bridge_call KERNAL_MCIOUT
-    bcs writebuf2 ;No MCIOUT support or file error
-    bra status
+    bcc status
+    
+    ;C=1 => MCIOUT support or file error, fallthrough to writebuf2
 
 writebuf2:
     bridge_setaddr KERNAL_CHROUT
@@ -240,7 +246,7 @@ status:
     rts
 
 page_len = tempvars     ;1 byte
-index = tempvars+1
+index = tempvars+1      ;1 byte
 buf = file_cur_filename
 .endproc
 .CODE
@@ -274,8 +280,6 @@ buf = file_cur_filename
     ldy #0
     bridge_call KERNAL_SETLFS
 
-    jsr file_filename_copy
-
     bridge_setaddr KERNAL_OPEN
     bridge_call KERNAL_OPEN
     bcc :+
@@ -287,8 +291,11 @@ buf = file_cur_filename
     bcc :+
     jmp io_err
 
-    ; Init
-:   stz init_flag
+    ;Backup filename buffer
+:   jsr file_filename_copy
+    
+    ;Init variables
+    stz init_flag
     stz char
 
 fill_buf:
@@ -322,7 +329,7 @@ fill_buf2:
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     sta status
-    bne prepare ; EOI or file error
+    bne :+ ; EOI or file error
     inx
     bra :-
 :   stx buflen
@@ -440,7 +447,7 @@ io_err:
     ;Set kernal error
     sta file_io_err
     stz CRS_ADR
-    bra close
+    bra close2
 
 eof:
     stz CRS_ADR
@@ -472,14 +479,16 @@ goto_start:
     stz mem_cur_line+2
     
 close:
+    jsr file_filename_restore
+
+close2:
     bridge_setaddr KERNAL_CLOSE
     lda #1
     bridge_call KERNAL_CLOSE
 
     bridge_setaddr KERNAL_CLRCHN
     bridge_call KERNAL_CLRCHN
-
-    jmp file_filename_restore
+    rts
 
 mem_full:
     pla             ;Clean stack
