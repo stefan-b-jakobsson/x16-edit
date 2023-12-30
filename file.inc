@@ -229,11 +229,11 @@ writebuf:
 
 writebuf2:
     bridge_setaddr KERNAL_CHROUT
-    ldx #0
-:   lda buf,x
+    ldy #0
+:   lda buf,y
     bridge_call KERNAL_CHROUT
-    inx
-    cpx index
+    iny
+    cpy index
     bne :-
 
 status:
@@ -241,9 +241,13 @@ status:
     bridge_call KERNAL_READST
     ply
     cmp #0
-    bne close_file
+    bne :+
     stz index
     rts
+
+:   pla
+    pla
+    bra close_file2
 
 page_len = tempvars     ;1 byte
 index = tempvars+1      ;1 byte
@@ -317,22 +321,22 @@ fill_buf:
 
 fill_buf2:
     ;Fallback to using CHRIN
-    ldx #0
+    ldy #0
 
-:   cpx #$ff
+:   cpy #$ff
     beq :+ ; Buffer full
 
     bridge_setaddr KERNAL_CHRIN
     bridge_call KERNAL_CHRIN
-    sta buf,x
+    sta buf,y
+    iny
     
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
     sta status
     bne :+ ; EOI or file error
-    inx
     bra :-
-:   stx buflen
+:   sty buflen
 
 prepare:
     ;Check file errors
