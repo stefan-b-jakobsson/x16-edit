@@ -261,18 +261,39 @@ writebuf:
     bne :+
     rts
 
-:   phy
+:   stz bytes_written
+    phy
     ldx #<file_buf
     ldy #>file_buf
-    lda index
-    clc
-    jsr KERNAL_MCIOUT
-    bcc status
-    
-    ;C=1 => MCIOUT support or file error, fallthrough to writebuf2
 
 writebuf2:
-    ldy #0
+    clc
+    jsr KERNAL_MCIOUT
+    bcs writebuf3
+
+    ;Update bytes written
+    txa
+    adc bytes_written
+    sta bytes_written
+
+    ;Check if all bytes are written
+    cmp index
+    bcs status      ;Yes
+
+    ;Prepare to go again
+    lda #<file_buf
+    adc bytes_written
+    tax
+    lda #>file_buf
+    adc #0
+    tay
+    sec
+    lda index
+    sbc bytes_written
+    bra writebuf2
+
+writebuf3:
+    ldy bytes_written
 :   lda file_buf,y
     jsr KERNAL_CHROUT
     iny
@@ -297,6 +318,7 @@ return_bank: .res 1
 
 page_len = tempvars     ;1 byte
 index = tempvars+1      ;1 byte
+bytes_written = tempvars+2
 .endproc
 .CODE
 
