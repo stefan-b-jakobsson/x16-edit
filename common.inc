@@ -1,5 +1,5 @@
 ;*******************************************************************************
-;Copyright 2022-2023, Stefan Jakobsson
+;Copyright 2022-2024, Stefan Jakobsson
 ;
 ;Redistribution and use in source and binary forms, with or without modification, 
 ;are permitted provided that the following conditions are met:
@@ -166,9 +166,9 @@ tempvars:               .res 16             ;Temporary variables
 mem_map                                 = $a000               ;1024 bytes ($a000-$a3ff)
 clipboard_mem                           = $a400               ;3072 bytes ($a400-$afff)
 ram_backup_storage                      = $b000               ;1280 bytes ($b000-$b4ff)
-dir_entry                               = $b500               ;256 bytes
-filename_backup                         = $b600               ;256 bytes
-help_txt                                = $b700
+dir_entry                               = $b500               ;256 bytes ($b500-$b5ff)
+rambuf_backup                           = $b600               ;768 bytes ($b600-$b8ff)
+help_txt                                = $b900               ;1792 bytes ($b900-$bfff)
 
 ;*****************************************************************************
 ;CONSTANTS

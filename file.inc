@@ -1,5 +1,5 @@
 ;*******************************************************************************
-;Copyright 2022-2023, Stefan Jakobsson
+;Copyright 2022-2024, Stefan Jakobsson
 ;
 ;Redistribution and use in source and binary forms, with or without modification, 
 ;are permitted provided that the following conditions are met:
@@ -23,9 +23,19 @@
 ;OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ;*******************************************************************************
 
+.import __RAMCODE1_LOAD__
+.import __RAMCODE1_SIZE__
+.import __RAMCODE1_RUN__
+
+.import __RAMCODE2_LOAD__
+.import __RAMCODE2_SIZE__
+.import __RAMCODE2_RUN__
+
+FILE_RAMBUF = $9c00
 LINEBREAK_LF = 0
 LINEBREAK_CR = 1
 LINEBREAK_CRLF = 2
+
 
 ;******************************************************************************
 ;Function name.......: file_init
@@ -66,41 +76,77 @@ msg:
 ;                      Length of file name in A
 ;Returns.............: Nothing
 ;Error returns.......: Kernal I/O error code available in file_io_err
-;Bank................: 2nd
+;Code location.......: For performance reasons this code is copied to 
+;                      and run from low RAM (address $9c00). The code is
+;                      stored in ROM segment "CODE2". The code copy 
+;                      is done at the start of the function, and the
+;                      the low RAM is restored at the end of the function.
 .segment "CODE2"
 .proc file_write
+.if ::target_mem=target_rom
+    ;Save input on stack
+    phx
+    phy
+    pha
+
+    ;Backup $9c00..$9eff to banked RAM
+    jsr file_rambuf_backup
+
+    ;Copy code to low RAM
+    ldx #0
+:   lda __RAMCODE1_LOAD__,x
+    sta __RAMCODE1_RUN__,x
+    inx
+    cpx #<__RAMCODE1_SIZE__
+    bne :-
+
+    ;Set current ROM bank
+    lda ROM_SEL
+    sta return_bank
+
+    ;Fetch input from stack and call RAM function
+    pla
+    ply
+    plx
+    jsr file_write_start
+
+    ;Restore $9c00..$9eff from banked RAM
+    jmp file_rambuf_restore
+
+.segment "RAMCODE1"
+.endif
+
+file_write_start:
+.if ::target_mem=target_rom
+    ;Select Kernal ROM bank
+    stz ROM_SEL
+.endif
+
     ;Set default = no i/o error
     stz file_io_err
 
     ;Close file #1, and open file #1 for writing
-    pha
-    bridge_setaddr KERNAL_SETNAM
-    pla
-    bridge_call KERNAL_SETNAM
-
-    bridge_setaddr KERNAL_CLOSE
+    jsr KERNAL_SETNAM
+    
     lda #1
-    bridge_call KERNAL_CLOSE
+    jsr KERNAL_CLOSE
 
-    bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx file_cur_device
     ldy #1
-    bridge_call KERNAL_SETLFS
+    jsr KERNAL_SETLFS
 
-    bridge_setaddr KERNAL_OPEN
-    bridge_call KERNAL_OPEN
+    jsr KERNAL_OPEN
     bcc :+
     jmp io_err
 
-:   bridge_setaddr KERNAL_CHKOUT
-    ldx #1
-    bridge_call KERNAL_CHKOUT
+:   ldx #1
+    jsr KERNAL_CHKOUT
     bcc :+
     jmp io_err
 
 :   ;Backup filename buffer
-    jsr file_filename_copy
+    ;jsr file_filename_copy
 
     ;Init temporary pointer to start of text; head of buffer is bank=mem_start+1, addressH=$a0
     stz TMP1_ADR
@@ -143,22 +189,20 @@ loop:
 
     ;CRLF
     ldx index
-    sta buf,x
+    sta file_buf,x
     inc index
     lda #LF
 
     ;Store char in buffer
 :   ldx index
-    sta buf,x
+    sta file_buf,x
+    inc index
 
     ;If buffer contains at least 254 chars, write out
-    cpx #254
+    cpx #253    ; Here X is index - 1, why we compare to one byte less than 254
     bcc :+
     jsr writebuf
-    bra loop
-    
-:   inc index
-    iny
+:   iny
     bra loop
 
 get_next_page:
@@ -194,20 +238,21 @@ get_next_page:
 
 io_err:
     sta file_io_err
-    bra close_file2
+    bra close_file
 
 eof:
     jsr writebuf
 
 close_file:
-    jsr file_filename_restore
-    
-close_file2:
-    bridge_setaddr KERNAL_CLOSE
     lda #1
-    bridge_call KERNAL_CLOSE
-    bridge_setaddr KERNAL_CLRCHN
-    bridge_call KERNAL_CLRCHN
+    jsr KERNAL_CLOSE
+    jsr KERNAL_CLRCHN
+
+    ;Restore ROM bank
+.if ::target_mem=target_rom
+    lda return_bank
+    sta ROM_SEL
+.endif
     rts
 
 writebuf:
@@ -217,28 +262,25 @@ writebuf:
     rts
 
 :   phy
-    bridge_setaddr KERNAL_MCIOUT
-    ldx #<buf
-    ldy #>buf
+    ldx #<file_buf
+    ldy #>file_buf
     lda index
     clc
-    bridge_call KERNAL_MCIOUT
+    jsr KERNAL_MCIOUT
     bcc status
     
     ;C=1 => MCIOUT support or file error, fallthrough to writebuf2
 
 writebuf2:
-    bridge_setaddr KERNAL_CHROUT
     ldy #0
-:   lda buf,y
-    bridge_call KERNAL_CHROUT
+:   lda file_buf,y
+    jsr KERNAL_CHROUT
     iny
     cpy index
     bne :-
 
 status:
-    bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST
+    jsr KERNAL_READST
     ply
     cmp #0
     bne :+
@@ -247,11 +289,14 @@ status:
 
 :   pla
     pla
-    bra close_file2
+    bra close_file
+
+.if ::target_mem=target_rom
+return_bank: .res 1
+.endif
 
 page_len = tempvars     ;1 byte
 index = tempvars+1      ;1 byte
-buf = file_cur_filename
 .endproc
 .CODE
 
@@ -264,58 +309,110 @@ buf = file_cur_filename
 ;Error returns.......: Kernal I/O error code available in file_io_err
 ;Bank................: 2nd
 .segment "CODE2"
-.proc file_read 
+.proc file_read
+.if ::target_mem = target_rom
+    ;Save input on stack
+    phx
+    phy
+    pha
+
+    ;Backup $9c00..$9eff to banked RAM
+    jsr file_rambuf_backup
+
+    ;Copy code to low RAM
+    lda #<__RAMCODE2_LOAD__
+    sta TMP1_ADR
+    lda #>__RAMCODE2_LOAD__
+    sta TMP1_ADR+1
+
+    lda #<__RAMCODE2_RUN__
+    sta TMP2_ADR
+    lda #>__RAMCODE2_RUN__
+    sta TMP2_ADR+1
+
+    lda #<__RAMCODE2_SIZE__
+    sta tempvars
+    lda #>__RAMCODE2_SIZE__
+    sta tempvars+1
+
+    ldy #0
+:   lda (TMP1_ADR),y
+    sta (TMP2_ADR),y
+    lda tempvars
+    bne :+
+    ora tempvars+1
+    beq :++
+    dec tempvars+1
+:   dec tempvars
+    iny
+    bne :--
+    inc TMP1_ADR+1
+    inc TMP2_ADR+1
+    bra :--
+
+    ;Set current ROM banks
+:   lda ROM_SEL
+    sta second_bank
+    dea
+    sta first_bank
+
+    ;Fetch input from stack and call RAM code
+    pla
+    ply
+    plx
+    jsr file_read_start
+
+    ;Restore $9c00..$9eff from banked RAM
+    jmp file_rambuf_restore
+
+.segment "RAMCODE2"
+.endif
+
+file_read_start:
+.if ::target_mem=target_rom
+    ;Set Kernal ROM bank
+    stz ROM_SEL
+.endif
+
     ;Set default = no I/O error
     stz file_io_err
 
     ;Close file #1, and open file #1 for reading
-    pha
-    bridge_setaddr KERNAL_SETNAM
-    pla
-    bridge_call KERNAL_SETNAM
+    jsr KERNAL_SETNAM
 
-    bridge_setaddr KERNAL_CLOSE
     lda #1
-    bridge_call KERNAL_CLOSE
+    jsr KERNAL_CLOSE
 
-    bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx file_cur_device
     ldy #0
-    bridge_call KERNAL_SETLFS
+    jsr KERNAL_SETLFS
 
-    bridge_setaddr KERNAL_OPEN
-    bridge_call KERNAL_OPEN
+    jsr KERNAL_OPEN
     bcc :+
     jmp io_err
 
-:   bridge_setaddr KERNAL_CHKIN
-    ldx #1
-    bridge_call KERNAL_CHKIN
+:   ldx #1
+    jsr KERNAL_CHKIN
     bcc :+
     jmp io_err
-
-    ;Backup filename buffer
-:   jsr file_filename_copy
     
     ;Init variables
-    stz init_flag
+:   stz init_flag
     stz char
 
 fill_buf:
     ;Try MACPTR
-    bridge_setaddr KERNAL_MACPTR
-    ldx #<buf
-    ldy #>buf
+    ldx #<file_buf
+    ldy #>file_buf
     lda #$ff
     clc
-    bridge_call KERNAL_MACPTR
+    jsr KERNAL_MACPTR
     bcs fill_buf2 ;Block reading not supported, or file error
     stx buflen
     
     ;Read status
-    bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST
+    jsr KERNAL_READST
     sta status
     bra prepare
 
@@ -326,13 +423,11 @@ fill_buf2:
 :   cpy #$ff
     beq :+ ; Buffer full
 
-    bridge_setaddr KERNAL_CHRIN
-    bridge_call KERNAL_CHRIN
-    sta buf,y
+    jsr KERNAL_CHRIN
+    sta file_buf,y
     iny
     
-    bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST
+    jsr KERNAL_READST
     sta status
     bne :+ ; EOI or file error
     bra :-
@@ -350,7 +445,15 @@ prepare:
 :   lda init_flag
     bne :+
     inc init_flag
-    call_firstbank mem_init
+
+.if ::target_mem=target_rom
+    lda first_bank
+    sta ROM_SEL
+    jsr mem_init
+    stz ROM_SEL
+.else
+    jsr mem_init
+.endif
     stz curpage_len
 
 :   ;Check empty buffer
@@ -365,7 +468,7 @@ prepare:
 loop:
     ;Get next char from buffer
     ldx index
-    lda buf,x
+    lda file_buf,x
 
     ;Load previous char into X and remember the current char until next time
     ldx char
@@ -404,7 +507,14 @@ tab:
     cmp #KEYVAL_TAB         ;Convert tab to blank spaces
     bne insert
     
-    call_firstbank cmd_next_tab_stop
+.if ::target_mem=target_rom
+    lda first_bank
+    sta ROM_SEL
+    jsr cmd_next_tab_stop
+    stz ROM_SEL
+.else
+    jsr cmd_next_tab_stop
+.endif
     stx tab_distance
 
 :   ldy curpage_len
@@ -419,7 +529,14 @@ tab:
     dec tab_distance
     beq movenext
 
-    call_firstbank mem_cur_col_inc
+.if ::target_mem=target_rom
+    lda first_bank
+    sta ROM_SEL
+    jsr mem_cur_col_inc
+    stz ROM_SEL
+.else   
+    jsr mem_cur_col_inc
+.endif
     bra :--
 
 insert:
@@ -434,7 +551,14 @@ insert:
     inc curpage_len
 
 movenext:
-    call_firstbank mem_cur_col_inc
+.if ::target_mem=target_rom
+    lda first_bank
+    sta ROM_SEL
+    jsr mem_cur_col_inc
+    stz ROM_SEL
+.else
+    jsr mem_cur_col_inc
+.endif
 
 movenext2:
     inc index
@@ -451,7 +575,7 @@ io_err:
     ;Set kernal error
     sta file_io_err
     stz CRS_ADR
-    bra close2
+    bra close
 
 eof:
     stz CRS_ADR
@@ -483,15 +607,14 @@ goto_start:
     stz mem_cur_line+2
     
 close:
-    jsr file_filename_restore
-
-close2:
-    bridge_setaddr KERNAL_CLOSE
     lda #1
-    bridge_call KERNAL_CLOSE
+    jsr KERNAL_CLOSE
+    jsr KERNAL_CLRCHN
 
-    bridge_setaddr KERNAL_CLRCHN
-    bridge_call KERNAL_CLRCHN
+.if ::target_mem=target_rom
+    lda second_bank
+    sta ROM_SEL
+.endif
     rts
 
 mem_full:
@@ -513,7 +636,15 @@ alloc:
     lda curpage_len
     sta (CRS_ADR),y
 
-    call_firstbank mem_alloc   ;Y=bank, X=page
+.if ::target_mem=target_rom
+    lda first_bank
+    sta ROM_SEL
+    jsr mem_alloc   ;Y=bank, X=page
+    stz ROM_SEL
+.else
+    jsr mem_alloc
+.endif
+
     cpx #0          ;Mem full?
     beq mem_full
     
@@ -531,8 +662,12 @@ alloc:
     pla             ;Fetch char from stack
     rts
 
+.if ::target_mem=target_rom
+first_bank: .res 1
+second_bank: .res 1
+.endif
+
 .segment "VARS"
-    buf = file_cur_filename
     buflen: .res 1
     index: .res 1
     status: .res 1
@@ -724,24 +859,27 @@ exit:
 .endproc
 
 ;******************************************************************************
-;Function name.......: file_name_copy
-;Purpose.............: Copies the file name buffer to banked RAM
+;Function name.......: file_rambuf_backup
+;Purpose.............: Backups RAM buffer used by file_write and file_read
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .segment "CODE2"
-.proc file_filename_copy
+.proc file_rambuf_backup
     ; Select first RAM bank
     lda mem_start
     sta BNK_SEL
 
     ; Copy
-    ldx file_cur_filename_len
-    beq exit
+    ldx #0
 loop:
-    lda file_cur_filename-1,x
-    sta filename_backup-1,x
-    dex
+    lda FILE_RAMBUF,x
+    sta rambuf_backup,x
+    lda FILE_RAMBUF+$100,x
+    sta rambuf_backup+$100,x
+    lda FILE_RAMBUF+$200,x
+    sta rambuf_backup+$200,x
+    inx
     bne loop
 exit:
     rts
@@ -749,26 +887,28 @@ exit:
 .CODE
 
 ;******************************************************************************
-;Function name.......: file_name_restore
-;Purpose.............: Restores the file name buffer from banked RAM
+;Function name.......: file_rambuf_restore
+;Purpose.............: Restores RAM buffer used by file_write and file_read
 ;Input...............: Nothing
 ;Returns.............: Nothing
 ;Error returns.......: None
 .segment "CODE2"
-.proc file_filename_restore
+.proc file_rambuf_restore
     ; Select first RAM bank
     lda mem_start
     sta BNK_SEL
 
     ; Copy
-    ldx file_cur_filename_len
-    beq exit
+    ldx #0
 loop:
-    lda filename_backup-1,x
-    sta file_cur_filename-1,x
-    dex
+    lda rambuf_backup,x
+    sta FILE_RAMBUF,x
+    lda rambuf_backup+$100,x
+    sta FILE_RAMBUF+$100,x
+    lda rambuf_backup+$200,x
+    sta FILE_RAMBUF+$200,x
+    inx
     bne loop
-
 exit:
     rts
 .endproc
@@ -809,4 +949,7 @@ file_ioerr_10:
     file_cur_device:        .res 1              ;1 byte
     file_dir_changed:       .res 1              ;1 byte, flag indicating whether directory was changed since current file was last read/saved
     file_linebreak_encoding: .res 1
+
+.segment "RAMCODE3"
+    file_buf:               .res 256
 .CODE
