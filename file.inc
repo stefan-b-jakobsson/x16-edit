@@ -80,7 +80,7 @@ msg:
 ;                      and run from low RAM (address $9c00). The code is
 ;                      stored in ROM segment "CODE2". The code copy 
 ;                      is done at the start of the function, and the
-;                      the low RAM is restored at the end of the function.
+;                      the low RAM area is restored at the end of the function.
 .segment "CODE2"
 .proc file_write
 .if ::target_mem=target_rom
@@ -93,15 +93,38 @@ msg:
     jsr file_rambuf_backup
 
     ;Copy code to low RAM
-    ldx #0
-:   lda __RAMCODE1_LOAD__,x
-    sta __RAMCODE1_RUN__,x
-    inx
-    cpx #<__RAMCODE1_SIZE__
-    bne :-
+    lda #<__RAMCODE1_LOAD__
+    sta TMP1_ADR
+    lda #>__RAMCODE1_LOAD__
+    sta TMP1_ADR+1
+
+    lda #<__RAMCODE1_RUN__
+    sta TMP2_ADR
+    lda #>__RAMCODE1_RUN__
+    sta TMP2_ADR+1
+
+    lda #<__RAMCODE1_SIZE__
+    sta tempvars
+    lda #>__RAMCODE1_SIZE__
+    sta tempvars+1
+
+    ldy #0
+:   lda (TMP1_ADR),y
+    sta (TMP2_ADR),y
+    lda tempvars
+    bne :+
+    ora tempvars+1
+    beq :++
+    dec tempvars+1
+:   dec tempvars
+    iny
+    bne :--
+    inc TMP1_ADR+1
+    inc TMP2_ADR+1
+    bra :--
 
     ;Set current ROM bank
-    lda ROM_SEL
+:   lda ROM_SEL
     sta return_bank
 
     ;Fetch input from stack and call RAM function
@@ -145,8 +168,18 @@ file_write_start:
     bcc :+
     jmp io_err
 
-:   ;Backup filename buffer
-    ;jsr file_filename_copy
+    ;Print message
+:   ldx #<msg_saving
+    ldy #>msg_saving
+.if ::target_mem=target_rom
+    lda return_bank
+    dea
+    sta ROM_SEL
+.endif
+    jsr screen_print_status
+.if ::target_mem=target_rom
+    stz ROM_SEL
+.endif
 
     ;Init temporary pointer to start of text; head of buffer is bank=mem_start+1, addressH=$a0
     stz TMP1_ADR
@@ -319,8 +352,10 @@ return_bank: .res 1
 page_len = tempvars     ;1 byte
 index = tempvars+1      ;1 byte
 bytes_written = tempvars+2
-.endproc
+
 .CODE
+    msg_saving: .byt "saving...", 0
+.endproc
 
 ;******************************************************************************
 ;Function name.......: file_read
@@ -418,9 +453,21 @@ file_read_start:
     jsr KERNAL_CHKIN
     bcc :+
     jmp io_err
-    
+
+:   ;Print message
+.if ::target_mem=target_rom
+    lda first_bank
+    sta ROM_SEL
+.endif
+    ldx #<loading
+    ldy #>loading
+    jsr screen_print_status
+.if ::target_mem=target_rom
+    stz ROM_SEL
+.endif
+
     ;Init variables
-:   stz init_flag
+    stz init_flag
     stz char
 
 fill_buf:
@@ -701,6 +748,8 @@ second_bank: .res 1
 .CODE
 msg:
     .byt "memory full",0
+loading:
+    .byt "loading...",0
 .endproc
 
 ;******************************************************************************
