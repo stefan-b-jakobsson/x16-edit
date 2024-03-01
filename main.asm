@@ -147,11 +147,14 @@ exit:
     bcs exit            ;C=1 => init failed
 
     ;Auto indent
-    bbr0 r1+1, :+
+    lda r1+1
+    lsr
+    bcc :+
     inc cmd_auto_indent_status
 
     ;Word wrap
-:   bbr1 r1+1, :+
+:   lsr
+    bcc :+
     inc cmd_wordwrap_mode
 
     ;Tab width (1..9)
