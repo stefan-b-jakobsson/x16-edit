@@ -456,6 +456,7 @@ nextrow:
     ldy #>row1_narrow
     jmp screen_print_footer
 
+.ifndef alt_shortcuts
 row1:
     .byt ":^g get help :^o write out :^y prev page :^k cut   :^c copy", 0 
 row2:
@@ -465,6 +466,17 @@ row1_narrow:
     .byt ":^g get help :^o write out", 0 
 row2_narrow:
     .byt ":^x exit     :^r open file", 0
+.else
+row1:
+    .byt ":^p get help :^s save      :^u prev page :^x cut   :^c copy", 0 
+row2:
+    .byt ":^w exit     :^o open file :^y next page :^v paste :^f find", 0
+
+row1_narrow:
+    .byt ":^p get help :^s save", 0 
+row2_narrow:
+    .byt ":^w exit     :^o open file", 0
+.endif
 .endproc
 
 ;******************************************************************************

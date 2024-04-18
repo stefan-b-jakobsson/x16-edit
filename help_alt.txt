@@ -1,0 +1,38 @@
+Hold down Ctrl and press a shortcut key. Alternatively press
+and release ESC and then a shortcut key. Some commands also 
+available via a function key.
+ 
+^P  (F1)  Display built-in help screen
+^W  (F2)  Exit program
+^S  (F3)  Save buffer to file
+^O  (F5)  Open and read file into text buffer
+^N        Create new text buffer
+^J  (F4)  Justify text buffer
+^U  (F7)  PageUp
+^Y  (F8)  PageDown
+^X        Cut line or selection to clipboard
+^C        Copy line or selection to clipboard
+^V        Paste all content from clipboard
+^L        Delete current line, no copy to clipboard
+^F  (F6)  Search and find text (case sensitive)
+^H        Search and replace a string (case sensitive)
+^G        Go to line number
+^A        Toggle auto indent on/off
+^R        Toggle word wrap on/off
+^E        Change charset
+^Q        Quote mode
+^I        Invoke DOS command
+^D        Set current device number
+^K        Set text color (default white)
+^B        Set background color (default blue)
+^M        Show memory usage (1 block=251 bytes of text)
+^SPACE    Insert non-breaking space
+^1..9     Set tab width
+^RETURN   Set line break encoding
+^T        Programming toolbox (ROM only)
+
+
+X16 Edit, Copyright 2020-2024, Stefan Jakobsson.
+
+Released under the BSD 2-Clause license, available in 
+the enclosed "license" file.

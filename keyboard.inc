@@ -135,6 +135,7 @@ close:
 err:
     rts
 
+.ifndef alt_shortcuts
 keyval:                                 ;List of default shortcut keys
     .byt $47, $58, $4f, $52, $4e
     .byt $4a, $59, $56, $4b, $43
@@ -142,6 +143,15 @@ keyval:                                 ;List of default shortcut keys
     .byt $41, $5a, $45, $49, $44
     .byt $54, $42, $4d, $46, $0d
     .byt $51
+.else
+keyval:
+    .byt $50, $57, $53, $4f, $4e
+    .byt $4a, $55, $59, $58, $43
+    .byt $56, $4c, $46, $48, $47
+    .byt $41, $52, $45, $49, $44
+    .byt $4b, $42, $4d, $00, $0d 
+    .byt $51
+.endif
 
 config:
     .byt "//:x16editrc"
