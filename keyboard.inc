@@ -1193,12 +1193,14 @@ no:
     cmp #KEYVAL_ESC
     beq close
 
-    ;Exit if control key up
+    ;Check modifiers (exit if other than Ctrl is pressed)
     ldx scancode_modifiers
+    beq :+
+    cpx #KBD_MODIFIER_CTRL
     bne exit
 
     ;Clear bit 5
-    and #%11011111
+:   and #%11011111
 
     ;Check BASLOAD
     cmp #$42
