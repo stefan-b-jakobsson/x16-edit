@@ -530,6 +530,23 @@ row2:
 .endproc
 
 ;******************************************************************************
+;Function name.......: screen_print_encoding_ctx_footer
+;Purpose.............: Prints context footer for changing charset
+;Input...............: None
+;Returns.............: Nothing
+;Error returns.......: None
+.proc screen_print_encoding_ctx_footer
+    ldx #<row1
+    ldy #>row1
+    jmp screen_print_footer
+
+row1:
+    .byt "select charset", 0
+row2:
+    .byt ":rt next charset  :lt prev charset", 0
+.endproc
+
+;******************************************************************************
 ;Function name.......: screen_refresh
 ;Purpose.............: Refreshes editor area. Print will start 
 ;                      from memory address pointed to by zero page vectors 

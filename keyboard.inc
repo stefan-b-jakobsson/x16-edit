@@ -168,11 +168,6 @@ val = tempvars
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc keyboard_read_and_dispatch
-    ;Don't read keyboard if APP_MOD=16 (set on charset changed)
-    lda APP_MOD
-    cmp #16
-    beq gotachar
-
     ;Read keys
     bridge_setaddr KERNAL_GETIN
     bridge_call KERNAL_GETIN
@@ -218,7 +213,7 @@ jmptbl:
     .word keyboard_mode_replace_1               ;APP mode 13
     .word keyboard_mode_replace_2               ;APP mode 14
     .word keyboard_mode_word_wrap_prompt        ;APP mode 15
-    .word cmd_refresh_after_encoding_changed    ;APP mode 16
+    .word keyboard_mode_select_encoding         ;APP mode 16
     .word keyboard_mode_set_device              ;APP mode 17
     .word keyboard_mode_file_dir                ;APP mode 18
     .word keyboard_mode_file_dir                ;APP mode 19
@@ -1243,6 +1238,52 @@ close:
 close:
     stz APP_MOD
     jmp screen_clear_status
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_select_endcoding
+;Purpose.............: Key dispatcher: Select encoding mode
+;Input...............: A = char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_select_encoding
+    cmp #KEYVAL_LEFT
+    beq left
+    cmp #KEYVAL_RIGHT
+    beq right
+    cmp #KEYVAL_ESC
+    beq abort
+    cmp #KEYVAL_ENTER
+    beq select
+    rts
+
+left:
+    dec cmd_encoding_mode
+    bne :+
+    lda #11
+    sta cmd_encoding_mode
+:   lda cmd_encoding_mode
+    jmp cmd_encoding_show
+
+right:
+    inc cmd_encoding_mode
+    lda cmd_encoding_mode
+    cmp #12
+    bcc :+
+    lda #1
+    sta cmd_encoding_mode
+:   jmp cmd_encoding_show
+
+abort:
+    stz APP_MOD
+    jsr screen_clear_status
+    jsr screen_print_default_footer
+    jmp cursor_activate
+
+select:
+    stz APP_MOD
+    lda cmd_encoding_mode
+    jmp cmd_encoding_set
 .endproc
     
 ;******************************************************************************
