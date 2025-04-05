@@ -44,7 +44,7 @@
 ;The only way to know whether the Ctrl key key is pressed is 
 ;to check the value of scancode_modifiers.
 
-keyboard_shortcut_count = 26
+keyboard_shortcut_count = 27
 
 ;******************************************************************************
 ;Function name.......: keyboard_init
@@ -142,7 +142,7 @@ keyval:                                 ;List of default shortcut keys
     .byt $55, $19, $57, $53, $4c
     .byt $41, $5a, $45, $49, $44
     .byt $54, $42, $4d, $46, $0d
-    .byt $51
+    .byt $51, $48
 .else
 keyval:
     .byt $50, $57, $53, $4f, $4e
@@ -150,7 +150,7 @@ keyval:
     .byt $56, $4c, $46, $48, $47
     .byt $41, $52, $45, $49, $44
     .byt $4b, $42, $4d, $00, $0d 
-    .byt $51
+    .byt $51, $70
 .endif
 
 config:
@@ -221,6 +221,7 @@ jmptbl:
     .word keyboard_mode_justify                 ;APP mode 21
     .word keyboard_mode_compile                 ;APP mode 22
     .word keyboard_mode_quote                   ;APP mode 23
+    .word keyboard_mode_print                   ;APP mode 24
 .endproc
 
 ;******************************************************************************
@@ -1287,7 +1288,19 @@ select:
     lda cmd_encoding_mode
     jmp cmd_encoding_set
 .endproc
-    
+
+;******************************************************************************
+;Function name.......: keyboard_mode_print
+;Purpose.............: Key dispatcher: Printing prompt
+;Input...............: A = char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_print
+    call_secondbank printer_key_handler
+    rts
+.endproc
+
+
 ;******************************************************************************
 ;Function name.......: keyboard_esc_key
 ;Purpose.............: Key handler: Enter command select mode
@@ -1584,6 +1597,7 @@ keyboard_ctrl_jmptbl:
     .word keyboard_line_brk_enc
 
     .word cmd_quote_mode
+    .word cmd_file_print_prompt
 
 .segment "VARS"
     keyboard_tabwidth:          .res 1              ;1 byte

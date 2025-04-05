@@ -446,3 +446,42 @@ msg:
     tax
     jmp screen_print_status
 .endproc
+
+;******************************************************************************
+;Function name.......: cmd_file_print_prompt
+;Purpose.............: Shows print document dialog
+;Input...............: Nothing
+;Returns.............: Nothing
+;Error returns.......: None
+.proc cmd_file_print_prompt
+    ; Load printer driver
+    call_secondbank printer_load_driver
+    cmp #1
+    beq loaderr
+    cmp #2
+    beq unsupported
+
+    ; Driver loaded successfully, show printing dialog
+    lda #24
+    sta APP_MOD
+    call_secondbank printer_dialog
+    jmp screen_print_printing_ctx_footer
+
+loaderr:
+    ldx #<msg1
+    ldy #>msg1
+:   lda #2
+    sta APP_MOD
+    jmp screen_print_status
+
+unsupported:
+    ldx #<msg2
+    ldy #>msg2
+    bra :-
+
+msg1:
+    .byt "printer driver load error",0
+
+msg2:
+    .byt "unsupported printer driver", 0
+.endproc

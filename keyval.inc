@@ -19,6 +19,8 @@
     KEYVAL_F8           = $8c
     KEYVAL_A            = $41
     KEYVAL_N            = $4e
+    KEYVAL_P            = $50
+    KEYVAL_S            = $53 
     KEYVAL_T            = $54
     KEYVAL_Y            = $59
     KEYVAL_V            = $56

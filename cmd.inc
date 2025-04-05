@@ -2698,6 +2698,8 @@ msg:
     cmd_auto_indent_status: .res 1
     cmd_wordwrap_mode:      .res 1       
     cmd_wordwrap_pos:       .res 1
-    cmd_display_msg:        .res 59
     cmd_encoding_mode:      .res 1
 .CODE
+
+; Reuse file_disk_status as display msg buffer
+cmd_display_msg = file_disk_status
