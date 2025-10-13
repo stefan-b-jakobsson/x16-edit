@@ -1490,18 +1490,15 @@ msg:
 ;Error returns.......: None
 .proc cmd_paste
     ;Check if clipboard is empty
-    lda clipboard_end+1
-    bne not_empty
-    lda clipboard_end
-    cmp #>clipboard_mem
-    bne not_empty
+    jsr clipboard_has_data
+    bcc not_empty
 
     lda #2
     sta APP_MOD
     ldx #<msg
     ldy #>msg
     jmp screen_print_status
-    
+
 not_empty:
     jsr cursor_disable
     jsr clipboard_paste
@@ -1902,7 +1899,11 @@ searchfor = cmd_display_msg
     sta APP_MOD
     rts
     
-:   jsr mem_init
+:   ldy mem_start
+    iny
+    ldx #$a0
+    jsr mem_free_array
+    jsr mem_init_text_buffer
     
     stz APP_MOD
 

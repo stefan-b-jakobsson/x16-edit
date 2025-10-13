@@ -541,10 +541,18 @@ prepare:
 .if ::target_mem=target_rom
     lda first_bank
     sta ROM_SEL
-    jsr mem_init
+    ldy mem_start
+    iny
+    ldx #$a0
+    jsr mem_free_array
+    jsr mem_init_text_buffer
     stz ROM_SEL
 .else
-    jsr mem_init
+    ldy mem_start
+    iny
+    ldx #$a0
+    jsr mem_free_array
+    jsr mem_init_text_buffer
 .endif
     stz curpage_len
 
@@ -731,9 +739,13 @@ alloc:
 .if ::target_mem=target_rom
     lda first_bank
     sta ROM_SEL
+    ldy CRS_BNK
+    ldx CRS_ADR+1
     jsr mem_alloc   ;Y=bank, X=page
     stz ROM_SEL
 .else
+    ldy CRS_BNK
+    ldx CRS_ADR+1
     jsr mem_alloc
 .endif
 

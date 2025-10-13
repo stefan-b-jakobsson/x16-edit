@@ -186,6 +186,41 @@ blocks_free_counter:
     sbc #0
     sta mem_blocks_free+1
 
+    ;Setup text buffer vectors
+    jmp mem_init_text_buffer
+
+    ;Internal subroutine to set mem_map values
+    ;Input: A=value, X=number of banks to write, Y should 
+init_map:
+    cpx #0              ;Exit if bank count=0
+    beq init_map_exit
+
+    sta tempvars        ;Save input
+init_map_loop:
+    lda tempvars
+    sta (TMP1_ADR),y
+    iny
+    bne :+
+    inc TMP1_ADR+1
+
+:   tya
+    and #3
+    bne init_map_loop
+
+    dex
+    bne init_map_loop
+
+init_map_exit:
+    rts
+
+.endproc
+
+;**********************************************************
+;Function name.......: mem_init_text_buffer
+;Description.........: Inits pointers for the text buffer
+;Input...............: Nothing
+;Returns.............: Nothing
+.proc mem_init_text_buffer
     ;Setup zero page vectors
     ;Bank
     lda mem_start
@@ -239,33 +274,8 @@ blocks_free_counter:
 
     ;Set status: buffer not modified
     stz mem_modified
-
+    
     rts
-
-    ;Internal subroutine to set mem_map values
-    ;Input: A=value, X=number of banks to write, Y should 
-init_map:
-    cpx #0              ;Exit if bank count=0
-    beq init_map_exit
-
-    sta tempvars        ;Save input
-init_map_loop:
-    lda tempvars
-    sta (TMP1_ADR),y
-    iny
-    bne :+
-    inc TMP1_ADR+1
-
-:   tya
-    and #3
-    bne init_map_loop
-
-    dex
-    bne init_map_loop
-
-init_map_exit:
-    rts
-
 .endproc
 
 ;**********************************************************
@@ -347,12 +357,11 @@ at_bof:
 ;                      When inserting text at the end of the
 ;                      text buffer, the cursor will be
 ;                      one step right of the last char.
-;                      This function returns true both
-;                      when the cursor is at the last
-;                      char and one step right of that.
 ;Input...............: Nothing
 ;Returns.............: C = 1    Cursor at end of file
 ;                      C = 0    Not at end of file
+;                      Y = 0    Cursor over last character
+;                      Y = 1    Cursor after last character, ready to append at end of file
 ;Error returns.......: Nothing
 .proc mem_at_eof
     ;Copy cursor pointer to temp pointer
@@ -362,11 +371,12 @@ at_bof:
     sta TMP1_ADR+1
     stz TMP1_ADR
 
-    ;Is cursor index + 1 < page len, we're not at end of mem page, and consequently not at end of file
+    ;Is cursor index + 1 <= page len, we're not at end of mem page, and consequently not at end of file
     lda CRS_IDX
     ina
     ldy #4
     cmp (TMP1_ADR),y
+    php ; Store result for later use
     bcc not_eof
 
 :   ldy #3
@@ -374,7 +384,6 @@ at_bof:
     tax
     beq at_eof              ;Next page=0 => there is no next page, i.e. eof
 
-    tax
     ldy #2
     lda (TMP1_ADR),y        ;Next bank
     sta BNK_SEL
@@ -385,11 +394,21 @@ at_bof:
     beq :-                  ;Loop until we find a non zero len page
 
 not_eof:
+    plp ; Clear stack
     clc
+    ldy #0
     rts
 
 at_eof:
+    plp ; Get initial comparision
+    bne beyond_eof
     sec
+    ldy #0
+    rts
+
+beyond_eof:
+    sec
+    ldy #1
     rts
 
 .endproc
@@ -400,11 +419,21 @@ at_eof:
 ;                      newly allocated page will be linked
 ;                      in after the page pointed to by the
 ;                      cursor.
-;Input...............: Nothing
+;Input...............: X=page, Y=bank of parent page,
+;                      X=0 if head of the stream
 ;Returns.............: Allocated memory page, Y= bank, and 
 ;                      X=page (address MSB)
 ;Error returns.......: X=0 if memory full
 .proc mem_alloc
+    ;Store input
+    stx parentpage
+    cpx #0
+    bne :+
+    stz nextbank
+    stz nextpage
+    ldy #0
+:   sty parentbank
+
     ;Select RAM bank mem_start
     lda mem_start
     sta BNK_SEL
@@ -415,9 +444,9 @@ at_eof:
     lda #>mem_map
     sta TMP1_ADR+1
 
+    ;Search memory map for free pages: search for entries != $ff
     ldy #0
 loop:
-    ;Search memory map for free pages: search for entries != $ff
     lda (TMP1_ADR),y
     cmp #$ff
     bne free_mem_found
@@ -439,13 +468,15 @@ free_mem_found:
     ;Store the value of the byte in mem_map where we found free memory, will be needed later in the function
     sta value           
 
-    ;Step 1. Divide the LSB of the number of search loops (= value of .Y) by 4 and we have the first part of the bank
+    ;Step 1. New bank = Number of search loops / 4, as there are 32 pages in each bank and each loop covers 8 pages
+    ;        Start by calculating loop count LSB (=.Y) / 4.
     tya
     lsr
     lsr
     sta newbank
 
-    ;Step 2. Multiply the MSB of the number of search loops (>TMP1_ADR minus >mem_map) by 64, and add that to the bank
+    ;Step 2. Continue calculating loop count MSB (>TMP1_ADR - >mem_map) / 4. To simplify the calculation,
+    ;        we're doing loop count MSB * 64 instead, leading to the same 8 bit result.
     lda TMP1_ADR+1
     sec
     sbc #>mem_map
@@ -459,19 +490,21 @@ free_mem_found:
     adc newbank
     sta newbank
 
-    ;Step 3. Multiply the LSB of the number of search loops (= value of .Y) by 8 and we have the first part of the page
+    ;Step 3. Page = (loop count * 8 % 32) + bit position, as there're 8 pages per loop and the page count must start over on every 32 page (=1 bank)
+    ;        The bit position is the ordinal position of the bit representing the new page, stored in variable "value" above
+    ;        Start by multiplying the LSB of the number of search loops (= value of .Y). We can ignore the MSB as it represents a number
+    ;        of loops dividable by 32.
     tya
     asl
     asl
     asl
 
-    ;Step 4. And that value by $1f to keep within page boundary (00-1f)
+    ;Step 4. And that value by $1f to keep within page boundary (00-1f), calculating "% 32" in the step 3 formula.
     and #$1f
     sta newpage
 
-    ;Step 5. The second part of the page is found in the mem_map value stored earlier. Add the positional value of the first bit not set to the page
+    ;Step 5. Get bit ordinal position and mark page as allocated in the table
     ldx #0
-
 :   lda value
     and bitmask,x
     beq mark_page_allocated
@@ -483,61 +516,75 @@ mark_page_allocated:
     ora bitmask,x
     sta (TMP1_ADR),y
 
-    ;Step 6. Finally add start of banked ram ($a0) to the page. And we're done.
+    ;Step 6. Add bit ordinal position
     txa
     clc
     adc newpage
+
+    ;Step 7. Finally add start of banked ram ($a0) to the page. And we're done.
     adc #$a0
     sta newpage
 
-    ;Update mem page metadata; we need to change the current page, the new page, and the page following that
-    lda CRS_BNK
+set_parent_metadata:
+    lda parentpage          ;Skip if head of stream
+    beq set_new_metadata
+
+    lda parentbank          ;Setup ZP pointer to parent page
     sta BNK_SEL
+    lda parentpage
+    sta TMP1_ADR+1
+    stz TMP1_ADR
     
-    ldy #2
-    lda (CRS_ADR),y
+    ldy #2                  ;Get next page
+    lda (TMP1_ADR),y
     sta nextbank
     ldy #3
-    lda (CRS_ADR),y
+    lda (TMP1_ADR),y
     sta nextpage
 
-    lda newpage
-    sta (CRS_ADR),y
+    lda newpage             ;Link in new page
+    sta (TMP1_ADR),y
     ldy #2
     lda newbank
-    sta (CRS_ADR),y
+    sta (TMP1_ADR),y
 
-    lda newbank
+set_new_metadata:
+    lda newbank             ;Setup ZP pointer to new page
     sta BNK_SEL
     lda newpage
     sta TMP1_ADR+1
     stz TMP1_ADR
 
-    ldy #0
-    lda CRS_BNK
+    ldy #0                  ;Set parent page
+    lda parentbank
     sta (TMP1_ADR),y
     ldy #1
-    lda CRS_ADR+1
+    lda parentpage
     sta (TMP1_ADR),y
     ldy #2
-    lda nextbank
+
+    lda nextbank            ;Set next page
     sta (TMP1_ADR),y
     ldy #3
     lda nextpage
     sta (TMP1_ADR),y
-    ldy #4
+
+    ldy #4                  ;Set new page len=0
     lda #0
     sta (TMP1_ADR),y
 
-    lda nextpage
+set_next_metadata:
+    lda parentpage          ;Exit if parent page is NULL (head of stream)
+    beq exit
+    lda nextpage            ;Exit if next page is NULL (end of stream)
     beq exit
 
-    sta TMP2_ADR+1
+    sta TMP2_ADR+1          ;Setup ZP pointer to next page
     stz TMP2_ADR
     lda nextbank
     sta BNK_SEL
 
-    ldy #0
+    ldy #0                  ;Set parent page
     lda newbank
     sta (TMP2_ADR),y
     ldy #1
@@ -557,11 +604,13 @@ exit:
 
     rts
 
-newbank = tempvars          ;1 byte
-newpage = tempvars+1        ;1 byte
-value = tempvars+2          ;1 byte
-nextbank = tempvars+3       ;1 byte
-nextpage = tempvars + 4     ;1 byte
+parentbank = tempvars       ;1 byte
+parentpage = tempvars+1     ;1 byte
+newbank = tempvars+2        ;1 byte
+newpage = tempvars+3        ;1 byte
+value = tempvars+4          ;1 byte
+nextbank = tempvars+5       ;1 byte
+nextpage = tempvars + 6     ;1 byte
 
 bitmask:
     .byt 1, 2, 4, 8, 16, 32, 64, 128
@@ -581,26 +630,63 @@ bitmask:
     
     ;Check if bank is reserved, exit without deallocating if true
     cpy mem_start
-    beq is_reserved     ;Don't touch head of buffer - bank mem_start+1, page $a0
+    beq is_reserved     ;Don't touch head of mem_start bank (used for internal storage by the editor) or any bank before that
     bcc is_reserved
     
-    cpy mem_top
-    beq :+
-    bcs is_reserved     ;Don't touch unpopulated memory
-
-:   tya                 
-    dea
-    cmp mem_start
-    bne :+
-    lda page
-    cmp #$a0
-    bne :+
+    cpy mem_top         ;Don't touch banks above the specified mem top
+    beq not_reserved
+    bcc not_reserved
 
 is_reserved:
     sec
     rts
 
-    ;Continue freeing that mem page...
+not_reserved:
+    ;Check if the target page is the next defrag candidate; if so, start defrag from next page
+    cpy mem_run_defrag_page
+    bne free
+    cpx mem_run_defrag_page+1
+    bne free
+
+    ;Select next defrag candidate
+    sty BNK_SEL
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+    ldy #3
+    lda (TMP1_ADR),y    ; Next page
+    beq :+              ; At last page
+    sta mem_run_defrag_page+1
+    dey
+    lda (TMP1_ADR),y    ; Next bank
+    sta mem_run_defrag_page
+    bra free
+
+:   ;Set defrag candidate to start of text buffer
+    lda mem_start
+    inc
+    sta mem_run_defrag_page
+    lda #$a0
+    sta mem_run_defrag_page+1
+
+free:
+    ;Special case, head of text buffer only cleared, not unlinked
+    lda mem_start
+    inc
+    cmp bank
+    bne :+
+    lda page
+    cmp #$a0
+    bne :+
+    sta TMP1_ADR+1
+    stz TMP1_ADR
+    lda bank
+    sta BNK_SEL
+    ldy #4
+    lda #0
+    sta (TMP1_ADR),y
+    clc
+    rts
+
     ;Find out position in mem_map corresponding to specified bank/page
 :   lda mem_start              ;Select bank mem_start to access mem_map
     sta BNK_SEL
@@ -717,6 +803,51 @@ next = tempvars+4   ;2 bytes
 bitmask:
     .byt 1,2,4,8,16,32,64,128
 .endproc
+
+;**********************************************************
+;Function name.......: mem_free_array
+;Description.........: Frees an array of memory pages
+;                      starting with the specified page.
+;                      The operation ends after freeing
+;                      the last page of the array, identified
+;                      by next_page = NULL (0)
+;Input...............: Y    Bank
+;                      X    First page of array
+;Returns.............: C=1 if an error occured
+.proc mem_free_array
+    ;Get next page and store on stack
+    sty BNK_SEL
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+    ldy #2
+    lda (TMP1_ADR),y ; Next bank
+    pha
+    iny
+    lda (TMP1_ADR),y ; Next page
+    pha
+
+    ;Free page
+    ldy BNK_SEL
+    jsr mem_free
+    bcs err
+
+    ;Prepare for next page
+    plx ; page
+    ply ; bank
+    
+    cpx #0 ; Check if end of array
+    bne mem_free_array
+    clc
+    rts
+
+err:
+    ;Restore stack
+    plx
+    ply
+
+    rts
+.endproc
+
 
 ;**********************************************************
 ;Function name.......: mem_run_defrag
@@ -1184,6 +1315,8 @@ pushforward:
     bra insert
 
 alloc:
+    ldy CRS_BNK
+    ldx CRS_ADR+1
     jsr mem_alloc
     cpx #0          ;Mem full?
     beq mem_full
@@ -1227,6 +1360,71 @@ mem_full:
     pla     ;Clean stack
     pla
 
+    sec
+    rts
+.endproc
+
+;**********************************************************
+;Procedure name......: mem_append
+;Description.........: Appends byte to end of specified
+;                      memory page, allocates a new page
+;                      if page is full
+;Input...............: A = value
+;                      X = page
+;                      Y = bank
+;Returns.............: A = preserved
+;                      X = page
+;                      Y = bank
+;Error returns.......: C=1 if memory full
+.proc mem_append
+    ;Store input on stack
+    pha
+
+    ;Setup pointer to bank and page
+    sty BNK_SEL
+    stx TMP1_ADR+1
+    stz TMP1_ADR
+
+    ;Get page len
+    ldy #4
+    lda (TMP1_ADR),y
+    tay
+    
+    ;Check if page is full
+    cmp #251
+    bne :+ ;no
+
+    ldy BNK_SEL ; Allocate new memory page
+    ldx TMP1_ADR+1
+    jsr mem_alloc
+    sty BNK_SEL
+    stx TMP1_ADR+1
+    bcs err
+    ldy #0
+
+    ;Set value
+:   lda #5
+    sta TMP1_ADR
+    pla ; Get value from stack
+    pha ; Put it back again
+    sta (TMP1_ADR),y
+
+    ;Update page len
+    stz TMP1_ADR
+    iny
+    tya
+    ldy #4
+    sta (TMP1_ADR),y
+
+    ;Return without error
+    pla ; Restore value
+    ldy BNK_SEL
+    ldx TMP1_ADR+1
+    clc
+    rts
+
+err:
+    pla
     sec
     rts
 .endproc
@@ -1405,6 +1603,7 @@ default:
     sta BNK_SEL
     lda CRS_IDX
     ina
+    ldy #4
     cmp (CRS_ADR),y
     bcc default
 
@@ -1431,6 +1630,8 @@ goto_eof:
     cmp #250
     bne default
 
+    ldy CRS_BNK
+    ldx CRS_ADR+1
     jsr mem_alloc
     cpx #0              ;Mem full?
     beq mem_full
