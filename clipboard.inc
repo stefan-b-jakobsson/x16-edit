@@ -297,7 +297,6 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: C=1: Clipboard mem full
 .proc clipboard_cut
-    .byt $db
     ;Copy line, return with C=1 if clipboard mem is full
     jsr clipboard_copy
     bcs mem_full
