@@ -586,6 +586,52 @@ The Commander X16 was devised by David Murray a.k.a. the
         used by the program. This option may be used to reserve the rest of banked RAM
         for other purposes.
 
+    \subsection{Load file with options entry point 2}
+
+        \textbf{Purpose:} Start editor with custom options and then load the specified text file
+
+        \textbf{Call address:} \$0816 (RAM version), \$C009 (ROM version)
+
+        \textbf{Parameters:}
+
+        \begin{longtable}[l]{l l l l}
+	        \textbf{Register} & \textbf{Address} & \textbf{Bits} & \textbf{Description} \\
+	        \hline \\
+            X   &          &      & First RAM bank used by the program \\
+            Y   &          &      & Last RAM bank used by the program \\
+            r0  & \$02--03 &      & Pointer to file name \\
+            r1L & \$04     &      & File name length, or 0=no file \\
+            r1H & \$05     & 0    & Auto indent on/off \\
+            r1H & \$05     & 1    & Word wrap on/off \\
+            r1H & \$05     & 2--7 & Unused \\
+            r2L & \$06     &      & Tab stop width (1..9) \\
+            r2H & \$07     &      & Word wrap position (10..250) \\
+            r3L & \$08     &      & Current device number (8..30) \\
+            r3H & \$09     & 0--3 & Text color \\
+            r3H & \$09     & 4--7 & Background color \\
+            r4L & \$0A     & 0--3 & Header text color \\
+            r4L & \$0A     & 4--7 & Header background color \\
+            r4H & \$0B     & 0--3 & Status bar text color \\
+            r4H & \$0B     & 4--7 & Status bar background color \\
+            r5--r6L & \$0C   &      & Goto line number (24 bits) \\
+        \end{longtable}
+
+        Parameters out of range are silently ignored, and default
+        values are used instead.
+
+        Color settings are ignored if both the text and background color is 0.
+
+        If the specified file does not exist, the editor will display an
+        error message. If the file name length is 0, the program will not try
+        to load a text file.
+
+        The first and last RAM bank settings control what part of banked RAM is
+        used by the program. This option may be used to reserve the rest of banked RAM
+        for other purposes.
+
+        The cursor is moved to the goto line number (24 bits) on file open. The goto
+        line number is ignored if 0.
+
     \subsection{Code samples for the RAM version}
 
     \subsubsection{Default entry point}
@@ -637,6 +683,44 @@ The Commander X16 was devised by David Murray a.k.a. the
     lda #$00               ; Use default color
     sta $0b                ; Store in r4H (status bar color)
     jsr $0813              ; Call entry point
+    rts
+
+fname:
+    .byt "mytextfile.txt"
+fname_end:
+\end{verbatim}
+
+\subsubsection{Load file with options entry point 2}
+\begin{verbatim}
+    ldx #$01               ; First RAM bank used by the editor
+    ldy #$ff               ; And last RAM bank
+    lda #<fname            ; Pointer to file name (LSB)
+    sta $02                ; Store in r0L
+    lda #>fname            ; Pointer to file name (MSB)
+    sta $03                ; Store in r0H
+    lda #fname_end-fname   ; File name length
+    sta $04                ; Store in r1L
+    lda #$01               ; Auto-indent on, word wrap off
+    sta $05                ; Store in r1H
+    lda #$04               ; Tab width
+    sta $06                ; Store in r2L
+    lda #$28               ; Word wrap position
+    sta $07                ; Store in r2H
+    lda #$08               ; Disk drive device number
+    sta $08                ; Store in r3L
+    lda #$b1               ; Text white, background light green
+    sta $09                ; Store in r3H (screen color)
+    lda #$07               ; Text yellow, background black
+    sta $0a                ; Store in r4L (header color)
+    lda #$00               ; Use default color
+    sta $0b                ; Store in r4H (status bar color)
+    lda #$2c               ; Goto line number 300 on file open
+    sta $0c
+    lda #$01
+    sta $0d
+    lda #$00
+    sta $0e
+    jsr $0816              ; Call entry point
     rts
 
 fname:
@@ -759,6 +843,54 @@ fname_end:
     lda #$00               ; Use default color
     sta $0b                ; Store in r4H (status bar color)
     jsr $c006              ; Call entry point
+done:
+    pla                    ; Restore original ROM bank
+    sta $01
+    rts
+   
+fname:
+    .byt "mytextfile.txt"
+fname_end:
+\end{verbatim}
+
+
+    \subsubsection{Load file with options entry point 2}
+\begin{verbatim}
+    lda $01                ; Store current ROM bank on stack
+    pha
+    jsr find_me            ; Search ROM banks
+    bcs done               ; Exit if X16 Edit wasn't found
+    sta $01                ; Set ROM bank
+    
+    ldx #$01               ; First RAM bank used by the editor
+    ldy #$ff               ; And last RAM bank
+    lda #<fname            ; Pointer to file name (LSB)
+    sta $02                ; Store in r0L
+    lda #>fname            ; Pointer to file name (MSB)
+    sta $03                ; Store in r0H
+    lda #fname_end-fname   ; File name length
+    sta $04                ; Store in r1L
+    lda #$01               ; Auto-indent on, word wrap off
+    sta $05                ; Store in r1H
+    lda #$04               ; Tab width
+    sta $06                ; Store in r2L
+    lda #$28               ; Word wrap position
+    sta $07                ; Store in r2H
+    lda #$08               ; Disk drive device number
+    sta $08                ; Store in r3L
+    lda #$b1               ; Text white, background light green
+    sta $09                ; Store in r3H (screen color)
+    lda #$07               ; Text yellow, background black
+    sta $0a                ; Store in r4L (header color)
+    lda #$00               ; Use default color
+    sta $0b                ; Store in r4H (status bar color)
+    lda #$2c               ; Goto line 300 on file open
+    sta $0c
+    lda #$01
+    sta $0d
+    lda #$00
+    sta $0e
+    jsr $c009              ; Call entry point
 done:
     pla                    ; Restore original ROM bank
     sta $01
