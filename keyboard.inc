@@ -612,11 +612,11 @@ tofiles:
 
 abort:
     stz APP_MOD         ;mode_default
+    stz APP_QUIT        ;Prevent exit on save
     jsr cursor_activate
     jmp screen_clear_status
 
 write_file:
-
     jmp cmd_file_save_overwrite
 
 .endproc
