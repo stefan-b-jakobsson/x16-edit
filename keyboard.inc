@@ -477,6 +477,8 @@ exit_help:
     rts
 
 save:
+    lda #2
+    sta APP_QUIT ;Set exit on save
     jsr cursor_activate
     jsr screen_clear_status
     jmp cmd_file_save_prompt
@@ -529,6 +531,7 @@ abort:
 abort:
     jsr prompt_close
     stz APP_MOD
+    stz APP_QUIT ;Prevent exit on save
     jmp screen_print_default_footer
 
 write_file:

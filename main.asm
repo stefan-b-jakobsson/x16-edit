@@ -414,7 +414,8 @@ errormsg:
 mainloop:
     ;Application main loop
     lda APP_QUIT                        ;Time to quit?
-    bne shutdown
+    cmp #1
+    beq shutdown
 
     lda irq_flag                        ;Wait for IRQ flag
     beq mainloop

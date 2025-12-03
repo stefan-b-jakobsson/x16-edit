@@ -88,8 +88,14 @@ msg:
     jmp show_status         ;Other disk error, show it
 
 noerr:
+    ;Quit program if APP_QUIT is 2 (exit on save)
+    lda APP_QUIT
+    cmp #2
+    bne :+
+    dec APP_QUIT
+
     ;Set buffer status as not modified
-    stz mem_modified
+:   stz mem_modified
     
     ;Set current file name
     lda filename
@@ -130,6 +136,7 @@ show_status:
     bra exit
 
 show_io_err:
+    stz APP_QUIT ;Save failed, prevent program exit
     ldx file_io_err
     jsr cmd_file_show_io_err
 
