@@ -743,6 +743,9 @@ enterkey:
     beq open
 save:
     jsr screen_print_default_footer
+    jsr screen_clear_editor
+    jsr screen_refresh
+    jsr screen_println
     jsr cursor_activate
     ldx #<prompt_input
     ldy #>prompt_input
@@ -774,7 +777,8 @@ abortopen:
     lda #5
     sta APP_MOD
 :   jsr screen_clear_editor
-    jmp screen_refresh
+    jsr screen_refresh
+    jmp screen_println
 
 uparrow:
     ldx dir_selected

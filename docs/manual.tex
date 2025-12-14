@@ -452,12 +452,13 @@ The Commander X16 was devised by David Murray a.k.a. the
         are also found in Appendix B.
 
     \subsection{The X16 Edit API}
-        The X16 Edit API consists of the following three entry points:
+        The X16 Edit API consists of the following four entry points:
 
         \begin{itemize}
             \item Default entry point, starts the editor with default options and an empty new text buffer
             \item Load file entry point, starts the editor with default options and then loads the specified text file
-            \item Load file with options, start the editor with custom options and then loads the specified text file
+            \item Load file with options 1, starts the editor with custom options and then loads the specified text file
+            \item Load file with options 2, same as previous, in addition supports moving the cursor to a specified line in the opened file
         \end{itemize}
 
         Information on how to call the different entry points and code samples is available in Appendix B. 
@@ -544,7 +545,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         used by the program. This option may be used to reserve the rest of banked RAM
         for other purposes.
 
-    \subsection{Load file with options entry point}
+    \subsection{Load file with options entry point 1}
 
         \textbf{Purpose:} Start editor with custom options and then load the specified text file
 
@@ -588,7 +589,8 @@ The Commander X16 was devised by David Murray a.k.a. the
 
     \subsection{Load file with options entry point 2}
 
-        \textbf{Purpose:} Start editor with custom options and then load the specified text file
+        \textbf{Purpose:} Start editor with custom options and then load the specified text file. In addition to Load file with options entry point 1, this entry
+        point adds an optional line number whereto the cursor is moved after opening the file.
 
         \textbf{Call address:} \$0816 (RAM version), \$C009 (ROM version)
 
@@ -630,7 +632,8 @@ The Commander X16 was devised by David Murray a.k.a. the
         for other purposes.
 
         The cursor is moved to the goto line number (24 bits) on file open. The goto
-        line number is ignored if 0.
+        line number is ignored if 0. The cursor is placed on the last line, if
+        the requested line does not exist.
 
     \subsection{Code samples for the RAM version}
 
@@ -658,7 +661,7 @@ The Commander X16 was devised by David Murray a.k.a. the
     fname_end:
 \end{verbatim}
 
-\subsubsection{Load file with options entry point}
+\subsubsection{Load file with options entry point 1}
 \begin{verbatim}
     ldx #$01               ; First RAM bank used by the editor
     ldy #$ff               ; And last RAM bank
@@ -812,7 +815,7 @@ fname:
 fname_end:
 \end{verbatim}
 
-    \subsubsection{Load file with options entry point}
+    \subsubsection{Load file with options entry point 1}
 \begin{verbatim}
     lda $01                ; Store current ROM bank on stack
     pha

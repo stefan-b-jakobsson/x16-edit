@@ -50,7 +50,7 @@
 ;Description.........: Program entry points
 jmp main_default_entry
 jmp main_loadfile_entry
-jmp main_loadfile_with_options_entry
+jmp main_loadfile_with_options_entry1
 jmp main_loadfile_with_options_entry2
 
 ;******************************************************************************
@@ -146,23 +146,20 @@ exit:
 ;
 ;Returns.............: Nothing
 ;Error returns.......: None
-.proc main_loadfile_with_options_entry
-    ; Clear goto line number
-    stz r5
-    stz r5+1
-    stz r5+2
-
+.proc main_loadfile_with_options_entry1
     ; Jump to entry point
-    jmp main_loadfile_with_options_entry2
+    jsr main_loadfile_with_options_entry
+    bcc :+
+    rts
+:   jmp main_loop
 .endproc
 
 ;******************************************************************************
 ;Function name.......: main_loadfile_with_options_entry2
 ;Purpose.............: Program entry function that may may set most editor 
 ;                      options and load a file from the file system on startup.
-;                      It's identical to main_loadfile_with_options_entry,
-;                      but adds an option to move the cursor to a specific
-;                      line in the opened file.
+;                      Same as main_loadfile_with_options_entry1, with addition
+;                      of a goto line feature.
 ;Input...............: List of params:
 ;                      
 ;                      Reg Bit Description
@@ -183,7 +180,7 @@ exit:
 ;                      r4L 4-7 Header background color
 ;                      r4H 0-3 Status bar text color
 ;                      r4H 4-7 Status bar background color
-;                      r5-r6L  Goto line number (24 bits) on file open (0=ignore)
+;                      r5-r6L  Goto line (24 bits) on file open
 ;
 ;                      Please note:
 ;                      - Settings out of range are silently ignored
@@ -193,9 +190,61 @@ exit:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_loadfile_with_options_entry2
+    jsr main_loadfile_with_options_entry
+    bcc :+
+    rts
+
+:   ; Goto line, if requested
+    lda r5
+    ora r5+1
+    ora r5+2
+    beq :+
+
+    ldx r5
+    ldy r5+1
+    lda r5+2
+    jsr cmd_goto_line
+
+:   jmp main_loop
+.endproc
+
+;******************************************************************************
+;Function name.......: main_loadfile_with_options_entry
+;Purpose.............: Program entry function that may may set most editor
+;                      options. Called by main_loadfile_with_options_entry1 and
+;                      main_loadfile_with_options_entry2.
+;Input...............: List of params:
+;                      
+;                      Reg Bit Description
+;                      -------------------
+;                      X       First bank in banked RAM used by the program (>0)
+;                      Y       Last bank in banked RAM used by the program (>X)
+;                      r0      Pointer to file name
+;                      r1L     File name length, or 0 if no file
+;                      r1H 0   Auto indent on/off
+;                      r1H 1   Word wrap on/off
+;                      r1H 2-7 Unused
+;                      r2L     Tab width (1..9)
+;                      r2H     Word wrap position (10..250)
+;                      r3L     Current device number (8..30)
+;                      r3H 0-3 Screen text color
+;                      r3H 4-7 Screen background color
+;                      r4L 0-3 Header text color
+;                      r4L 4-7 Header background color
+;                      r4H 0-3 Status bar text color
+;                      r4H 4-7 Status bar background color
+;
+;                      Please note:
+;                      - Settings out of range are silently ignored
+;                      - Color settings are ignored if both text and background 
+;                        color is 0, "black on black"
+;
+;Returns.............: Nothing
+;Error returns.......: C = 1 on init failed
+.proc main_loadfile_with_options_entry
     jsr main_init
     bcc :+
-    jmp exit            ;C=1 => init failed
+    rts ;C=1 => init failed
 
     ;Auto indent
 :   lda r1+1
@@ -256,7 +305,7 @@ exit:
 
     ;Load text file from disk
     lda r1
-    beq start          ;Len=0 => no file, ignore
+    beq exit          ;Len=0 => no file, ignore
     ldx r0
     ldy r0+1
     jsr cmd_file_open
@@ -265,21 +314,8 @@ exit:
     ldy #2
     jsr cursor_move
 
-    ;Goto line number, if > 0
-    lda r5
-    ora r5+1
-    ora r5+2
-    beq start ; = 0, ignore
-
-    ldx r5
-    ldy r5+1
-    lda r5+2
-    jsr cmd_goto_line
-
-start:
-    jmp main_loop
-
 exit:
+    clc
     rts
 
 .endproc
