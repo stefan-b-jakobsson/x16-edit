@@ -112,7 +112,7 @@ exit:
 .endproc
 
 ;******************************************************************************
-;Function name.......: main_loadfile_with_options_entry
+;Function name.......: main_loadfile_with_options_entry1
 ;Purpose.............: Program entry function that may may set most editor 
 ;                      options and load a file from the file system on startup.
 ;                      It calls main_loadfile_with_options_entry2, but always
@@ -300,8 +300,6 @@ exit:
     jsr screen_clearall
     jsr screen_print_header
     jsr screen_print_default_footer
-    jsr screen_refresh
-    jsr cursor_activate
 
     ;Load text file from disk
     lda r1
@@ -428,6 +426,10 @@ errormsg:
 ;Returns.............: Nothing
 ;Error returns.......: None
 .proc main_loop
+    ; Refresh screen and enable cursor
+    jsr screen_refresh
+    jsr cursor_activate
+
     ;Init IRQ
     jsr irq_init
 

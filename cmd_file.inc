@@ -245,7 +245,11 @@ msg2:
 
 ;******************************************************************************
 ;Function name.......: cmd_file_open
-;Purpose.............: Reads file into buffer
+;Purpose.............: Reads file into buffer. The drive status is displayed
+;                      in the status bar. The current file name is updated
+;                      and displayed in the title bar. The editor area is,
+;                      however, not updated. The calling function must
+;                      invoke screen_refresh before exiting.
 ;Preparatory routines: None
 ;Input...............: Pointer to file name, X=AddressL, Y=AddressH
 ;                      A=File name length
@@ -300,7 +304,6 @@ io_error:
 
 exit:
     jsr cursor_activate
-    jsr screen_refresh
 
     lda #2              ;mode_statusmessage
     sta APP_MOD

@@ -664,7 +664,8 @@ read_file:
     ldx #<prompt_input
     ldy #>prompt_input
     lda prompt_len
-    jmp cmd_file_open
+    jsr cmd_file_open
+    jmp screen_refresh
 
 tofiles:
     lda #18
@@ -759,7 +760,8 @@ open:
     ldx #<prompt_input
     ldy #>prompt_input
     lda prompt_len
-    jmp cmd_file_open
+    jsr cmd_file_open
+    jmp screen_refresh
 
 abort:
     lda APP_MOD
