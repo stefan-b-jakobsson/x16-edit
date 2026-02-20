@@ -38,7 +38,7 @@ $(BUILD_DIR)/X16EDIT.PRG: $(BUILD_DIR)/help.bin $(BUILD_DIR)/help_short.bin $(SR
 # Target for RAM program (alternative shortcuts)
 $(BUILD_DIR)/X16EDIT-ALT.PRG: $(BUILD_DIR)/help_alt.bin $(BUILD_DIR)/help_alt_short.bin $(SRC_FILES)
 	@mkdir -p $(BUILD_DIR) 
-	cl65 --asm-args -Dtarget_mem=1 --asm-args -Dalt_shortcuts=1 -g -o $@ -u __EXEHDR__ -t cx16 -C $(CONF_DIR)/cx16-asm.cfg --mapfile $(BUILD_DIR)/x16edit-ram.map -Ln $(BUILD_DIR)/x16edit-ram.sym -l $(BUILD_DIR)/x16edit-ram.lst main.asm 
+	cl65 --asm-args -Dtarget_mem=1 --asm-args -Dalt_shortcuts=1 -g -o $@ -u __EXEHDR__ -t cx16 -C $(CONF_DIR)/cx16-asm.cfg --mapfile $(BUILD_DIR)/x16edit-ram.map -Ln $(BUILD_DIR)/x16edit-ram.sym -l $(BUILD_DIR)/x16edit-ram.lst main.asm
 
 # Target for ROM program
 $(BUILD_DIR)/x16edit-rom.bin: $(BUILD_DIR)/help.bin $(BUILD_DIR)/help_short.bin $(SRC_FILES)
@@ -53,3 +53,4 @@ $(BUILD_DIR)/x16edit-alt-rom.bin: $(BUILD_DIR)/help_alt.bin $(BUILD_DIR)/help_al
 # Clean-up target
 clean:
 	rm -f $(BUILD_DIR)/*
+	rm -f main.o
