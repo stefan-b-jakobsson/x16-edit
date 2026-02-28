@@ -465,7 +465,6 @@ msg:
 ;Error returns.......: None
 .proc cmd_file_print_prompt
     ; Load printer driver
-    .byt $db
     call_secondbank printer_load_driver
     cmp #1
     beq loaderr
