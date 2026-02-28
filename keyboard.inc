@@ -222,6 +222,7 @@ jmptbl:
     .word keyboard_mode_compile                 ;APP mode 22
     .word keyboard_mode_quote                   ;APP mode 23
     .word keyboard_mode_print                   ;APP mode 24
+    .word keyboard_mode_print_option            ;APP MODE 25
 .endproc
 
 ;******************************************************************************
@@ -1308,6 +1309,17 @@ select:
 ;Error returns.......: None
 .proc keyboard_mode_print
     call_secondbank printer_key_handler
+    rts
+.endproc
+
+;******************************************************************************
+;Function name.......: keyboard_mode_print_option
+;Purpose.............: Key dispatcher: Print option prompt
+;Input...............: A = char
+;Returns.............: Nothing
+;Error returns.......: None
+.proc keyboard_mode_print_option
+    call_secondbank printer_set_option
     rts
 .endproc
 

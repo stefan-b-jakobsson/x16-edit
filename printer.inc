@@ -24,17 +24,29 @@
 ;*******************************************************************************
 
 ;Printer driver jump table
-PRNDRV_INIT                    = $9000
-PRNDRV_GET_DRIVER_NAME         = $9003
-PRNDRV_SET_CHARSET             = $9006
-PRNDRV_GET_OPTION_COUNT        = $9009
-PRNDRV_GET_OPTION_LABELS       = $900c
-PRNDRV_GET_OPTION_VALUE        = $900f
-PRNDRV_SET_OPTION_VALUE        = $9012
-PRNDRV_CHANNEL_OPEN            = $9015
-PRNDRV_PRINT_CHAR              = $9018
-PRNDRV_CHANNEL_CLOSE           = $901b
-PRNDRV_SAVE_DEFAULTS           = $901e
+PRNDRV_INIT                    = $9efd
+PRNDRV_API_VER                 = $9efa
+PRNDRV_GET_DRIVER_NAME         = $9ef7
+PRNDRV_SET_CHARSET             = $9ef4
+PRNDRV_GET_OPTION_COUNT        = $9ef1
+PRNDRV_GET_OPTION_LABELS       = $9eee
+PRNDRV_GET_OPTION_VALUE        = $9eeb
+PRNDRV_SET_OPTION_VALUE        = $9ee8
+PRNDRV_ADD_OFFSET              = $9ee5
+PRNDRV_CHANNEL_OPEN            = $9ee2
+PRNDRV_PRINT_CHAR              = $9edf
+PRNDRV_CHANNEL_CLOSE           = $9edc
+PRNDRV_GET_MESSAGE             = $9ed9
+PRNDRV_SAVE_DEFAULTS           = $9ed6
+
+PRNDRV_API_MIN                 = 1
+PRNDRV_API_MAX                 = 1
+
+; Option types
+PRINTER_TYPE_INT8 = 0
+PRINTER_TYPE_INT16 = 1
+PRINTER_TYPE_LIST = 2
+PRINTER_TYPE_STRING = 3
 
 .segment "CODE2"
 
@@ -51,7 +63,7 @@ PRNDRV_SAVE_DEFAULTS           = $901e
     lda #1
     bridge_call KERNAL_CLOSE
 
-    ; Copy name to temp vars
+    ; Copy file name to temp vars
     ldx #0
 :   lda fn,x
     sta tempvars,x
@@ -89,8 +101,15 @@ PRNDRV_SAVE_DEFAULTS           = $901e
     cmp #0
     bne loaderr
 
-    ; Load successful, check diver compatibilty
-    ; TODO
+    ; Check diver compatibilty
+    jsr PRNDRV_API_VER
+    cmp #PRNDRV_API_MIN
+    bcc apierr
+    cmp #PRNDRV_API_MAX+1
+    bcs apierr
+
+    ; Init driver
+    jsr PRNDRV_INIT
 
     ; Return OK
     lda #0
@@ -100,6 +119,10 @@ loaderr:
     lda #1
     rts
 
+apierr:
+    lda #2
+    rts
+
 fn:
     .byt "x16editpd-*"
 fn_end:
@@ -107,7 +130,7 @@ fn_end:
 
 ;**********************************************************
 ;Function name.......: printer_dialog
-;Description.........: Shows print dialog
+;Description.........: Shows the print dialog
 ;Input...............: Nothing
 ;Prerequisites.......: printer_load_driver
 ;Error returns.......: Nothing
@@ -124,7 +147,7 @@ fn_end:
     lda #VERA_BUFADR_H | %00100000
     sta VERA_H
 
-    ; Output "PRINT TO "
+    ; Output "PRINT TO " header
     ldy #0
 :   lda header,y
     beq :+
@@ -148,7 +171,7 @@ fn_end:
     lda #VERA_BUFADR_M + 4
     sta VERA_M
 
-    ; Clear column where settings are displayed
+    ; Clear column where values are displayed
     stz printer_value_start_column
 
     ; Get option count
@@ -169,7 +192,7 @@ fn_end:
     bra :-
 
 lf:
-    ; Update max label width
+    ; Update max label max width
     jsr update_label_width
     
     ; Move pointer to start of next item
@@ -191,7 +214,7 @@ lf:
     bra :-
 
 exit:
-    ; Update max label width
+    ; Update max label max width
     jsr update_label_width
 
     ; Highlight first option
@@ -227,10 +250,18 @@ header:
 ;Input...............: A = char
 ;Error returns.......: Nothing
 .proc printer_key_handler
+    pha
+    call_firstbank screen_clear_status
+    pla
+
     cmp #KEYVAL_ESC
     beq esc
 
-    cmp #KEYVAL_DOWN
+    cmp #KEYVAL_ENTER
+    bne :+
+    jmp enter
+
+:   cmp #KEYVAL_DOWN
     bne :+
     jmp down
 
@@ -251,7 +282,11 @@ header:
 
     cmp #KEYVAL_P
     bne :+
-    jmp print
+    jmp printer_print
+
+:   cmp #KEYVAL_S
+    bne :+
+    jmp printer_save_defaults
 
 :   rts
 
@@ -264,6 +299,25 @@ esc:
     call_firstbank cursor_activate
     stz APP_MOD
     rts
+
+enter:
+    ldx printer_active_option
+    jsr PRNDRV_GET_OPTION_VALUE
+    cmp #PRINTER_TYPE_LIST
+    bne :+
+    jmp right
+
+:   lda #25
+    sta APP_MOD
+    ldx #<msg
+    ldy #>msg
+    lda #255
+    call_firstbank prompt_init
+    call_firstbank cursor_activate
+    rts
+.segment "CODE"
+msg: .byt "set option:",0
+.segment "CODE2"
 
 down:
     ; Select next option
@@ -303,10 +357,10 @@ up:
     jmp printer_select
 
 left:
-    ; Check if option type is int or list
+    ; Check if option type is int or list (not string)
     ldx printer_active_option
     jsr PRNDRV_GET_OPTION_VALUE
-    cmp #2
+    cmp #PRINTER_TYPE_STRING
     bcc :+
     rts
 
@@ -314,15 +368,15 @@ left:
 :   lda #255
 left2:
     ldx printer_active_option
-    jsr PRNDRV_SET_OPTION_VALUE
+    jsr PRNDRV_ADD_OFFSET
     ldx printer_active_option
     jmp printer_refresh_line
 
 right:
-    ; Check if option type is int or list
+    ; Check if option type is int or list (not string)
     ldx printer_active_option
     jsr PRNDRV_GET_OPTION_VALUE
-    cmp #2
+    cmp #PRINTER_TYPE_STRING
     bcc :+
     rts
 
@@ -332,6 +386,43 @@ right:
 
 print:
     jmp printer_print
+.endproc
+
+;**********************************************************
+;Function name.......: printer_set_option
+;Description.........: Key handler for printer option
+;                      prompt
+;Input...............: A = char
+;Error returns.......: Nothing
+.proc printer_set_option
+    cmp #KEYVAL_ENTER
+    beq enter
+    cmp #KEYVAL_ESC
+    beq hide
+    call_firstbank prompt_keypress
+    rts
+
+enter:
+    jsr hide
+    ldx prompt_len
+    lda #0
+    sta prompt_input,x
+    ldx printer_active_option
+    lda #<prompt_input
+    ldy #>prompt_input
+    jsr PRNDRV_SET_OPTION_VALUE
+    bcc :+ ; no error
+    jsr PRNDRV_GET_MESSAGE
+    call_firstbank screen_print_status
+:   ldx printer_active_option
+    jmp printer_refresh_line
+
+hide:
+    call_firstbank prompt_close
+    call_firstbank cursor_disable
+    lda #24
+    sta APP_MOD
+    rts
 .endproc
 
 ;**********************************************************
@@ -390,15 +481,18 @@ print:
     jsr PRNDRV_GET_OPTION_VALUE
     
     ; Check type
-    cmp #0
-    beq int
-    cmp #3
-    bcc string
+    cmp #PRINTER_TYPE_INT8
+    beq int8
+    cmp #PRINTER_TYPE_INT16
+    beq int16
+    cmp #PRINTER_TYPE_LIST
+    bcs string
     rts
 
-int:
-    ldy #0
-    lda #0
+int8:
+    ldy #0 ; Clear bits 8-15 for int8 output
+int16:
+    lda #0 ; Clear bits 16-24
     call_firstbank util_bin_to_bcd
     call_firstbank util_bcd_to_str
     stx TMP1_ADR
@@ -436,9 +530,6 @@ exit:
 ;Input...............: Nothing
 ;Error returns.......: Nothing
 .proc printer_print
-    ; Init printer
-    jsr PRNDRV_INIT
-    
     ; Send active charset to printer driver
     lda screen_mode
     jsr PRNDRV_SET_CHARSET
@@ -497,7 +588,9 @@ loop2:
     jsr PRNDRV_PRINT_CHAR
     bcc :+
     jmp err
-:   dec cur_len
+:   cmp #1
+    beq pause ; A = 1 => Driver paused printing
+    dec cur_len
     bne loop
     bra next
 
@@ -513,6 +606,7 @@ eof:
 
 pause:
     ; Save state, affected by other functions called below
+    dey ; Decrement index to resend char after pause
     phy
     lda TMP1_ADR
     pha
@@ -554,8 +648,8 @@ pause:
     jmp loop2
 
 err:
-    tax
-    call_firstbank cmd_file_show_io_err
+    jsr PRNDRV_GET_MESSAGE
+    call_firstbank screen_print_status
     rts
 
 .segment "VARS"
@@ -571,6 +665,30 @@ msg1:
 msg2:
     .byt "printing paused",0
 
+.endproc
+
+;**********************************************************
+;Function name.......: printer_save_defaults
+;Description.........: Prints the current document
+;Input...............: Nothing
+;Error returns.......: Nothing
+.proc printer_save_defaults
+    jsr PRNDRV_SAVE_DEFAULTS
+    bcs err
+
+ok:
+    ldx #<msg
+    ldy #>msg
+    call_firstbank screen_print_status
+    rts
+
+err:
+    jsr PRNDRV_GET_MESSAGE
+    call_firstbank screen_print_status
+    rts
+
+.CODE
+    msg: .byt "settings saved",0
 .endproc
 
 .segment "VARS"

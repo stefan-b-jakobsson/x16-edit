@@ -904,8 +904,296 @@ fname:
 fname_end:
 \end{verbatim}
 
+\newpage
+\section{Printer driver specification}
+
+    \subsection{Introduction}
+
+        Built-in support for the vast amount of printers that exist and all the ways printers
+        can be connected to the system would be difficult at best. To overcome this complexity
+        and to enable users to use any setup they may have, printing is supported through
+        loadable drivers.
+
+        A printer driver is a separate machine language program implementing the API
+        specified below.
+
+        The driver must be stored in the root folder of the SD card. The name of the file
+        must begin with "X16PRDRV-", followed by an optional name identifying the printer,
+        for instance "X16PRDRV-MPS801". You must be able to load the driver into the
+        correct memory address using the BASIC command LOAD "X16EDITPD-*",8,1.
+
+    \subsection{Driver API version 1}
+
+        Driver API version 1 assumes the following jump table at the end of low RAM. The
+        driver may start at any point in low RAM but must always end at address \$9eff.
+
+        Each entry in the table is expected to be a JMP instruction.
+
+        \begin{longtable}[l]{l l}
+            \textbf{Address} & \textbf{Name} \\
+            \hline \\
+            \$9efd & init \\
+            \$9efa & get\_api\_version \\
+            \$9ef7 & get\_driver\_name \\
+            \$9ef4 & set\_charset \\
+            \$9ef1 & get\_option\_count \\
+            \$9eee & get\_option\_labels \\
+            \$9eeb & get\_option\_value \\
+            \$9ee8 & set\_set\_option\_value \\
+            \$9ee5 & option\_add\_offset \\
+            \$9ee2 & channel\_open \\
+            \$9edf & print\_char \\
+            \$9edc & channel\_close \\            
+            \$9ed9 & get\_message \\            
+            \$9ed6 & save\_defaults \\
+        \end{longtable}
+
+        All string messages returned by the driver must be unshifted PETSCII
+        to display correctly in the print dialog.
+
+        \subsubsection{init}
+            Purpose: Called once by the editor after loading the
+            driver into memory. Can be used to make necessary
+            setup in the driver before any other functions are
+            called.  
+            
+            Call address: \$9efd.
+
+            Input: None.
+            
+            Output: None.
+            
+            Error returns: None.
+            
+            Registers affected: May affect all registers.
+
+        \subsubsection{get\_api\_version}
+            Purpose: Returns the printer driver API version that
+            the driver was designed for.
+
+            Call address: \$9efa.
+
+            Input: None.
+            
+            Output: .A = API version number.
+
+            Error returns: None.
+
+            Registers affected: .A
+        
+        \subsubsection{get\_driver\_name}
+            Purpose: Returns the driver name, typically the
+            name of the supported printer.
+
+            Call address: \$9ef7.
+
+            Input: None.
+
+            Output: .X/.Y = Pointer to null-terminated string.
+
+            Error returns: None.
+
+            Registers affected: May affect all registers.
+
+        \subsubsection{set\_charset}
+            Purpose: Sets the charset used to display the current
+            document. Called by the editor just before opening
+            the printer channel.
+
+            Call address: \$9ef4.
+
+            Input: .A = Charset (0 = ASCII, 1 = PETSCII upper case, 2 = PETSCII lower case).
+
+            Output: None.
+
+            Error returns: .C = 1 if invalid input.
+
+            Registers affected: May affect all registers.
+
+        \subsubsection{get\_option\_count}
+            Purpose: Returns the number of options that may be changed through the
+            editor's print dialog.
+
+            Call address: \$9ef1.
+
+            Input: None.
+
+            Output: .A = Option count.
+
+            Error returns: None.
+
+            Registers affected: .A.
+
+        \subsubsection{get\_option\_labels}
+            Purpose: Returns a pointer to a null-terminated string that
+            contains labels for all driver options. Labels must be
+            separated from each other with CR (PETSCII 13). The number
+            of labels must match the option count returned by the
+            function get\_option\_count.
+
+            Call address: \$9eee.
+
+            Input: None.
+
+            Output: .X/.Y = Pointer to null-terminated string.
+
+            Error returns: None.
+
+            Registers affected: May affect all registers.
+
+            Example return value, from the MPS-801 driver:
+\begin{verbatim}
+    SERIAL DEVICE:<CR>
+    PAGE HEIGHT..:<CR>
+    TOP MARGIN...:<CR>
+    BOTTOM MARGIN:<CR>
+    ON PAGE BREAK:<NULL>
+\end{verbatim}
+
+            It is recommended that all lines have the same length and
+            that each line ends with a colon, as demonstrated in the
+            above example. The editor displays all option values starting
+            from the column after the longest label.
+
+        \subsubsection{get\_option\_value}
+            Purpose: Returns the type and value of the specified driver option.
+
+            Call address: \$9eeb.
+
+            Input: .X = Option index (zero-based).
+
+            Output: .A = Type (0 = uint8, 1 = uint16, 2 = list item, 3 = null-terminated string). 
+            .X = uint8 value.
+            .X/.Y = uint16 value.
+            .X/.Y = Pointer to null-terminated string representing a list item or a string.
+
+            Error returns: .C = 1 if option does not exist. A plain text error message is 
+            expected to be available through the get\_message function.
+
+            Registers affected: May affect all registers.
+
+        \subsubsection{set\_option\_value}
+            Purpose: Changes the specified driver option. The new option value
+            is always received as a null-terminated string. The driver is
+            responsible for converting and verifying the value.
+
+            Call address: \$9ee8.
+
+            Input: .X = Option index. .A/.Y = Pointer to null-terminated string.
+
+            Output: .A = Type (0 = uint8, 1 = uint16, 2 = list item, 3 = null-terminated string). 
+            .X = uint8 value.
+            .X/.Y = uint16 value.
+            .X/.Y = Pointer to null-terminated string representing a list item or a string. 
+
+            Error returns: .C = 1 if option does not exist or if the value is
+            invalid. A plain text error message is expected to be available through the
+            get\_message function.
+
+            Registers affected: May affect all registers.
+
+        \subsubsection{option\_add\_offset}
+            Purpose: Adds a signed 8-bit integer to the selected option. The option
+            must be any of the following types: int8, int16 or list.
+            
+            Call address: \$9EE5.
+
+            Input: .A = offset to add.
+
+            Output: .A = Type (0 = uint8, 1 = uint16, 2 = list item, 3 = null-terminated string). 
+            .X = uint8 value.
+            .X/.Y = uint16 value.
+            .X/.Y = Pointer to null-terminated string representing a list item or a string. 
+
+            Error returns: .C = 1 if option does not exist. A plain text error message is expected 
+            to be available through the get\_message function.
+
+            Registers affected: May affect all registers.
+
+        \subsubsection{channel\_open}
+            Purpose: Opens the printer channel. This function may also do any other
+            necessary tasks to prepare for printing, for instance setting printer
+            options or resetting the printer.
+
+            Call address: \$9ee2.
+
+            Input: None.
+
+            Output: None.
+
+            Error returns: .C = 1 if an error occured. A plain text error message is expected 
+            to be available through the get\_message function.
+
+            Registers affected: May affect all registers.
+
+        \subsubsection{print\_char}
+            Purpose: Prints a character. The driver may pause printing before the
+            received character is outputted, indicated by returning .A = 1. This option may 
+            for instance be used to pause printing on page breaks. The text editor will resend 
+            the same character when printing is resumed.
+
+            Call address: \$9edf.
+
+            Input: .A = character, encoded as set by the set\_charset function.
+
+            Output: .A = response code (0 = OK, 1 = Printing paused, need to resend the same
+            character).
+
+            Error returns: .C = 1 if an error occured. A plain text error message is expected
+            to be available through the get\_message function.
+
+            Registers affected: .X, .Y
+
+        \subsubsection{channel\_close}
+            Purpose: Closes the printer channel. This function may also do any other tasks
+            needed to finish printing.
+
+            Call address: \$9edc.
+
+            Input: None.
+
+            Output: None.
+
+            Error returns: .C = 1 on error. A plain text error message is expected
+            to be available through the get\_message function.
+
+            Registers affected: May affect all registers.
+
+        \subsubsection{get\_message}
+            Purpose: Returns a pointer to the last driver (error) message. The
+            message is cleared after calling this function. If no message is
+            available, this function should return a pointer to  a zero 
+            length string.
+
+            Call address: \$9ed9.
+
+            Input: None.
+
+            Output: .X/.Y = Pointer to null-terminated string.
+
+            Error returns: None.
+
+            Registers affected: May affect all registers.
+
+        \subsubsection{save\_defaults}
+            Purpose: Saves default printer options in a way that can be
+            retrieved when loading or initializing the driver next time.
+            The driver can load default options, for instance as part
+            of the init function.
+
+            Call address: \$9ed6.
+
+            Input: None.
+
+            Output: None.
+
+            Error returns: .C = 1 on error. A plain text error message is expected
+            to be available through the get\_message function.
+
+            Registers affected: May affect all registers.
+
 \section{License}
-	Copyright 2020--2024, Stefan Jakobsson.
+	Copyright 2020--2026, Stefan Jakobsson.
 
 	The X16 Edit program, including this manual, is released under the 2-Clause BSD
     License.
