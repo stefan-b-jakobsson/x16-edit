@@ -447,7 +447,7 @@ errormsg:
     lda $9fb7
     pha
     lda #1
-    sta $9fb7
+    ;sta $9fb7
     
 mainloop:
     ;Application main loop
@@ -517,6 +517,7 @@ shutdown:
 .include "compile.inc"
 .include "help.inc"
 .include "jsrfar.inc"
+.include "printer.inc"
 
 .if target_mem=target_rom
     .include "bridge.inc"
