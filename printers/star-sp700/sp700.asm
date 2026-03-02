@@ -95,7 +95,7 @@ jmp init                    ; $9EFD
     ldy #>name
     rts
 name: 
-    .byt "start-sp700 @ serial", 0
+    .byt "star-sp700 @ serial", 0
 .endproc
 
 ;******************************************************************************
