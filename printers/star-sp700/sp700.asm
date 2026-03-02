@@ -30,6 +30,7 @@ TYPE_LIST = 2
 TYPE_STRING = 3
 
 ; Misc definitions
+base_addr = $9f60
 LF = 10
 CR = 13
 
@@ -269,33 +270,30 @@ setval:
     asl
     asl
     asl
-    clc
-    adc #$60
-    sta base_addr
-    lda #$9f
-    adc #$00
-    sta base_addr+1
+    sta base_offset
 
     ; Set BAUD rate
+    ldx base_offset
     lda #$80            ; DLAB=1
-    sta base_addr+3
+    sta base_addr+3,x
 
     sec
     lda OPTION_BAUDRATE
     sbc options_min+1
-    tax
-    lda baud_rates,x
-    sta base_addr
-    stz base_addr+1
+    tay
+    lda baud_rates,y
+    sta base_addr,x
+    lda #0
+    sta base_addr+1,x
 
     lda #$03            ; DLAB=0
-    sta base_addr+3
+    sta base_addr+3,x
     
     ; Black text
     lda #$1b
-    sta base_addr
+    sta base_addr,x
     lda #$35
-    sta base_addr
+    sta base_addr,x
 
     ; Exit
     clc
@@ -315,14 +313,17 @@ baud_rates:
 ;Error returns.......: C=1 on error
 ;Preserved registers.: X, Y
 .proc print_char
+    ldx base_offset
+
     cmp #LF
     bne :+
-    ldx #CR
-    stx base_addr
-    sta base_addr
+    lda #CR
+    sta base_addr,x
+    lda #LF
+    sta base_addr,x
     bra exit
 
-:   sta base_addr
+:   sta base_addr,x
 
 exit:
     lda #0
@@ -338,11 +339,13 @@ exit:
 ;Error returns.......: None
 ;Affected registers..: A, X, Y
 .proc channel_close
+    ldx base_offset
+
     ; Print extra line break
     lda #CR
-    sta base_addr
+    sta base_addr,x
     lda #LF
-    sta base_addr
+    sta base_addr,x
 
     ; On print complete action
     lda OPTION_ONCOMPLETE
@@ -351,10 +354,11 @@ exit:
 
     ; Cut paper
     lda #$1b
-    sta base_addr
+    sta base_addr,x
     lda #64
-    sta base_addr
-    stz base_addr
+    sta base_addr,x
+    lda #0
+    sta base_addr,x
 
 :   ; Exit
     rts
@@ -402,7 +406,7 @@ msg:
 
 ;******************************************************************************
 ; Variables
-base_addr: .res 2
+base_offset: .res 1
 charset: .res 1
 quotes: .res 1
 temp: .res 1
