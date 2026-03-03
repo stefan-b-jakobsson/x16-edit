@@ -313,6 +313,7 @@ baud_rates:
 ;Error returns.......: C=1 on error
 ;Preserved registers.: X, Y
 .proc print_char
+    phx
     ldx base_offset
 
     cmp #LF
@@ -326,6 +327,7 @@ baud_rates:
 :   sta base_addr,x
 
 exit:
+    plx
     lda #0
     clc
     rts
