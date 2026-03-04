@@ -595,13 +595,15 @@ loop2:
     bra next
 
 eof:
-    ; End of file, send CR to clear printer buffer, and then close the channel
-    lda #KEYVAL_ENTER
+    ; End of file, send LF to clear printer buffer, and then close the channel
+    lda #LF
     jsr PRNDRV_PRINT_CHAR
     jsr PRNDRV_CHANNEL_CLOSE
 
     ; Clear status row
-    call_firstbank screen_clear_status
+    ldx #<msg3
+    ldy #>msg3
+    call_firstbank screen_print_status
     rts
 
 pause:
@@ -664,6 +666,9 @@ msg1:
 
 msg2:
     .byt "printing paused",0
+
+msg3:
+    .byt "printing complete", 0
 
 .endproc
 
