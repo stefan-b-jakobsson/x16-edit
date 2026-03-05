@@ -922,6 +922,19 @@ fname_end:
         for instance "X16EDITPD-MPS801". You must be able to load the driver into the
         correct memory address using the BASIC command LOAD "X16EDITPD-*",8,1.
 
+        The actual printing is done by three functions: channel\_open, print\_char, and
+        channel\_close. The other functions are mainly used to initialize the driver, and to
+        get and set printer options.
+
+        Options may be any of the following types:
+
+        \begin{itemize}
+            \item int8: an 8 bit integer value
+            \item int16: a 16 bit integer value
+            \item list: represented by an array of null-terminated string
+            \item string: a null-terminated string
+        \end{itemize}
+
     \subsection{Driver API version 1}
 
         Driver API version 1 assumes the following jump table at the end of low RAM. The
@@ -1079,7 +1092,9 @@ fname_end:
 
             Call address: \$9ee8.
 
-            Input: .X = Option index. .A/.Y = Pointer to null-terminated string.
+            Input: .X = Option index. .A/.Y = Pointer to null-terminated string. This
+            function always expects values in string format. It is for the driver
+            to convert the string into format usable by the driver.
 
             Output: .A = Type (0 = uint8, 1 = uint16, 2 = list item, 3 = null-terminated string). 
             .X = uint8 value.
