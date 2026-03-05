@@ -58,6 +58,10 @@ PRINTER_TYPE_STRING = 3
 ;                      A = 1 if loading failed
 ;                      A = 2 if unsupported driver
 .proc printer_load_driver
+    lastbyte = tempvars
+    bytecount = tempvars+1
+    status = tempvars+2
+
     ; Close file 1
     bridge_setaddr KERNAL_CLOSE
     lda #1
@@ -82,23 +86,75 @@ PRINTER_TYPE_STRING = 3
     bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx #8
-    ldy #1
+    ldy #0
     bridge_call KERNAL_SETLFS
 
-    ; Load driver
-    bridge_setaddr KERNAL_LOAD
-    lda #0
-    bridge_call KERNAL_LOAD
-    bcs loaderr
+    ; Open file for reading
+    bridge_setaddr KERNAL_OPEN
+    bridge_call KERNAL_OPEN
 
-    ; Check for errors
+    bridge_setaddr KERNAL_CHKIN
+    ldx #1
+    bridge_call KERNAL_CHKIN
+
+    ; Prepare file read loop
+    stz bytecount
+    ldy #0
+
+loop:
+    ; Read byte
+    bridge_setaddr KERNAL_CHRIN
+    bridge_call KERNAL_CHRIN
+    sta lastbyte
+
+    ; Check file status
     bridge_setaddr KERNAL_READST
     bridge_call KERNAL_READST
-    and #2|128 ; read time out or device not present
+    sta status
+    beq :+
+    and #%10111111 ; Bit 6=EOF, other bits indicate an error
     bne loaderr
 
+:   ; Setup start address
+    lda lastbyte
+    ldx bytecount
+    cpx #2
+    bcs :+
+    sta TMP1_ADR,x
+    inc bytecount
+    bra loop
+
+:   ; Store byte value
+    sta (TMP1_ADR),y
+    iny
+    bne :+
+    inc TMP1_ADR+1
+:   lda status
+    beq loop ; else EOF
+
+eof:
+    sty lastbyte
+
+    ; Close file
+    bridge_setaddr KERNAL_CLRCHN
+    bridge_call KERNAL_CLRCHN
+    bridge_setaddr KERNAL_CLOSE
+    lda #1
+    bridge_call KERNAL_CLOSE
+
+    ; Check disk status
     call_firstbank file_read_disk_status
     cmp #0
+    bne loaderr
+
+    ; Check that file ended at $9eff (address pointer at $9f00)
+    clc
+    lda lastbyte
+    adc TMP1_ADR
+    bne loaderr
+    lda TMP1_ADR+1
+    adc #0
+    cmp #$9f
     bne loaderr
 
     ; Check diver compatibilty
@@ -177,9 +233,13 @@ fn_end:
     ; Get option count
     jsr PRNDRV_GET_OPTION_COUNT
     sta printer_option_count
+    bne :+
+
+    ; No options
+    rts
 
     ; Print option labels
-    jsr PRNDRV_GET_OPTION_LABELS
+:   jsr PRNDRV_GET_OPTION_LABELS
     stx TMP1_ADR
     sty TMP1_ADR+1
     ldy #0
@@ -257,6 +317,9 @@ header:
     cmp #KEYVAL_ESC
     beq esc
 
+    ldx printer_option_count
+    beq p
+
     cmp #KEYVAL_ENTER
     bne :+
     jmp enter
@@ -274,10 +337,10 @@ header:
     jmp left
 
 :   cmp #KEYVAL_RIGHT
-    bne :+
+    bne p
     jmp right
 
-:   ; Clear bit 5 to convert shifted char to unshifted char
+p:  ; Clear bit 5 to convert shifted char to unshifted char
     and #%11011111
 
     cmp #KEYVAL_P
