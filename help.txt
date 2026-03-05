@@ -31,8 +31,8 @@ available via a function key.
 ^RETURN   Set line break encoding
 ^F        Programming toolbox (ROM only)
 ^;        Custom scancode handler on/off
+^H        Print hard copy
 
-
-X16 Edit, (c) 2020-2025, Stefan Jakobsson.
+X16 Edit, (c) 2020-2026, Stefan Jakobsson.
 Released under BSD 2-Clause license, available in 
 the enclosed "license" file.

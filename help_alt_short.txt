@@ -11,8 +11,8 @@ N   =New     B=Backgr color
 X   =Cut     M=Mem free
 K   =Del Ln  C=Copy
 1..9=Tab w   V=Paste
+             Z=Hard copy
 RET =Ln brk enc
 
 X16 Edit, (c) Stefan Jakobsson,
-released under BSD 2-Clause
-License.
+BSD 2-Clause License.

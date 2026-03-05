@@ -12,7 +12,7 @@ K   =Cut     M=Mem free
 DEL =Del Ln  C=Copy
 1..9=Tab w   U=Uncut/paste
 RET =Ln brk  ;=ScnCode Hndlr
+             H=Hard copy
 
-(c) Stefan Jakobsson 2020-25
-Released under BSD 2-Clause
-License.
+(c) Stefan Jakobsson 2020-26
+BSD 2-Clause License.
