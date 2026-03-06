@@ -732,7 +732,7 @@ msg2:
 
 msg3:
     .byt "printing complete", 0
-
+.segment "CODE2"
 .endproc
 
 ;**********************************************************
