@@ -100,14 +100,16 @@ PRINTER_TYPE_STRING = 3
     lda #1
     bridge_call KERNAL_CLOSE
 
-    ; Check Kernal error
-    plp
-    bcs loaderr
-
     ; Check disk status
     call_firstbank file_read_disk_status
     cmp #0
-    bne loaderr
+    beq :+
+    plp
+    bra loaderr
+
+    ; Check Kernal error
+:   plp
+    bcs loaderr
 
     ; Check diver compatibilty
     jsr PRNDRV_API_VER
