@@ -358,6 +358,11 @@ exit:
         jsr bridge_copy
     .endif
 
+    ;Disable Kernal messages
+    bridge_setaddr KERNAL_SETMSG
+    lda #0
+    bridge_call KERNAL_SETMSG
+
     ;Check if banked RAM start<=top
     ldy mem_start
     cpy mem_top
@@ -467,6 +472,11 @@ mainloop:
     bra mainloop
     
 shutdown:
+    ;Enable Kernal messages
+    bridge_setaddr KERNAL_SETMSG
+    lda #$40
+    bridge_call KERNAL_SETMSG
+
     ;Disable mouse
     jsr mouse_disable
 

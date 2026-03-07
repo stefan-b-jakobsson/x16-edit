@@ -59,6 +59,7 @@
 .define KERNAL_SET_CHARSET $ff62
 .define KERNAL_EXTAPI $feab
 .define KERNAL_LOAD $ffd5
+.define KERNAL_SETMSG $ff90
 
 ;Keyboard & mouse
 .define KERNAL_GETIN $ffe4

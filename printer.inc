@@ -86,75 +86,27 @@ PRINTER_TYPE_STRING = 3
     bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx #8
-    ldy #0
+    ldy #1
     bridge_call KERNAL_SETLFS
 
-    ; Open file for reading
-    bridge_setaddr KERNAL_OPEN
-    bridge_call KERNAL_OPEN
-
-    bridge_setaddr KERNAL_CHKIN
-    ldx #1
-    bridge_call KERNAL_CHKIN
-
-    ; Prepare file read loop
-    stz bytecount
-    ldy #0
-
-loop:
-    ; Read byte
-    bridge_setaddr KERNAL_CHRIN
-    bridge_call KERNAL_CHRIN
-    sta lastbyte
-
-    ; Check file status
-    bridge_setaddr KERNAL_READST
-    bridge_call KERNAL_READST
-    sta status
-    beq :+
-    and #%10111111 ; Bit 6=EOF, other bits indicate an error
-    bne loaderr
-
-:   ; Setup start address
-    lda lastbyte
-    ldx bytecount
-    cpx #2
-    bcs :+
-    sta TMP1_ADR,x
-    inc bytecount
-    bra loop
-
-:   ; Store byte value
-    sta (TMP1_ADR),y
-    iny
-    bne :+
-    inc TMP1_ADR+1
-:   lda status
-    beq loop ; else EOF
-
-eof:
-    sty lastbyte
+    ; Load driver
+    bridge_setaddr KERNAL_LOAD
+    lda #0 ; Load flag
+    bridge_call KERNAL_LOAD
+    php ; Save status on stack (C is error indicator)
 
     ; Close file
-    bridge_setaddr KERNAL_CLRCHN
-    bridge_call KERNAL_CLRCHN
     bridge_setaddr KERNAL_CLOSE
     lda #1
     bridge_call KERNAL_CLOSE
 
+    ; Check Kernal error
+    plp
+    bcs loaderr
+
     ; Check disk status
     call_firstbank file_read_disk_status
     cmp #0
-    bne loaderr
-
-    ; Check that file ended at $9eff (address pointer at $9f00)
-    clc
-    lda lastbyte
-    adc TMP1_ADR
-    bne loaderr
-    lda TMP1_ADR+1
-    adc #0
-    cmp #$9f
     bne loaderr
 
     ; Check diver compatibilty
