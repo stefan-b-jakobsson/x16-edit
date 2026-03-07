@@ -14,5 +14,5 @@ DEL =Del Ln  C=Copy
 RET =Ln brk  ;=ScnCode Hndlr
              H=Hard copy
 
-(c) Stefan Jakobsson 2020-26
+(c) Stefan Jakobsson 2020-26.
 BSD 2-Clause License.

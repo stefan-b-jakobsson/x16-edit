@@ -14,5 +14,5 @@ K   =Del Ln  C=Copy
              Z=Hard copy
 RET =Ln brk enc
 
-X16 Edit, (c) Stefan Jakobsson,
+X16 Edit, (c) Stefan Jakobsson.
 BSD 2-Clause License.

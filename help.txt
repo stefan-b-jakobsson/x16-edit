@@ -34,5 +34,4 @@ available via a function key.
 ^H        Print hard copy
 
 X16 Edit, (c) 2020-2026, Stefan Jakobsson.
-Released under BSD 2-Clause license, available in 
-the enclosed "license" file.
+BSD 2-Clause license.
