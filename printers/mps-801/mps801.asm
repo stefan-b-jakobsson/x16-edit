@@ -625,19 +625,35 @@ err:
     ldx #$00
     ldy #$9f
     jsr KERNAL_SAVE
+    plx
+    php
+    jsr KERNAL_READST
+    pha
 
     ; Restore ROM bank
-    pla
-    sta ROM_SEL
+    stx ROM_SEL
 
+    pla
+    plp
+    bcs err
+    cmp #0
+    bne err
     clc
+    rts
+
+err:
+    ldx #<save_err
+    stx message
+    ldx #>save_err
+    stx message+1
     rts
 
 fn:
     .byt "@//:x16editpd-mps801.drv"
 fn_end:
 
-
+save_err:
+    .byt "saving default options failed", 0
 
 .endproc
 
