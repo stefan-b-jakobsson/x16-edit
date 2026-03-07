@@ -356,9 +356,63 @@ The Commander X16 was devised by David Murray a.k.a. the
 
         Currently only one tool, BASLOAD, is supported. By pressing Ctrl+B or only B when
         the toolbox is active, the open text text file is run through BASLOAD. 
-        BASLOAD loads and tokenizes a BASIC program stored in a plain text file so that it can run on the X16. 
-        The text file needs to saved to disk before the function is used.
-    
+        BASLOAD loads and tokenizes a BASIC program stored in a plain text file so that it 
+        can run on the X16. The text file needs to saved to disk before the function is used.
+
+    \subsection{Print hardcopy}
+        Printing to hardcopy is supported through loadable drivers. The driver specification
+        is available in Appendix C.
+
+        Press Ctrl+H to open the printing dialog. The editor attempts to load the driver from
+        the root of the SD card (device 8) using the file name pattern "X16EDITPD-*". It is not
+        recommended to store more than one driver in the root folder that matches this
+        file name pattern, as you can't affect which driver the editor loads. If you
+        want to keep multiple drivers in the root folder you may prepend
+        the file name of unused drivers with any character to avoid them being loaded.
+
+        The "printer driver load error" message is displayed if
+        \begin{itemize}
+            \item no SD card is present, 
+            \item no mathing file name is found in the root folder, or
+            \item any other error occured while loading the driver.
+        \end{itemize}
+
+        The "unsupported printer driver" message is displayed if the API version implemented
+        by the driver is not supported by the editor. Currently there is only one API version (1).
+
+        What printing options are available is controlled by the driver. Options may be of the
+        following types:
+        \begin{itemize}
+            \item int8
+            \item int16
+            \item list
+            \item string
+        \end{itemize}
+
+        Use the up and down arrow keys to highlight the option you want to set. 
+        
+        Options of types int8, int16 and list can be incremented or decremented using the left 
+        and right arrow keys.
+
+        Options of types int8, int16 and string can also be set by pressing the Enter key.
+        An input prompt is opened in the status bar, enabling the user to enter a
+        new value.
+
+        The driver is responsible for validating option values and to return plain text
+        error messages in case of invalid options.
+
+        Press P or Ctrl+P to start printing. The print operation can be paused by
+        pressing ESC. The driver can also pause printing, for instance at the end of a page.
+        Resume printing by pressing P or Ctrl+P.
+
+        Press S or Ctrl+S to save the current settings as default, if the function is 
+        supported by the driver.
+
+        After the printing has finished a "printing complete" message is displayed in
+        the status bar.
+
+        You can leave the printing dialog by pressing the ESC key.
+
     \subsection{Custom key scancode handlers}
         The X16 Kernal allows custom key scancode handlers by changing the vector
         at \$032e-032f. A scancode handler gets the raw IBM key number read from
@@ -507,6 +561,7 @@ The Commander X16 was devised by David Murray a.k.a. the
         ENTER & ---  & Set line break encoding \\
         F    & ---   & Programming toolbox \\
         ;    & ---   & Custom scancode handler on/off \\
+        H    & ---   & Print hard copy \\
     \end{longtable}
 
 \newpage
@@ -1207,6 +1262,7 @@ fname_end:
 
             Registers affected: May affect all registers.
 
+\newpage 
 \section{License}
 	Copyright 2020--2026, Stefan Jakobsson.
 
