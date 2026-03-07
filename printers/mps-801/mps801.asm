@@ -33,6 +33,7 @@ KERNAL_SETLFS = $ffba
 KERNAL_SETNAM = $ffbd
 KERNAL_CHKOUT = $ffc9
 KERNAL_READST = $ffb7
+KERNAL_SAVE = $ffd8
 
 ; Multi-byte command states
 MODE_DEFAULT = 0
@@ -596,15 +597,48 @@ err:
 ;Error returns.......: C = 1 on error
 ;Affected registers..: A, X, Y
 .proc save_defaults
-    ; Not supported, return error
-    sec
-    lda #<msg
-    sta message
-    lda #>msg
-    sta message+1
+    ; Backup current ROM bank, and select ROM bank 0
+    lda ROM_SEL
+    pha
+    stz ROM_SEL
+
+    ; Setup file name
+    ldx #<fn
+    ldy #>fn
+    lda #fn_end-fn
+    jsr KERNAL_SETNAM
+
+    ; Setup file params
+    lda #1
+    ldx #8
+    ldy #0
+    jsr KERNAL_SETLFS
+
+    ; Setup start address
+    lda #$00
+    sta VARZP
+    lda #$90
+    sta VARZP+1
+
+    ; Save
+    lda #<VARZP
+    ldx #$00
+    ldy #$9f
+    jsr KERNAL_SAVE
+
+    ; Restore ROM bank
+    pla
+    sta ROM_SEL
+
+    clc
     rts
-msg:
-    .byt "save settings not supported", 0
+
+fn:
+    .byt "@//:x16editpd-mps801.drv"
+fn_end:
+
+
+
 .endproc
 
 ;******************************************************************************
