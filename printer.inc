@@ -134,7 +134,7 @@ apierr:
     rts
 
 fn:
-    .byt "x16editpd-*"
+    .byt "//:x16editpd-*"
 fn_end:
 .endproc
 
