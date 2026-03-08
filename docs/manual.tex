@@ -359,8 +359,8 @@ The Commander X16 was devised by David Murray a.k.a. the
         BASLOAD loads and tokenizes a BASIC program stored in a plain text file so that it 
         can run on the X16. The text file needs to saved to disk before the function is used.
 
-    \subsection{Print hardcopy}
-        Printing to hardcopy is supported through loadable drivers. The driver specification
+    \subsection{Print hard copy}
+        Printing to hard copy is supported through loadable drivers. The driver specification
         is available in Appendix C.
 
         Press Ctrl+H to open the printing dialog. The editor attempts to load the driver from
@@ -992,10 +992,16 @@ fname_end:
 
     \subsection{Driver API version 1}
 
-        Driver API version 1 assumes the following jump table at the end of low RAM. The
-        driver may start at any point in low RAM but must always end at address \$9eff.
+        The driver may start at any point in low RAM but must always end at address \$9eff.
+        If you want the driver to work with the RAM based version of X16 Edit, it must, however, 
+        avoid affecting the range of low RAM used by the editor program.
 
-        Each entry in the table is expected to be a JMP instruction.
+        The zero page addresses \$36-39 are reserved for and can be used by the printer driver.
+        The driver should not use any of the golden RAM (\$0400-\$7fff) or banked
+        RAM (\$a000-\$bfff). Using any other parts of zero page, golden RAM or
+        banked RAM may cause conflicts with the editor. 
+        
+        The driver must implement the following jump table. Each entry is expected to be a JMP instruction.
 
         \begin{longtable}[l]{l l}
             \textbf{Address} & \textbf{Name} \\
