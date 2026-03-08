@@ -90,10 +90,14 @@ PRINTER_TYPE_STRING = 3
     bridge_call KERNAL_SETLFS
 
     ; Load driver
+    sec
+    jsr printer_suppress_messages ; Redirect/suppress Kernal messages
     bridge_setaddr KERNAL_LOAD
     lda #0 ; Load flag
     bridge_call KERNAL_LOAD
     php ; Save status on stack (C is error indicator)
+    clc
+    jsr printer_suppress_messages ; Restore Kernal messages
 
     ; Close file
     bridge_setaddr KERNAL_CLOSE
@@ -711,6 +715,52 @@ err:
 
 .CODE
     msg: .byt "settings saved",0
+.segment "CODE2"
+.endproc
+
+;**********************************************************
+;Function name.......: printer_suppress_messages
+;Description.........: Suppresses Kernal messages by
+;                      redirecting the CHROUT vector.
+;                      Using the SETMSG function could
+;                      also work, but there's no safe way
+;                      to restore SETMSG to the state it
+;                      had when the editor started.
+;Input...............: C=0 restore messages
+;                      C=1 suppress messages
+;Error returns.......: Nothing
+.proc printer_suppress_messages
+    bcc restore
+
+    ; Backup original vector
+    lda $0326
+    sta IBSOUT
+    lda $0327
+    sta IBSOUT+1
+
+    ; Set new vector
+    lda #$18 ; CLC
+    sta suppress
+    lda #$60 ; RTS
+    sta suppress+1
+    lda #<suppress
+    sta $0326
+    lda #>suppress
+    sta $0327
+    rts
+
+restore:
+    lda IBSOUT
+    sta $0326
+    lda IBSOUT+1
+    sta $0327
+    rts
+
+.segment "VARS"
+    IBSOUT: .res 2
+    suppress:
+        .res 2
+.segment "CODE2"
 .endproc
 
 .segment "VARS"
