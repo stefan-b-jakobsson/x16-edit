@@ -34,6 +34,7 @@ KERNAL_SETNAM = $ffbd
 KERNAL_CHKOUT = $ffc9
 KERNAL_READST = $ffb7
 KERNAL_SAVE = $ffd8
+KERNAL_IBSOUT = $0326
 
 ; Multi-byte command states
 MODE_DEFAULT = 0
@@ -602,6 +603,16 @@ err:
     pha
     stz ROM_SEL
 
+    ; Redirect BSOUT vector to suppress Kernal messages
+    lda KERNAL_IBSOUT
+    sta ibsout_backup
+    lda KERNAL_IBSOUT+1
+    sta ibsout_backup+1
+    lda #<bsout_suppress
+    sta KERNAL_IBSOUT
+    lda #>bsout_suppress
+    sta KERNAL_IBSOUT+1
+
     ; Setup file name
     ldx #<fn
     ldy #>fn
@@ -625,16 +636,22 @@ err:
     ldx #$00
     ldy #$9f
     jsr KERNAL_SAVE
-    plx
-    php
+    plx ; ROM bank
+    php ; Store status on stack
+
+    ; Restore BSOUT vector
+    lda ibsout_backup
+    sta KERNAL_IBSOUT
+    lda ibsout_backup+1
+    sta KERNAL_IBSOUT+1
+
+    ; Read status
     jsr KERNAL_READST
-    pha
 
     ; Restore ROM bank
     stx ROM_SEL
 
-    pla
-    plp
+    plp ; Get status from stack
     bcs err
     cmp #0
     bne err
@@ -648,9 +665,16 @@ err:
     stx message+1
     rts
 
+bsout_suppress:
+    clc
+    rts
+
 fn:
     .byt "@//:x16editpd-mps801.drv"
 fn_end:
+
+ibsout_backup:
+    .res 2
 
 save_err:
     .byt "saving default options failed", 0
