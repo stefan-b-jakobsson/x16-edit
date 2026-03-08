@@ -146,6 +146,10 @@ TMP2_BNK:   .res 1   ;Bank
 TMP2_ADR:   .res 2   ;Address MSB
 TMP2_IDX:   .res 1   ;Index
 
+;Zero page addresses reserved for printer drivers
+.assert *=$36, error, "PRINTER_ZP_VARS not at address $36"
+PRINTER_ZP_VARS:
+            .res 4 
 .CODE
 
 ;*****************************************************************************
