@@ -58,9 +58,8 @@
 :   lda $22,x
     sta ram_backup_storage+$0400,x
     inx
-    cpx #$14
+    cpx #<__ZEROPAGE_SIZE__
     bne :-
-    
     rts
 
 .endproc
@@ -97,7 +96,7 @@
 :   lda ram_backup_storage+$0400,x
     sta $22,x
     inx
-    cpx #$14
+    cpx #<__ZEROPAGE_SIZE__
     bne :-
     
     rts

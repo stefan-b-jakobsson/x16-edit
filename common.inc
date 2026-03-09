@@ -58,6 +58,8 @@
 .define KERNAL_FETCH $ff74
 .define KERNAL_SET_CHARSET $ff62
 .define KERNAL_EXTAPI $feab
+.define KERNAL_LOAD $ffd5
+.define KERNAL_SETMSG $ff90
 
 ;Keyboard & mouse
 .define KERNAL_GETIN $ffe4
@@ -144,6 +146,10 @@ TMP2_BNK:   .res 1   ;Bank
 TMP2_ADR:   .res 2   ;Address MSB
 TMP2_IDX:   .res 1   ;Index
 
+;Zero page addresses reserved for printer drivers
+.assert *=$36, error, "PRINTER_ZP_VARS not at address $36"
+PRINTER_ZP_VARS:
+            .res 4 
 .CODE
 
 ;*****************************************************************************
