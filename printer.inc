@@ -58,10 +58,6 @@ PRINTER_TYPE_STRING = 3
 ;                      A = 1 if loading failed
 ;                      A = 2 if unsupported driver
 .proc printer_load_driver
-    lastbyte = tempvars
-    bytecount = tempvars+1
-    status = tempvars+2
-
     ; Close file 1
     bridge_setaddr KERNAL_CLOSE
     lda #1
@@ -86,34 +82,63 @@ PRINTER_TYPE_STRING = 3
     bridge_setaddr KERNAL_SETLFS
     lda #1
     ldx #8
-    ldy #1
+    ldy #0
     bridge_call KERNAL_SETLFS
 
-    ; Load driver
-    sec
-    jsr printer_suppress_messages ; Redirect/suppress Kernal messages
-    bridge_setaddr KERNAL_LOAD
-    lda #0 ; Load flag
-    bridge_call KERNAL_LOAD
-    php ; Save status on stack (C is error indicator)
+    ; Open file for reading
+    bridge_setaddr KERNAL_OPEN
+    bridge_call KERNAL_OPEN
+    bcc :+
+    jmp loaderr
+:   bridge_setaddr KERNAL_CHKIN
+    ldx #1
+    bridge_call KERNAL_CHKIN
+    bcs loaderr
+
+    ; Get start address
+    addr = tempvars
+    jsr readbyte
+    bcs loaderr
+    stx addr
+    jsr readbyte
+    bcs loaderr
+    stx addr+1
+
+loop:
+    bridge_setaddr KERNAL_MACPTR    ; Read chunk
     clc
-    jsr printer_suppress_messages ; Restore Kernal messages
+    ldx addr
+    ldy addr+1
+    bridge_call KERNAL_MACPTR
+    
+    clc                             ; Update address
+    txa
+    adc addr
+    sta addr
+    tya
+    adc addr+1
+    sta addr+1
+
+    bridge_setaddr KERNAL_READST    ; Check status
+    bridge_call KERNAL_READST
+    beq loop
+    and #%10111111 ; Bit 6 is EOF, rest are error flags
+    bne loaderr
+
+    ; Check end of driver address = $9eff
+    lda addr
+    bne loaderr2
+    lda addr+1
+    cmp #$9f
+    bne loaderr
 
     ; Close file
-    bridge_setaddr KERNAL_CLOSE
-    lda #1
-    bridge_call KERNAL_CLOSE
+    jsr close
 
     ; Check disk status
     call_firstbank file_read_disk_status
     cmp #0
-    beq :+
-    plp
-    bra loaderr
-
-    ; Check Kernal error
-:   plp
-    bcs loaderr
+    bne loaderr2
 
     ; Check diver compatibilty
     jsr PRNDRV_API_VER
@@ -130,11 +155,38 @@ PRINTER_TYPE_STRING = 3
     rts
 
 loaderr:
+    jsr close
+    call_firstbank file_read_disk_status
+loaderr2:
     lda #1
     rts
 
 apierr:
     lda #2
+    rts
+
+readbyte:
+    ; Internal subroutine, returns byte in X, C is set on error or EOF
+    bridge_setaddr KERNAL_CHRIN
+    bridge_call KERNAL_CHRIN
+    tax ; Move byte to X
+    bcs :+ ; Read error
+    bridge_setaddr KERNAL_READST
+    bridge_call KERNAL_READST
+    cmp #0
+    bne :+ ; Read error or EOF
+    clc ; = OK
+    rts
+:   sec ; = Fail
+    rts
+
+close:
+    ; Internal subroutine, closes the file
+    bridge_setaddr KERNAL_CLOSE
+    lda #1
+    bridge_call KERNAL_CLOSE
+    bridge_setaddr KERNAL_CLRCHN
+    bridge_call KERNAL_CLRCHN
     rts
 
 fn:
@@ -715,51 +767,6 @@ err:
 
 .CODE
     msg: .byt "settings saved",0
-.segment "CODE2"
-.endproc
-
-;**********************************************************
-;Function name.......: printer_suppress_messages
-;Description.........: Suppresses Kernal messages by
-;                      redirecting the CHROUT vector.
-;                      Using the SETMSG function could
-;                      also work, but there's no safe way
-;                      to restore SETMSG to the state it
-;                      had when the editor started.
-;Input...............: C=0 restore messages
-;                      C=1 suppress messages
-;Error returns.......: Nothing
-.proc printer_suppress_messages
-    bcc restore
-
-    ; Backup original vector
-    lda $0326
-    sta IBSOUT
-    lda $0327
-    sta IBSOUT+1
-
-    ; Set new vector
-    lda #$18 ; CLC
-    sta suppress
-    lda #$60 ; RTS
-    sta suppress+1
-    lda #<suppress
-    sta $0326
-    lda #>suppress
-    sta $0327
-    rts
-
-restore:
-    lda IBSOUT
-    sta $0326
-    lda IBSOUT+1
-    sta $0327
-    rts
-
-.segment "VARS"
-    IBSOUT: .res 2
-    suppress:
-        .res 2
 .segment "CODE2"
 .endproc
 

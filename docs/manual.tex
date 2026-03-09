@@ -372,9 +372,11 @@ The Commander X16 was devised by David Murray a.k.a. the
 
         The "printer driver load error" message is displayed if
         \begin{itemize}
-            \item no SD card is present, 
-            \item no mathing file name is found in the root folder, or
-            \item any other error occured while loading the driver.
+            \item no SD card is present in device \#8,
+            \item a storage device mounted as device \#8 doesn't support the Kernal's MACPTR function; would require a customized Kernal,
+            \item no file matching the driver name pattern is found in the root folder,
+            \item any other read error occured while loading the driver, or
+            \item the end of the printer driver is not at address \$9eff.
         \end{itemize}
 
         The "unsupported printer driver" message is displayed if the API version implemented
