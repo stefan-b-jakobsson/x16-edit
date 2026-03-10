@@ -93,10 +93,11 @@ PRINTER_TYPE_STRING = 3
 :   bridge_setaddr KERNAL_CHKIN
     ldx #1
     bridge_call KERNAL_CHKIN
-    bcs loaderr
+    bcc :+
+    jmp loaderr
 
     ; Get start address
-    addr = tempvars
+:   addr = tempvars
     jsr readbyte
     bcs loaderr
     stx addr
