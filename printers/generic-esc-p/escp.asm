@@ -603,7 +603,7 @@ bsout_suppress:
     rts
 
 fn:
-    .byt "@//:x16editpd-mps801.drv"
+    .byt "@//:x16editpd-generic-escp.drv"
 fn_end:
 
 ibsout_backup:
