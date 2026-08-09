@@ -1,0 +1,17 @@
+CustomEncoding 16#5c /sterling put
+CustomEncoding 16#5e /p5e put
+CustomEncoding 16#5f /p5f put
+CustomEncoding 16#ff /pi put
+/PetEncoding1[
+/p60 /pu61 /p7d /p60 /pu64 /pu65 /pu66 /pu67 /pu68 /pu69 /pu6a /pu6b /pu6c /pu6d /pu6e /pu6f
+/pu70 /pu71 /pu72 /pu73 /pu74 /pu75 /pu76 /pu77 /pu78 /pu79 /pu7a /pu7b /pu7c /p7d /pi /pu7f
+] def
+0 1 31 {CustomEncoding exch dup PetEncoding1 exch get exch 16#60 add exch put } for
+0 1 31 {CustomEncoding exch dup PetEncoding1 exch get exch 16#c0 add exch put } for
+/PetEncoding2 [
+/space /pa1 /pa2 /pa3 /pa4 /pa5 /pa6 /pa7 /pa8 /pua9 /paa /pab /pac /pad /pae /paf
+/pb0 /pb1 /pb2 /pb3 /pb4 /pb5 /pb6 /pb7 /pb8 /pb9 /puba /pbb /pbc /pbd /pbe /pbf
+] def
+0 1 31 { CustomEncoding exch dup PetEncoding2 exch get exch 16#a0 add exch put } for
+0 1 31 { CustomEncoding exch dup PetEncoding2 exch get exch 16#e0 add exch put } for
+128 1 159 { CustomEncoding exch /space put } for

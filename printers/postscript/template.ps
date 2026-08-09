@@ -1,0 +1,68 @@
+%!PS
+
+/ph ? def                    % Field#0: Page height
+/pw ? def                    % Field#1: Page width
+/mu ? def                    % Field#2: Measurement unit
+/pm 72 mu div ? mul def      % Field#3: Margin
+/fs ? def                    % Field#4: Font size
+/lh fs ? mul def             % Field#6: Line spacing
+
+/pt {pm ph pm sub fs sub} def
+/pfb {pop 0.6 1.0 scale 0 -175 translate} def
+/pfe {1000 0 setcharwidth} def
+/w {setlinewidth} bind def
+/l {lineto} bind def
+/m {moveto} bind def
+/f {fill} bind def
+/s {stroke} bind def
+/c {closepath} bind def
+/cp {currentpoint} bind def
+/br {pm cp exch pop lh sub m cp exch pop pm lt {showpage pt m} if} def
+/pr {( ) search 1 index stringwidth pop cp pop add pw pm sub gt {br} if {show show pr} {show} ifelse} def
+<< /PageSize [pw ph] >> setpagedevice
+pt m
+
+/Courier findfont
+dup /FontMatrix get
+dup 5 get /ty exch def
+dup 4 get /tx exch def
+dup 3 get /sy exch def
+dup 2 get /vs exch def
+dup 1 get /hs exch def
+0 get /sx exch def
+dup /FontBBox get
+dup 3 get /ury exch def
+dup 2 get /urx exch def
+dup 1 get /lly exch def
+0 get /llx exch def
+600 /cw exch def
+
+dup length 1 add dict begin
+{1 index /FID ne {def} {pop pop} ifelse} forall
+/XUID [1000000 2000000 3000000 4000000] def  % Any unique numbers
+/UniqueID 1234567 def
+ISOLatin1Encoding dup length array copy
+/CustomEncoding exch def
+/FontName /CustomFont def
+
+% Field#7: Encoding
+?
+
+/Encoding CustomEncoding def
+currentdict /CharStrings get
+dup length dict begin
+{def} forall
+currentdict
+/CharStrings exch def
+
+% Field#8: Custom glyphs
+?
+
+currentdict
+end
+/CharStrings exch def
+currentdict
+end
+/CustomFont exch definefont 
+clear
+/CustomFont findfont fs scalefont setfont

@@ -1,0 +1,19 @@
+65 1 90 { dup ISOLatin1Encoding exch get CustomEncoding exch 2 index 32 add exch put pop } for
+97 1 122 { dup ISOLatin1Encoding exch get CustomEncoding exch 2 index 32 sub exch put pop } for
+CustomEncoding 16#5c /sterling put
+CustomEncoding 16#5e /p5e put
+CustomEncoding 16#5f /p5f put
+CustomEncoding 16#60 /p60 put
+CustomEncoding 16#7b /p7b put
+CustomEncoding 16#7c /p7c put
+CustomEncoding 16#7d /p7d put
+CustomEncoding 16#7e /pl7e put
+CustomEncoding 16#7f /pl7f put
+CustomEncoding 16#c0 /p60 put
+/lc_enc1 [
+/space /pa1 /pa2 /pa3 /pa4 /pa5 /pa6 /pa7 /pa8 /pla9 /paa /pab /pac /pad /pae /paf
+/pb0 /pb1 /pb2 /pb3 /pb4 /pb5 /pb6 /pb7 /pb8 /pb9 /plba /pbb /pbc /pbd /pbe /pbf
+] def
+0 1 31 { CustomEncoding exch dup lc_enc1 exch get exch 16#a0 add exch put } for
+97 1 127 { dup CustomEncoding exch get CustomEncoding exch 2 index 96 add exch put pop } for
+128 1 159 {CustomEncoding exch /space put} for
