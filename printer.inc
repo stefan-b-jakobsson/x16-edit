@@ -608,18 +608,18 @@ exit:
     lda screen_mode
     jsr PRNDRV_SET_CHARSET
 
+    ; Show message "PRINTING..."
+    ldx #<msg1
+    ldy #>msg1
+    call_firstbank screen_print_status 
+
     ; Open printer
     jsr PRNDRV_CHANNEL_OPEN
     bcc :+
     jmp err
 
-    ; Show message "PRINTING..."
-:   ldx #<msg1
-    ldy #>msg1
-    call_firstbank screen_print_status 
-
     ; Setup pointer to start of text buffer
-    lda mem_start
+:   lda mem_start
     inc
     sta next_bank
     stz TMP1_ADR
@@ -674,10 +674,15 @@ eof:
     jsr PRNDRV_PRINT_CHAR
     jsr PRNDRV_CHANNEL_CLOSE
 
-    ; Clear status row
-    ldx #<msg3
+    ; Update status
+    jsr PRNDRV_GET_MESSAGE
+    stx TMP1_ADR
+    sty TMP1_ADR+1
+    lda (TMP1_ADR)
+    bne :+ ; Show driver message if not NULL
+    ldx #<msg3 ; Else show Printing complete message
     ldy #>msg3
-    call_firstbank screen_print_status
+:   call_firstbank screen_print_status
     rts
 
 pause:
