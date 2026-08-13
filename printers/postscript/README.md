@@ -44,6 +44,9 @@ currently only used for the page margins.
 
 - "UART error-check configuration": Most likely cause is that the correct BAUD rate has not been selected, displayed if ZiModem doesn't respond at all to the command "AT"
 
+- "Write timeout": The write timeout error is thrown if ZiModem doesn't read at least one byte for approximately one minute - the error might be caused by communication problems between ZiModem and
+the printer/print server
+
 - "UART communication error": Other communication issue with the network card, displayed if ZiModem responds to the command "AT" with an error message
 
 
@@ -69,3 +72,17 @@ Follow these steps to configure the print server:
 up under "Local printers". When naming the printer, use a name that can be typed in PETSCII (for instance no underscores). Remember to mark the "Share This Printer" box.
 
 The address of the printer in X16 Edit will be "<Address_of_your_Pi>:631/printers/<Your_Printer_Name>
+
+
+### Troubleshooting Tips
+
+If the driver reported an error you need to fix the cause of that.
+
+The driver might, howver, report that "document was sent to printer" even though nothing is printed. Some troubleshooting tips for this situation:
+
+- Check that you entered the correct print server address, port and path in X16 Edit.
+- Verify that the print server is connected to WLAN.
+- Login to the print server and list the printer spool files by typing ```sudo ls -al /var/spool/cups```. Verify that a spool file was created after you printed the document.
+- Open the spool file by typing ```sudo nano /var/spool/cups/d00001-001```. Replace d000001-001 with the actual name of the spool file. Check that it looks like a valid PostScript file.
+- Copy the spool file to your home directory by typing ```sudo cp /var/spool/cups/<filename> ./``` and change its access rights with ```sudo chmod a+r <filename>```. Type ```ps2pdf <filename>``` to verify
+that GhostScript can convert the PostScript file. In case the last step fails, there is either a transmission error or a driver error resulting in an invalid PostScript file. You can try to open the resulting PDF file in a PDF viewer to verify that it looks as expected.

@@ -68,10 +68,11 @@ UART_SCRATCH = 7
     stz UART_BASE+1,x
 
     ; Enable and clear both transmitter and receiver FIFOs + 14 bytes trigger level
-    lda #$07
+    lda #$c7
     sta UART_BASE+UART_FCR,x
 
-    lda #$03
+    ; Enable Data Terminal Ready (DTR) + Flow control
+    lda #$23
     sta UART_BASE+UART_MCR,x
 
     ; Read to clear stale status
@@ -84,7 +85,7 @@ UART_SCRATCH = 7
     bne :-
 
     ; Ensure the FIFO input buffer is empty; read until we get a timeout
-:   lda #1 ; Timeout approx 0.3 seconds
+:   lda #2
     jsr uart_get_response
     bcc :-
 
@@ -94,7 +95,7 @@ UART_SCRATCH = 7
     lda #0
     jsr uart_write_string
 
-    lda #2 ; = timeout after approx 0.7 seconds
+    lda #2
     jsr uart_get_response
     bcs timeout_err
     cmp #0
@@ -141,10 +142,10 @@ at_command:
     ; Get port offset
     ldx uart_offset
 
-    ; Setup timeout counter
+    ; Setup timeout counter for approx 60 seconds
     stz timer
     stz timer+1
-    lda #224
+    lda #256-176
     sta timer+2
     
 wait:
@@ -156,18 +157,12 @@ wait:
     inc timer+2
     beq timeout
 
-    ; Wait for TEMT = HIGH
+    ; Continue if THRE is high
 :   lda UART_BASE+UART_LSR,x
-    and #$40
+    and #$20
     beq wait
 
-    ; Wait for CTS and DSR = HIGH
-    lda UART_BASE+UART_MSR,x
-    and #$30
-    cmp #$30
-    bne wait
-
-    ; Push data
+    ; Write data
     pla
     sta UART_BASE,x
 
@@ -180,9 +175,9 @@ wait:
 
 timeout:
     ; Set error message
-    lda #<uart_config_error
+    lda #<uart_write_timeout
     sta message
-    lda #>uart_config_error
+    lda #>uart_write_timeout
     sta message+1
 
     ; Restore registers
@@ -335,13 +330,30 @@ breakchar:
     ; Store timeout threshold
     sta threshold
 
+    ; Get uart offset
+    ldx uart_offset
+
+    ; Wait for TEMT
+    stz counter
+    stz counter+1
+    lda #256-30
+    sta counter+2
+
+:   inc counter
+    bne :+
+    inc counter+1
+    bne :+
+    inc counter+2
+    beq iserror
+
+:   lda UART_BASE+UART_LSR,x
+    and #$40
+    beq :--
+
     ; Setup timeout counter
     stz counter
     stz counter+1
     stz counter+2
-
-    ; Get uart offset
-    ldx uart_offset
 
     ldy #0
 loop:

@@ -1029,5 +1029,8 @@ uart_config_error:
 uart_comm_error:
     .byt "uart communication error", 0
 
+uart_write_timeout:
+    .byt "write timeout",0
+
 transmission_ended:
     .byt "document sent to printer", 0
