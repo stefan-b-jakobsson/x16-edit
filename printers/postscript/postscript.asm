@@ -218,7 +218,7 @@ exit:
     ; Check option index
     cpx #OPTION_COUNT
     bcc :+
-    sec
+    
     lda #<option_not_exists
     sta message
     lda #>option_not_exists
@@ -293,7 +293,7 @@ val2: .res 2
     ; Check option index
     cpx #OPTION_COUNT
     bcc :+
-    sec
+
     lda #<option_not_exists
     sta message
     lda #>option_not_exists
@@ -301,7 +301,6 @@ val2: .res 2
     rts
 
 :   ; Check if we're incrementing och decrementing
-    clc
     ora #0
     bmi decrement
 
@@ -337,11 +336,6 @@ setval:
 ;Errors..............: C=1 on error
 ;Affected registers..: A, X, Y
 .proc channel_open
-    ; Backup current ROM bank, and select ROM bank 0
-    lda ROM_SEL
-    pha
-    stz ROM_SEL
-
     ; Initialize
     stz is_new_line
     jsr uart_init
@@ -377,19 +371,11 @@ loop:
     beq isfield
 
 exit:
-    ; Restore ROM bank
-    pla
-    sta ROM_SEL
-
     ; Return with OK (C=0)
     clc
     rts
 
 err:
-    ; Restore ROM bank
-    pla
-    sta ROM_SEL
-
     ; Return with error (C=1)
     sec
     rts
@@ -464,7 +450,7 @@ pw_letter:
     .byt "612", 0
 
 field_mu:
-    ; Measurment unit
+    ; Measurement unit
     ldx #<mu_mm
     ldy #>mu_mm
     lda OPTION_UNIT
@@ -656,11 +642,6 @@ ps_glyphs_pet_lcase:
     phx
     phy
 
-    ; Backup ROM bank, and select ROM bank 0
-    ldx ROM_SEL
-    phx
-    stz ROM_SEL
-
     ; Store input
     sta lastchar
 
@@ -694,11 +675,11 @@ low_nibble:
     jsr sendhexchar
 
 exit:
-    ; Restore bank and registers
-    pla
-    sta ROM_SEL
+    ; Restore registers
     ply
     plx
+
+    ; Set return value
     clc
     rts
 
@@ -737,10 +718,10 @@ sendhexchar:
 
 err:
     ; Restore registers
-    pla
-    sta ROM_SEL
     ply
     plx
+
+    ; Set return value
     sec
     rts
 
@@ -762,11 +743,6 @@ lastchar:
 ;Error returns.......: None
 ;Affected registers..: A, X, Y
 .proc channel_close
-    ; Backup ROM bank, and select ROM bank 0
-    lda ROM_SEL
-    pha
-    stz ROM_SEL
-
     ; Send showpage command for last page
     ldx #<showpage
     ldy #>showpage
@@ -779,9 +755,7 @@ lastchar:
     lda #>transmission_ended
     sta message+1
 
-    ; Restore ROM bank 
-    pla
-    sta ROM_SEL
+    ; Exit
     rts
 
 showpage:
@@ -844,10 +818,10 @@ showpage:
     ldy #0
     jsr KERNAL_SETLFS
 
-    ; Setup start address
+    ; Setup start address ($7000)
     lda #$00
     sta VARZP
-    lda #$60
+    lda #$70
     sta VARZP+1
 
     ; Save

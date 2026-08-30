@@ -1,11 +1,11 @@
 %!PS
 
-/ph ? def                    % Field#0: Page height
-/pw ? def                    % Field#1: Page width
-/mu ? def                    % Field#2: Measurement unit
-/pm 72 mu div ? mul def      % Field#3: Margin
-/fs ? def                    % Field#4: Font size
-/lh fs ? mul def             % Field#6: Line spacing
+/ph ? def
+/pw ? def
+/mu ? def
+/pm 72 mu div ? mul def
+/fs ? def
+/lh fs ? mul def
 
 /pt {pm ph pm sub fs sub} def
 /pfb {pop 0.6 1.0 scale 0 -175 translate} def
@@ -45,7 +45,7 @@ ISOLatin1Encoding dup length array copy
 /CustomEncoding exch def
 /FontName /CustomFont def
 
-% Field#7: Encoding
+% Custom encoding
 ?
 
 /Encoding CustomEncoding def
@@ -55,7 +55,7 @@ dup length dict begin
 currentdict
 /CharStrings exch def
 
-% Field#8: Custom glyphs
+% Custom glyphs
 ?
 
 currentdict

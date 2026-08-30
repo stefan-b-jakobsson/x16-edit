@@ -63,7 +63,7 @@ Follow these steps to configure the print server:
 - ```sudo apt-get install cups```, installs the CUPS server
 - If you have a HP printer, also do ```sudo apt-get install hplip```
 - ```sudo usermod -a -G lpadmin pi```, add yourself to the printer admin group, replace "pi" with your actual login name if different
-- ```sudo cupsctl --remote any```, allowing remote access to the CUPS server
+- ```sudo cupsctl --remote-admin --share-printers```, allowing remote access to the CUPS server
 - ```sudo systemctl restart cups```, restarting CUPS
 - Power on the Raspberry Pi
 - Connect your printer to the Pi
@@ -72,6 +72,8 @@ Follow these steps to configure the print server:
 up under "Local printers". When naming the printer, use a name that can be typed in PETSCII (for instance no underscores). Remember to mark the "Share This Printer" box.
 
 The address of the printer in X16 Edit will be "<Address_of_your_Pi>:631/printers/<Your_Printer_Name>
+
+For more in-depth information on setting up a CUPS print server, go to this [turoria](cups-server-setup.md) by Desert-Fox.
 
 
 ### Troubleshooting Tips
