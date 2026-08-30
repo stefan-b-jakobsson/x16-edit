@@ -73,7 +73,7 @@ up under "Local printers". When naming the printer, use a name that can be typed
 
 The address of the printer in X16 Edit will be "<Address_of_your_Pi>:631/printers/<Your_Printer_Name>
 
-For more in-depth information on setting up a CUPS print server, go to this [turoria](cups-server-setup.md) by Desert-Fox.
+For more in-depth information on setting up a CUPS print server, go to this [turorial](cups-server-setup.md) by Desert-Fox.
 
 
 ### Troubleshooting Tips
